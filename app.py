@@ -929,12 +929,18 @@ def download_pexels_videos(query, num_videos):
 
         data = response.json()
         videos = data.get("videos", [])
+        # Chỉ lấy số lượng video được yêu cầu
+        videos = videos[:num_videos]
+        total_videos = len(videos)
 
         count = 0
         saved_to_db = 0
         downloaded_files = []
         
-        for video in videos:
+        # Lưu progress vào file
+        progress_file = os.path.join(PEXELS_OUTPUT_FOLDER, '.download_progress.json')
+        
+        for idx, video in enumerate(videos):
             video_id = video["id"]
             video_title = video.get("user", {}).get("name", "") + " - " + str(video_id)
             video_duration = video.get("duration", 0)
@@ -982,7 +988,23 @@ def download_pexels_videos(query, num_videos):
                     saved_to_db += 1
                 
                 count += 1
+                
+                # Cập nhật progress
+                progress = int((count / total_videos) * 100) if total_videos > 0 else 0
+                progress_data = {
+                    "total": total_videos,
+                    "downloaded": count,
+                    "progress": progress,
+                    "saved_to_db": saved_to_db
+                }
+                with open(progress_file, 'w', encoding='utf-8') as f:
+                    json.dump(progress_data, f, ensure_ascii=False)
+                
                 time.sleep(1)
+        
+        # Xóa progress file sau khi hoàn thành
+        if os.path.exists(progress_file):
+            os.remove(progress_file)
 
         return {
             "success": True, 
@@ -1005,10 +1027,15 @@ def extract_frames_from_videos():
         if not video_files:
             return {"success": False, "error": f"No videos found in '{PEXELS_OUTPUT_FOLDER}'"}
 
+        total_videos = len(video_files)
         total_frames = 0
         processed_videos = []
+        
+        # Lưu progress vào file
+        progress_file = os.path.join(FRAMES_OUTPUT_ROOT, '.extract_progress.json')
+        os.makedirs(FRAMES_OUTPUT_ROOT, exist_ok=True)
 
-        for video_file in video_files:
+        for idx, video_file in enumerate(video_files):
             video_path = os.path.join(PEXELS_OUTPUT_FOLDER, video_file)
             video_name = os.path.splitext(video_file)[0]
             current_output_dir = os.path.join(FRAMES_OUTPUT_ROOT, video_name)
@@ -1043,6 +1070,21 @@ def extract_frames_from_videos():
             cap.release()
             total_frames += saved_count
             processed_videos.append({"video": video_file, "frames": saved_count})
+            
+            # Cập nhật progress
+            progress = int(((idx + 1) / total_videos) * 100) if total_videos > 0 else 0
+            progress_data = {
+                "total": total_videos,
+                "processed": idx + 1,
+                "progress": progress,
+                "total_frames": total_frames
+            }
+            with open(progress_file, 'w', encoding='utf-8') as f:
+                json.dump(progress_data, f, ensure_ascii=False)
+
+        # Xóa progress file sau khi hoàn thành
+        if os.path.exists(progress_file):
+            os.remove(progress_file)
 
         return {"success": True, "total_frames": total_frames, "videos": processed_videos}
     except Exception as e:

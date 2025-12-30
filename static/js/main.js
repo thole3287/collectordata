@@ -44,6 +44,8 @@ function app() {
         pexelsNumVideos: 10,
         pexelsDownloading: false,
         pexelsExtracting: false,
+        pexelsDownloadProgress: 0,
+        pexelsExtractProgress: 0,
         newKeyword: {
             keyword: '',
             num_videos: 1,
@@ -274,6 +276,28 @@ function app() {
         },
 
         showNotify(message, type = 'success') {
+            // Sử dụng Toastify để hiển thị thông báo
+            const backgroundColor = type === 'success' ? '#10B981' : type === 'error' ? '#EF4444' : '#3B82F6';
+            const icon = type === 'success' ? '✓' : type === 'error' ? '✗' : 'ℹ';
+            
+            Toastify({
+                text: `${icon} ${message}`,
+                duration: 5000,
+                gravity: "top",
+                position: "right",
+                backgroundColor: backgroundColor,
+                stopOnFocus: true,
+                className: "toastify-custom",
+                style: {
+                    borderRadius: "8px",
+                    padding: "12px 16px",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)"
+                }
+            }).showToast();
+            
+            // Giữ lại notification cũ để tương thích
             this.notificationMessage = message;
             this.notificationType = type;
             this.showNotification = true;
@@ -1043,6 +1067,21 @@ function app() {
             }
 
             this.pexelsDownloading = true;
+            this.pexelsDownloadProgress = 0;
+            
+            // Poll progress từ server
+            const progressInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/api/pexels/progress');
+                    const progressData = await response.json();
+                    if (progressData.progress !== undefined) {
+                        this.pexelsDownloadProgress = Math.min(progressData.progress, 95);
+                    }
+                } catch (e) {
+                    // Ignore errors
+                }
+            }, 1000);
+            
             try {
                 const response = await fetch('/api/pexels/download', {
                     method: 'POST',
@@ -1060,18 +1099,22 @@ function app() {
                     this.showNotify(data.message || 'Đã bắt đầu tải video từ Pexels', 'success');
                     
                     // Poll để check kết quả sau khi tải xong
-                    this.checkPexelsDownloadResult();
+                    this.checkPexelsDownloadResult(progressInterval);
                 } else {
+                    clearInterval(progressInterval);
+                    this.pexelsDownloadProgress = 0;
                     this.showNotify(data.message || 'Có lỗi xảy ra', 'error');
+                    this.pexelsDownloading = false;
                 }
             } catch (error) {
+                clearInterval(progressInterval);
+                this.pexelsDownloadProgress = 0;
                 this.showNotify('Lỗi kết nối: ' + error.message, 'error');
-            } finally {
                 this.pexelsDownloading = false;
             }
         },
 
-        async checkPexelsDownloadResult() {
+        async checkPexelsDownloadResult(progressInterval) {
             // Poll mỗi 2 giây để check kết quả
             const maxAttempts = 150; // Tối đa 5 phút (150 * 2s)
             let attempts = 0;
@@ -1084,6 +1127,16 @@ function app() {
                     
                     if (result.success !== undefined) {
                         clearInterval(checkInterval);
+                        if (progressInterval) clearInterval(progressInterval);
+                        
+                        // Complete progress
+                        this.pexelsDownloadProgress = 100;
+                        
+                        setTimeout(() => {
+                            this.pexelsDownloading = false;
+                            this.pexelsDownloadProgress = 0;
+                        }, 1000);
+                        
                         if (result.success) {
                             const dbMsg = result.saved_to_db > 0 ? ` (${result.saved_to_db} video đã lưu vào database)` : '';
                             this.showNotify(`✅ Tải video thành công! Đã tải ${result.count} video vào thư mục pexels_traffic_dataset${dbMsg}`, 'success');
@@ -1092,11 +1145,17 @@ function app() {
                         }
                     } else if (attempts >= maxAttempts) {
                         clearInterval(checkInterval);
+                        if (progressInterval) clearInterval(progressInterval);
+                        this.pexelsDownloadProgress = 0;
+                        this.pexelsDownloading = false;
                         this.showNotify('⚠️ Không nhận được kết quả sau thời gian chờ. Vui lòng kiểm tra thư mục pexels_traffic_dataset', 'error');
                     }
                 } catch (error) {
                     if (attempts >= maxAttempts) {
                         clearInterval(checkInterval);
+                        if (progressInterval) clearInterval(progressInterval);
+                        this.pexelsDownloadProgress = 0;
+                        this.pexelsDownloading = false;
                     }
                 }
             }, 2000);
@@ -1104,6 +1163,21 @@ function app() {
 
         async extractFrames() {
             this.pexelsExtracting = true;
+            this.pexelsExtractProgress = 0;
+            
+            // Poll progress từ server
+            const progressInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/api/frames/progress');
+                    const progressData = await response.json();
+                    if (progressData.progress !== undefined) {
+                        this.pexelsExtractProgress = Math.min(progressData.progress, 95);
+                    }
+                } catch (e) {
+                    // Ignore errors
+                }
+            }, 1000);
+            
             try {
                 const response = await fetch('/api/frames/extract', {
                     method: 'POST',
@@ -1117,18 +1191,22 @@ function app() {
                     this.showNotify(data.message || 'Đã bắt đầu tạo frame từ video', 'success');
                     
                     // Poll để check kết quả sau khi tạo xong
-                    this.checkExtractFramesResult();
+                    this.checkExtractFramesResult(progressInterval);
                 } else {
+                    clearInterval(progressInterval);
+                    this.pexelsExtractProgress = 0;
                     this.showNotify(data.message || 'Có lỗi xảy ra', 'error');
+                    this.pexelsExtracting = false;
                 }
             } catch (error) {
+                clearInterval(progressInterval);
+                this.pexelsExtractProgress = 0;
                 this.showNotify('Lỗi kết nối: ' + error.message, 'error');
-            } finally {
                 this.pexelsExtracting = false;
             }
         },
 
-        async checkExtractFramesResult() {
+        async checkExtractFramesResult(progressInterval) {
             // Poll mỗi 3 giây để check kết quả (tạo frame có thể lâu hơn)
             const maxAttempts = 200; // Tối đa 10 phút (200 * 3s)
             let attempts = 0;
@@ -1141,6 +1219,16 @@ function app() {
                     
                     if (result.success !== undefined) {
                         clearInterval(checkInterval);
+                        if (progressInterval) clearInterval(progressInterval);
+                        
+                        // Complete progress
+                        this.pexelsExtractProgress = 100;
+                        
+                        setTimeout(() => {
+                            this.pexelsExtracting = false;
+                            this.pexelsExtractProgress = 0;
+                        }, 1000);
+                        
                         if (result.success) {
                             const videoCount = result.videos ? result.videos.length : 0;
                             this.showNotify(`✅ Tạo frame thành công! Đã tạo ${result.total_frames} frame từ ${videoCount} video trong thư mục dataset_extracted`, 'success');
@@ -1149,11 +1237,17 @@ function app() {
                         }
                     } else if (attempts >= maxAttempts) {
                         clearInterval(checkInterval);
+                        if (progressInterval) clearInterval(progressInterval);
+                        this.pexelsExtractProgress = 0;
+                        this.pexelsExtracting = false;
                         this.showNotify('⚠️ Không nhận được kết quả sau thời gian chờ. Vui lòng kiểm tra thư mục dataset_extracted', 'error');
                     }
                 } catch (error) {
                     if (attempts >= maxAttempts) {
                         clearInterval(checkInterval);
+                        if (progressInterval) clearInterval(progressInterval);
+                        this.pexelsExtractProgress = 0;
+                        this.pexelsExtracting = false;
                     }
                 }
             }, 3000);

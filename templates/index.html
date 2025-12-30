@@ -3,11 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YouTube Downloader Admin</title>
+    <title>Collector Data Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/toastify-js@1.12.0/src/toastify.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js@1.12.0/src/toastify.min.css">
     <style>
         [x-cloak] { display: none !important; }
         #wordcloud-canvas {
@@ -759,6 +761,19 @@
                                     <i class="fas fa-spinner fa-spin" x-show="pexelsDownloading"></i>
                                     <span x-text="pexelsDownloading ? 'Đang tải...' : 'Tải Video'"></span>
                                 </button>
+                                <!-- Progress Bar -->
+                                <div x-show="pexelsDownloading" x-cloak class="mt-4">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="text-sm text-gray-600">Đang tải video...</span>
+                                        <span class="text-sm font-semibold text-blue-600" x-text="pexelsDownloadProgress + '%'"></span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                        <div 
+                                            class="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out"
+                                            :style="'width: ' + pexelsDownloadProgress + '%'"
+                                        ></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -781,6 +796,19 @@
                                 <i class="fas fa-spinner fa-spin" x-show="pexelsExtracting"></i>
                                 <span x-text="pexelsExtracting ? 'Đang tạo frame...' : 'Tạo Frame'"></span>
                             </button>
+                            <!-- Progress Bar -->
+                            <div x-show="pexelsExtracting" x-cloak class="mt-4">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm text-gray-600">Đang tạo frame từ video...</span>
+                                    <span class="text-sm font-semibold text-green-600" x-text="pexelsExtractProgress + '%'"></span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                    <div 
+                                        class="bg-green-600 h-2.5 rounded-full transition-all duration-300 ease-out"
+                                        :style="'width: ' + pexelsExtractProgress + '%'"
+                                    ></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
