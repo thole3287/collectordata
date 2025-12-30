@@ -14,16 +14,20 @@ import camera_config_loader
 import requests
 import time
 import cv2
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Database connection function
 def get_db_connection():
     """Get MySQL database connection."""
     try:
         connection = mysql.connector.connect(
-            host='localhost',
-            database='data_collection',
-            user='root',
-            password=''
+            host=os.getenv('DB_HOST', 'localhost'),
+            database=os.getenv('DB_NAME', 'data_collection'),
+            user=os.getenv('DB_USER', 'root'),
+            password=os.getenv('DB_PASSWORD', '')
         )
         return connection
     except Error as e:
@@ -887,8 +891,8 @@ def camera_serve_image(image_path):
     
     return send_from_directory(directory, filename)
 
-# Pexels API Key
-PEXELS_API_KEY = "XgQsJsFgBorp7TstDSW208jrPfvEgvVp7xP5RwpLdyWqBEyrxrTNTsG6"
+# Pexels API Key (loaded from .env)
+PEXELS_API_KEY = os.getenv('PEXELS_API_KEY', '')
 PEXELS_OUTPUT_FOLDER = "pexels_traffic_dataset"
 FRAMES_OUTPUT_ROOT = "dataset_extracted"
 FRAME_STEP = 30
@@ -1114,15 +1118,20 @@ def extract_frames_result():
         return jsonify({"success": False, "error": str(e)}), 500
 
 if __name__ == '__main__':
-    # Thử các port khác nhau nếu port 5000 bị lỗi
+    # Load Flask config from .env
+    flask_host = os.getenv('FLASK_HOST', '127.0.0.1')
+    flask_port = int(os.getenv('FLASK_PORT', 5000))
+    flask_debug = os.getenv('FLASK_DEBUG', 'True').lower() == 'true'
+    
+    # Thử các port khác nhau nếu port mặc định bị lỗi
     import socket
-    ports_to_try = [5000, 5001, 8080, 3000, 8000]
+    ports_to_try = [flask_port, 5001, 8080, 3000, 8000]
     port = None
     
     for p in ports_to_try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            sock.bind(('127.0.0.1', p))
+            sock.bind((flask_host, p))
             sock.close()
             port = p
             break
@@ -1133,9 +1142,9 @@ if __name__ == '__main__':
         print("❌ Không tìm thấy port trống. Vui lòng đóng các ứng dụng đang sử dụng port hoặc chạy với quyền Administrator.")
         exit(1)
     
-    if port != 5000:
-        print(f"⚠️ Port 5000 không khả dụng, sử dụng port {port}")
+    if port != flask_port:
+        print(f"⚠️ Port {flask_port} không khả dụng, sử dụng port {port}")
     
-    print(f"🚀 Server đang chạy tại: http://127.0.0.1:{port}")
-    app.run(debug=True, host='127.0.0.1', port=port)
+    print(f"🚀 Server đang chạy tại: http://{flask_host}:{port}")
+    app.run(debug=flask_debug, host=flask_host, port=port)
 
