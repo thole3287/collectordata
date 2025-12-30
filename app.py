@@ -25,6 +25,7 @@ def get_db_connection():
     try:
         connection = mysql.connector.connect(
             host=os.getenv('DB_HOST', 'localhost'),
+            port=int(os.getenv('DB_PORT', 3306)),
             database=os.getenv('DB_NAME', 'data_collection'),
             user=os.getenv('DB_USER', 'root'),
             password=os.getenv('DB_PASSWORD', '')
@@ -341,16 +342,26 @@ def get_visualization_data():
         cursor.execute("SELECT platform, COUNT(*) as count FROM downloaded_videos GROUP BY platform")
         by_platform = [{'platform': row['platform'], 'count': row['count']} for row in cursor.fetchall()]
         
-        # 2. Phân bố theo keyword (top keywords)
+        # 2. Phân bố theo keyword (top keywords) với platform
         cursor.execute("""
-            SELECT keyword, COUNT(*) as count 
+            SELECT 
+                keyword, 
+                COUNT(*) as count,
+                GROUP_CONCAT(DISTINCT platform ORDER BY platform SEPARATOR ', ') as platforms
             FROM downloaded_videos 
             WHERE keyword IS NOT NULL 
             GROUP BY keyword 
             ORDER BY count DESC 
             LIMIT 20
         """)
-        by_keyword = [{'keyword': row['keyword'], 'count': row['count']} for row in cursor.fetchall()]
+        by_keyword = []
+        for row in cursor.fetchall():
+            platforms = row['platforms'].split(', ') if row['platforms'] else []
+            by_keyword.append({
+                'keyword': row['keyword'], 
+                'count': row['count'],
+                'platforms': platforms
+            })
         
         # 3. Phân bố theo resolution
         cursor.execute("""

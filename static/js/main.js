@@ -553,15 +553,23 @@ function app() {
             if (this.vizData.by_method && this.vizData.by_method.length > 0) {
                 const ctx = document.getElementById('methodChart');
                 if (ctx) {
+                    const methodLabels = {
+                        'keyword': 'Từ Khóa',
+                        'url': 'URL',
+                        'pexels': 'Pexels Dataset'
+                    };
+                    
                     this.charts.method = new Chart(ctx, {
                         type: 'pie',
                         data: {
-                            labels: this.vizData.by_method.map(m => m.method === 'keyword' ? 'Từ Khóa' : 'URL'),
+                            labels: this.vizData.by_method.map(m => methodLabels[m.method] || m.method),
                             datasets: [{
                                 data: this.vizData.by_method.map(m => m.count),
                                 backgroundColor: [
                                     'rgba(34, 197, 94, 0.8)',
                                     'rgba(59, 130, 246, 0.8)',
+                                    'rgba(251, 146, 60, 0.8)',
+                                    'rgba(139, 92, 246, 0.8)',
                                 ]
                             }]
                         },
@@ -687,10 +695,13 @@ function app() {
                 words: words
             }); // Debug
 
-            // Create keyword map for tooltip
+            // Create keyword map for tooltip (include count and platforms)
             const keywordMap = {};
             this.vizData.by_keyword.forEach(kw => {
-                keywordMap[kw.keyword] = kw.count;
+                keywordMap[kw.keyword] = {
+                    count: kw.count,
+                    platforms: kw.platforms || []
+                };
             });
 
             // Set canvas size
@@ -728,11 +739,26 @@ function app() {
                 hover: function(item, dimension, event) {
                     if (item) {
                         const keyword = item[0];
-                        const count = keywordMap[keyword] || 0;
+                        const keywordData = keywordMap[keyword] || { count: 0, platforms: [] };
+                        const count = keywordData.count;
+                        const platforms = keywordData.platforms || [];
+                        
+                        // Format platform display
+                        let platformText = '';
+                        if (platforms.length > 0) {
+                            const platformLabels = {
+                                'youtube': 'YouTube',
+                                'pexels': 'Pexels'
+                            };
+                            const formattedPlatforms = platforms.map(p => platformLabels[p.toLowerCase()] || p).join(', ');
+                            platformText = `<div style="font-size: 11px; color: #60A5FA; margin-top: 4px;">Platform: ${formattedPlatforms}</div>`;
+                        }
+                        
                         tooltip.style.display = 'block';
                         tooltip.innerHTML = `
                             <div style="font-weight: bold; margin-bottom: 4px;">${keyword}</div>
                             <div style="font-size: 12px; opacity: 0.9;">${count} video(s)</div>
+                            ${platformText}
                         `;
                         tooltip.style.left = (event.pageX + 15) + 'px';
                         tooltip.style.top = (event.pageY - 50) + 'px';

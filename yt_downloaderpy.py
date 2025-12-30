@@ -4,13 +4,18 @@ import os
 from datetime import datetime
 import mysql.connector
 from mysql.connector import Error
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # ==================== CẤU HÌNH DATABASE ====================
 DB_CONFIG = {
-    'host': 'localhost',
-    'database': 'data_collection',
-    'user': 'root',
-    'password': '',  # Thay đổi mật khẩu MySQL của bạn ở đây
+    'host': os.getenv('DB_HOST', 'localhost'),
+    'port': int(os.getenv('DB_PORT', 3306)),
+    'database': os.getenv('DB_NAME', 'data_collection'),
+    'user': os.getenv('DB_USER', 'root'),
+    'password': os.getenv('DB_PASSWORD', ''),
     'charset': 'utf8mb4',
     'collation': 'utf8mb4_unicode_ci'
 }
