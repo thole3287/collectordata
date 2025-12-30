@@ -251,11 +251,29 @@ def download_by_url_api():
     
     # Chạy download trong thread riêng để không block
     def download_thread():
-        for url in urls:
-            try:
-                yt.download_by_url(url.strip())
-            except Exception as e:
-                print(f"Lỗi khi tải {url}: {e}")
+            downloaded_videos = []
+            for url in urls:
+                try:
+                    video = yt.download_by_url(url.strip())
+                    if video:
+                        downloaded_videos.append(video)
+                except Exception as e:
+                    print(f"Lỗi khi tải {url}: {e}")
+            
+            # Tự động extract frames sau khi download xong
+            if downloaded_videos:
+                downloads_folder = os.path.join(os.getcwd(), 'downloads')
+                if os.path.exists(downloads_folder):
+                    extract_result = extract_frames_from_folder(
+                        downloads_folder, 
+                        FRAMES_OUTPUT_ROOT,
+                        os.path.join(FRAMES_OUTPUT_ROOT, '.youtube_extract_progress.json')
+                    )
+                    # Lưu kết quả extract frames
+                    extract_result_file = os.path.join(FRAMES_OUTPUT_ROOT, '.youtube_extract_result.json')
+                    os.makedirs(FRAMES_OUTPUT_ROOT, exist_ok=True)
+                    with open(extract_result_file, 'w', encoding='utf-8') as f:
+                        json.dump(extract_result, f, ensure_ascii=False, indent=2)
     
     thread = threading.Thread(target=download_thread)
     thread.daemon = True
@@ -279,7 +297,21 @@ def download_by_keyword_api():
     # Chạy download trong thread riêng
     def download_thread():
         try:
-            yt.download_by_keyword(keyword, num_videos)
+            videos = yt.download_by_keyword(keyword, num_videos)
+            # Tự động extract frames sau khi download xong
+            if videos:
+                downloads_folder = os.path.join(os.getcwd(), 'downloads')
+                if os.path.exists(downloads_folder):
+                    extract_result = extract_frames_from_folder(
+                        downloads_folder, 
+                        FRAMES_OUTPUT_ROOT,
+                        os.path.join(FRAMES_OUTPUT_ROOT, '.youtube_extract_progress.json')
+                    )
+                    # Lưu kết quả extract frames
+                    extract_result_file = os.path.join(FRAMES_OUTPUT_ROOT, '.youtube_extract_result.json')
+                    os.makedirs(FRAMES_OUTPUT_ROOT, exist_ok=True)
+                    with open(extract_result_file, 'w', encoding='utf-8') as f:
+                        json.dump(extract_result, f, ensure_ascii=False, indent=2)
         except Exception as e:
             print(f"Lỗi khi tải từ keyword {keyword}: {e}")
     
@@ -542,6 +574,66 @@ def create_keyword():
     except Exception as e:
         return jsonify({'error': f'Lỗi: {str(e)}'}), 500
 
+@app.route('/api/keywords/<int:keyword_id>', methods=['PUT'])
+def update_keyword(keyword_id):
+    """Cập nhật keyword"""
+    try:
+        data = request.json
+        connection = yt.get_db_connection()
+        if not connection:
+            return jsonify({'error': 'Không thể kết nối database'}), 500
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Kiểm tra keyword có tồn tại không
+        cursor.execute("SELECT id FROM keywords WHERE id = %s", (keyword_id,))
+        if not cursor.fetchone():
+            cursor.close()
+            connection.close()
+            return jsonify({'error': 'Keyword không tồn tại'}), 404
+        
+        # Cập nhật keyword
+        update_fields = []
+        values = []
+        
+        if 'keyword' in data:
+            update_fields.append("keyword = %s")
+            values.append(data['keyword'])
+        
+        if 'num_videos' in data:
+            update_fields.append("num_videos = %s")
+            values.append(int(data['num_videos']))
+        
+        if 'description' in data:
+            update_fields.append("description = %s")
+            values.append(data['description'])
+        
+        if 'is_active' in data:
+            update_fields.append("is_active = %s")
+            values.append(bool(data['is_active']))
+        
+        if 'status' in data:
+            update_fields.append("status = %s")
+            values.append(data['status'])
+        
+        if not update_fields:
+            cursor.close()
+            connection.close()
+            return jsonify({'error': 'Không có trường nào để cập nhật'}), 400
+        
+        update_fields.append("updated_at = NOW()")
+        values.append(keyword_id)
+        
+        query = f"UPDATE keywords SET {', '.join(update_fields)} WHERE id = %s"
+        cursor.execute(query, values)
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        return jsonify({'message': 'Đã cập nhật keyword thành công'}), 200
+    except Exception as e:
+        return jsonify({'error': f'Lỗi: {str(e)}'}), 500
+
 @app.route('/api/keywords/<int:keyword_id>', methods=['DELETE'])
 def delete_keyword(keyword_id):
     """Xóa keyword"""
@@ -590,6 +682,22 @@ def download_by_keyword_id(keyword_id):
         def download_thread():
             try:
                 videos = yt.download_by_keyword(keyword, num_videos)
+                
+                # Tự động extract frames sau khi download xong
+                if videos:
+                    downloads_folder = os.path.join(os.getcwd(), 'downloads')
+                    if os.path.exists(downloads_folder):
+                        extract_result = extract_frames_from_folder(
+                            downloads_folder, 
+                            FRAMES_OUTPUT_ROOT,
+                            os.path.join(FRAMES_OUTPUT_ROOT, '.youtube_extract_progress.json')
+                        )
+                        # Lưu kết quả extract frames
+                        extract_result_file = os.path.join(FRAMES_OUTPUT_ROOT, '.youtube_extract_result.json')
+                        os.makedirs(FRAMES_OUTPUT_ROOT, exist_ok=True)
+                        with open(extract_result_file, 'w', encoding='utf-8') as f:
+                            json.dump(extract_result, f, ensure_ascii=False, indent=2)
+                
                 # Cập nhật status và số lượng đã tải
                 connection = yt.get_db_connection()
                 if connection:
@@ -1015,30 +1123,42 @@ def download_pexels_videos(query, num_videos):
     except Exception as e:
         return {"success": False, "error": str(e)}
 
-def extract_frames_from_videos():
-    """Extract frames from all videos in PEXELS_OUTPUT_FOLDER."""
+def extract_frames_from_folder(input_folder, output_root=None, progress_file_path=None):
+    """
+    Extract frames from all videos in a folder.
+    
+    :param input_folder: Folder chứa các video cần extract frames
+    :param output_root: Folder output (mặc định sẽ dùng FRAMES_OUTPUT_ROOT)
+    :param progress_file_path: Đường dẫn file progress (mặc định sẽ tự động tạo)
+    :return: Dictionary chứa kết quả
+    """
     try:
-        if not os.path.exists(PEXELS_OUTPUT_FOLDER):
-            return {"success": False, "error": f"Folder '{PEXELS_OUTPUT_FOLDER}' not found"}
+        if output_root is None:
+            output_root = FRAMES_OUTPUT_ROOT
+        
+        if progress_file_path is None:
+            progress_file_path = os.path.join(output_root, '.extract_progress.json')
+        
+        if not os.path.exists(input_folder):
+            return {"success": False, "error": f"Folder '{input_folder}' not found"}
 
-        files = os.listdir(PEXELS_OUTPUT_FOLDER)
+        files = os.listdir(input_folder)
         video_files = [f for f in files if f.lower().endswith(VALID_VIDEO_EXTENSIONS)]
 
         if not video_files:
-            return {"success": False, "error": f"No videos found in '{PEXELS_OUTPUT_FOLDER}'"}
+            return {"success": False, "error": f"No videos found in '{input_folder}'"}
 
         total_videos = len(video_files)
         total_frames = 0
         processed_videos = []
         
-        # Lưu progress vào file
-        progress_file = os.path.join(FRAMES_OUTPUT_ROOT, '.extract_progress.json')
-        os.makedirs(FRAMES_OUTPUT_ROOT, exist_ok=True)
+        # Tạo output folder nếu chưa có
+        os.makedirs(output_root, exist_ok=True)
 
         for idx, video_file in enumerate(video_files):
-            video_path = os.path.join(PEXELS_OUTPUT_FOLDER, video_file)
+            video_path = os.path.join(input_folder, video_file)
             video_name = os.path.splitext(video_file)[0]
-            current_output_dir = os.path.join(FRAMES_OUTPUT_ROOT, video_name)
+            current_output_dir = os.path.join(output_root, video_name)
             
             if not os.path.exists(current_output_dir):
                 os.makedirs(current_output_dir)
@@ -1079,16 +1199,20 @@ def extract_frames_from_videos():
                 "progress": progress,
                 "total_frames": total_frames
             }
-            with open(progress_file, 'w', encoding='utf-8') as f:
+            with open(progress_file_path, 'w', encoding='utf-8') as f:
                 json.dump(progress_data, f, ensure_ascii=False)
 
         # Xóa progress file sau khi hoàn thành
-        if os.path.exists(progress_file):
-            os.remove(progress_file)
+        if os.path.exists(progress_file_path):
+            os.remove(progress_file_path)
 
         return {"success": True, "total_frames": total_frames, "videos": processed_videos}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+def extract_frames_from_videos():
+    """Extract frames from all videos in PEXELS_OUTPUT_FOLDER."""
+    return extract_frames_from_folder(PEXELS_OUTPUT_FOLDER, FRAMES_OUTPUT_ROOT)
 
 @app.route('/api/pexels/download', methods=['POST'])
 def pexels_download():
@@ -1105,6 +1229,15 @@ def pexels_download():
             result_file = os.path.join(PEXELS_OUTPUT_FOLDER, '.download_result.json')
             with open(result_file, 'w', encoding='utf-8') as f:
                 json.dump(result, f, ensure_ascii=False, indent=2)
+            
+            # Tự động extract frames sau khi download xong
+            if result.get("success") and result.get("count", 0) > 0:
+                extract_result = extract_frames_from_folder(PEXELS_OUTPUT_FOLDER, FRAMES_OUTPUT_ROOT)
+                # Lưu kết quả extract frames
+                extract_result_file = os.path.join(FRAMES_OUTPUT_ROOT, '.extract_result.json')
+                os.makedirs(FRAMES_OUTPUT_ROOT, exist_ok=True)
+                with open(extract_result_file, 'w', encoding='utf-8') as f:
+                    json.dump(extract_result, f, ensure_ascii=False, indent=2)
 
         thread = threading.Thread(target=download_task)
         thread.daemon = True
@@ -1157,7 +1290,7 @@ def pexels_download_result():
 
 @app.route('/api/frames/result', methods=['GET'])
 def extract_frames_result():
-    """Get extract frames result."""
+    """Get extract frames result (for Pexels)."""
     try:
         result_file = os.path.join(FRAMES_OUTPUT_ROOT, '.extract_result.json')
         if os.path.exists(result_file):
@@ -1169,6 +1302,21 @@ def extract_frames_result():
         return jsonify({"success": False, "message": "Chưa có kết quả"}), 200
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/frames/youtube-result', methods=['GET'])
+def youtube_extract_result():
+    """Get extract frames result for YouTube videos."""
+    try:
+        result_file = os.path.join(FRAMES_OUTPUT_ROOT, '.youtube_extract_result.json')
+        if os.path.exists(result_file):
+            with open(result_file, 'r', encoding='utf-8') as f:
+                result = json.load(f)
+            # Xóa file sau khi đọc
+            os.remove(result_file)
+            return jsonify({"exists": True, "result": result}), 200
+        return jsonify({"exists": False}), 200
+    except Exception as e:
+        return jsonify({"exists": False, "error": str(e)}), 500
 
 if __name__ == '__main__':
     # Load Flask config from .env

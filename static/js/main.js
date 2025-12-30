@@ -3,7 +3,7 @@ function app() {
     return {
         // State
         sidebarOpen: true,
-        activeTab: 'download',
+        activeTab: 'visualization',
         urlInput: '',
         selectedKeywordId: '',
         activeKeywords: [],
@@ -16,7 +16,6 @@ function app() {
         totalPages: 1,
         perPage: 20,
         searchQuery: '',
-        stats: {},
         vizData: {},
         charts: {},
         keywords: [],
@@ -46,6 +45,9 @@ function app() {
         pexelsExtracting: false,
         pexelsDownloadProgress: 0,
         pexelsExtractProgress: 0,
+        // Edit keyword state
+        editingKeyword: null,
+        showEditKeywordModal: false,
         newKeyword: {
             keyword: '',
             num_videos: 1,
@@ -83,6 +85,8 @@ function app() {
                 if (response.ok) {
                     this.showNotify(data.message || 'Đã bắt đầu tải video', 'success');
                     this.urlInput = '';
+                    // Kiểm tra kết quả download và extract frames
+                    this.checkYouTubeDownloadResult();
                     // Tự động refresh danh sách sau 5 giây
                     setTimeout(() => {
                         if (this.activeTab === 'videos') {
@@ -133,6 +137,8 @@ function app() {
                     this.selectedKeywordId = '';
                     this.selectedKeyword = null;
                     this.numVideos = 1;
+                    // Kiểm tra kết quả download và extract frames
+                    this.checkYouTubeDownloadResult();
                     // Tự động refresh danh sách sau 5 giây
                     setTimeout(() => {
                         if (this.activeTab === 'videos') {
@@ -237,20 +243,6 @@ function app() {
             }).join('');
         },
 
-        async loadStats() {
-            try {
-                const response = await fetch('/api/stats');
-                const data = await response.json();
-
-                if (response.ok) {
-                    this.stats = data;
-                } else {
-                    this.showNotify(data.error || 'Lỗi khi tải thống kê', 'error');
-                }
-            } catch (error) {
-                this.showNotify('Lỗi kết nối: ' + error.message, 'error');
-            }
-        },
 
         changePage(page) {
             if (page >= 1 && page <= this.totalPages) {
@@ -379,13 +371,13 @@ function app() {
                             <div class="flex items-center gap-2">
                                 <button 
                                     data-keyword-id="${kw.id}"
-                                    data-action="download"
-                                    class="keyword-action-btn text-blue-600 hover:text-blue-800 disabled:text-gray-400 disabled:cursor-not-allowed"
-                                    ${kw.status === 'processing' ? 'disabled' : ''}
-                                    title="Tải video"
+                                    data-action="edit"
+                                    class="keyword-action-btn text-yellow-600 hover:text-yellow-800"
+                                    title="Sửa"
                                 >
-                                    <i class="fas fa-download"></i>
+                                    <i class="fas fa-edit"></i>
                                 </button>
+                               
                                 <button 
                                     data-keyword-id="${kw.id}"
                                     data-action="delete"
@@ -448,6 +440,8 @@ function app() {
                 const data = await response.json();
                 if (response.ok) {
                     this.showNotify(data.message || 'Đã bắt đầu tải video', 'success');
+                    // Kiểm tra kết quả download và extract frames
+                    this.checkYouTubeDownloadResult();
                     setTimeout(() => {
                         this.loadKeywords();
                     }, 2000);
@@ -456,6 +450,151 @@ function app() {
                 }
             } catch (error) {
                 this.showNotify('Lỗi kết nối: ' + error.message, 'error');
+            }
+        },
+
+        async checkYouTubeDownloadResult() {
+            // Kiểm tra kết quả extract frames sau khi download YouTube xong
+            let attempts = 0;
+            const maxAttempts = 120; // Tối đa 10 phút (120 * 5s)
+            
+            const checkInterval = setInterval(async () => {
+                attempts++;
+                
+                try {
+                    const response = await fetch('/api/frames/youtube-result');
+                    const data = await response.json();
+                    
+                    if (data.exists && data.result) {
+                        clearInterval(checkInterval);
+                        if (data.result.success) {
+                            const totalFrames = data.result.total_frames || 0;
+                            const videos = data.result.videos || [];
+                            this.showNotify(
+                                `✅ Tạo frame từ video thành công! Đã tạo ${totalFrames} frame từ ${videos.length} video`,
+                                'success'
+                            );
+                        } else {
+                            this.showNotify(
+                                `❌ Tạo frame từ video thất bại: ${data.result.error || 'Lỗi không xác định'}`,
+                                'error'
+                            );
+                        }
+                    } else if (attempts >= maxAttempts) {
+                        clearInterval(checkInterval);
+                    }
+                } catch (error) {
+                    // Lỗi khi check, tiếp tục thử
+                    if (attempts >= maxAttempts) {
+                        clearInterval(checkInterval);
+                    }
+                }
+            }, 5000); // Check mỗi 5 giây
+        },
+
+        async checkPexelsExtractResult() {
+            // Kiểm tra kết quả extract frames sau khi download Pexels xong
+            let attempts = 0;
+            const maxAttempts = 120; // Tối đa 10 phút (120 * 5s)
+            
+            const checkInterval = setInterval(async () => {
+                attempts++;
+                
+                try {
+                    const response = await fetch('/api/frames/result');
+                    const result = await response.json();
+                    
+                    if (result.success !== undefined) {
+                        clearInterval(checkInterval);
+                        if (result.success) {
+                            const totalFrames = result.total_frames || 0;
+                            const videos = result.videos || [];
+                            this.showNotify(
+                                `✅ Tạo frame từ video thành công! Đã tạo ${totalFrames} frame từ ${videos.length} video`,
+                                'success'
+                            );
+                        } else {
+                            this.showNotify(
+                                `❌ Tạo frame từ video thất bại: ${result.error || 'Lỗi không xác định'}`,
+                                'error'
+                            );
+                        }
+                    } else if (attempts >= maxAttempts) {
+                        clearInterval(checkInterval);
+                    }
+                } catch (error) {
+                    // Lỗi khi check, tiếp tục thử
+                    if (attempts >= maxAttempts) {
+                        clearInterval(checkInterval);
+                    }
+                }
+            }, 5000); // Check mỗi 5 giây
+        },
+
+        setupKeywordActions() {
+            document.querySelectorAll('.keyword-action-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const keywordId = parseInt(btn.getAttribute('data-keyword-id'));
+                    const action = btn.getAttribute('data-action');
+                    
+                    if (action === 'edit') {
+                        this.editKeyword(keywordId);
+                    } else if (action === 'download') {
+                        this.downloadKeyword(keywordId);
+                    } else if (action === 'delete') {
+                        this.deleteKeyword(keywordId);
+                    }
+                });
+            });
+        },
+
+        editKeyword(keywordId) {
+            const keyword = this.keywords.find(kw => kw.id === keywordId);
+            if (!keyword) {
+                this.showNotify('Không tìm thấy keyword', 'error');
+                return;
+            }
+            
+            this.editingKeyword = keywordId;
+            this.editKeywordForm = {
+                keyword: keyword.keyword,
+                num_videos: keyword.num_videos || 1,
+                description: keyword.description || '',
+                is_active: keyword.is_active !== undefined ? keyword.is_active : true,
+                status: keyword.status || 'pending'
+            };
+            this.showEditKeywordModal = true;
+        },
+
+        async updateKeyword() {
+            if (!this.editKeywordForm.keyword.trim()) {
+                this.showNotify('Vui lòng nhập từ khóa', 'error');
+                return;
+            }
+
+            this.updatingKeyword = true;
+            try {
+                const response = await fetch(`/api/keywords/${this.editingKeyword}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(this.editKeywordForm),
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    this.showNotify(data.message || 'Đã cập nhật keyword thành công', 'success');
+                    this.showEditKeywordModal = false;
+                    this.editingKeyword = null;
+                    this.loadKeywords();
+                } else {
+                    this.showNotify(data.error || 'Có lỗi xảy ra', 'error');
+                }
+            } catch (error) {
+                this.showNotify('Lỗi kết nối: ' + error.message, 'error');
+            } finally {
+                this.updatingKeyword = false;
             }
         },
 
@@ -1140,6 +1279,9 @@ function app() {
                         if (result.success) {
                             const dbMsg = result.saved_to_db > 0 ? ` (${result.saved_to_db} video đã lưu vào database)` : '';
                             this.showNotify(`✅ Tải video thành công! Đã tải ${result.count} video vào thư mục pexels_traffic_dataset${dbMsg}`, 'success');
+                            
+                            // Kiểm tra kết quả extract frames tự động
+                            this.checkPexelsExtractResult();
                         } else {
                             this.showNotify(`❌ Lỗi khi tải video: ${result.error || 'Unknown error'}`, 'error');
                         }
