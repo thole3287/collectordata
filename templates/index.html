@@ -322,6 +322,32 @@
                         </form>
                     </div>
 
+                    <!-- Top Keywords từ Visualization -->
+                    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                                <i class="fas fa-chart-bar text-blue-600"></i>
+                                Top Keywords (Theo Số Lượng Video)
+                            </h3>
+                            <button @click="loadVisualization()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
+                                <i class="fas fa-sync-alt"></i> Làm mới
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">STT</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Keyword</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Số Lượng Video</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tỷ Lệ</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200" x-html="keywordsTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
                     <div class="bg-white rounded-lg shadow-md p-6">
                         <div class="flex items-center justify-between mb-6">
                             <h3 class="text-xl font-semibold text-gray-800">Danh Sách Keywords</h3>
@@ -334,7 +360,7 @@
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">STT</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Keyword</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Số video</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Đã tải</th>
@@ -419,23 +445,6 @@
                         <canvas id="timeChart"></canvas>
                     </div>
 
-                    <!-- Top Keywords Table -->
-                    <div class="bg-white rounded-lg shadow-md p-6">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Top Keywords</h3>
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">STT</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Keyword</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Số Lượng Video</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tỷ Lệ</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="bg-white divide-y divide-gray-200" x-html="keywordsTableBody"></tbody>
-                            </table>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- Edit Keyword Modal -->

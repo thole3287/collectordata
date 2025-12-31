@@ -109,7 +109,7 @@ function app() {
                 return;
             }
 
-            const selectedKw = this.activeKeywords.find(kw => kw.id == this.selectedKeywordId);
+            const selectedKw = this.activeKeywords.find(kw => (kw._id || kw.id) == this.selectedKeywordId);
             if (!selectedKw) {
                 this.showNotify('Keyword không tồn tại', 'error');
                 return;
@@ -305,7 +305,19 @@ function app() {
 
                 if (response.ok) {
                     this.keywords = data.keywords || [];
-                    this.renderKeywordsTable();
+                    this.renderKeywordsManagementTable();
+                    // Load visualization data để hiển thị Top Keywords (chỉ load data, không render visualization table)
+                    try {
+                        const vizResponse = await fetch('/api/visualization');
+                        const vizData = await vizResponse.json();
+                        if (vizResponse.ok) {
+                            this.vizData = vizData || {};
+                            // Chỉ render Top Keywords, không render visualization table
+                            this.renderKeywordsTable();
+                        }
+                    } catch (vizError) {
+                        console.error('Error loading visualization data:', vizError);
+                    }
                 } else {
                     this.showNotify(data.error || 'Lỗi khi tải danh sách keywords', 'error');
                 }
@@ -315,9 +327,43 @@ function app() {
         },
 
         renderKeywordsTable() {
-            console.log('Rendering keywords table, count:', this.keywords.length); // Debug
-            if (this.keywords.length === 0) {
+            // Render Top Keywords từ visualization data
+            if (!this.vizData.by_keyword || this.vizData.by_keyword.length === 0) {
                 this.keywordsTableBody = `
+                    <tr>
+                        <td colspan="4" class="px-6 py-4 text-center text-gray-500">
+                            Chưa có dữ liệu. Vui lòng tải video trước!
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            const total = this.vizData.by_keyword.reduce((sum, kw) => sum + kw.count, 0);
+            this.keywordsTableBody = this.vizData.by_keyword.map((kw, index) => {
+                const percentage = total > 0 ? ((kw.count / total) * 100).toFixed(2) : 0;
+                return `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${index + 1}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${kw.keyword}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${kw.count}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            <div class="flex items-center">
+                                <div class="w-full bg-gray-200 rounded-full h-2 mr-2">
+                                    <div class="bg-blue-600 h-2 rounded-full" style="width: ${percentage}%"></div>
+                                </div>
+                                <span class="text-gray-600">${percentage}%</span>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        },
+
+        renderKeywordsManagementTable() {
+            console.log('Rendering keywords management table, count:', this.keywords.length); // Debug
+            if (this.keywords.length === 0) {
+                this.vizKeywordsTableBody = `
                     <tr>
                         <td colspan="7" class="px-6 py-4 text-center text-gray-500">
                             Chưa có keyword nào. Hãy thêm keyword mới!
@@ -329,7 +375,7 @@ function app() {
                 return;
             }
 
-            this.keywordsTableBody = this.keywords.map(kw => {
+            this.vizKeywordsTableBody = this.keywords.map((kw, index) => {
                 const statusColors = {
                     'pending': 'bg-yellow-100 text-yellow-800',
                     'processing': 'bg-blue-100 text-blue-800',
@@ -348,7 +394,7 @@ function app() {
                 return `
                     <tr class="hover:bg-gray-50">
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            ${kw.id}
+                            ${index + 1}
                         </td>
                         <td class="px-6 py-4 text-sm text-gray-900">
                             <strong>${kw.keyword}</strong>
@@ -370,7 +416,7 @@ function app() {
                         <td class="px-6 py-4 whitespace-nowrap text-sm">
                             <div class="flex items-center gap-2">
                                 <button 
-                                    data-keyword-id="${kw.id}"
+                                    data-keyword-id="${kw._id || kw.id}"
                                     data-action="edit"
                                     class="keyword-action-btn text-yellow-600 hover:text-yellow-800"
                                     title="Sửa"
@@ -379,7 +425,7 @@ function app() {
                                 </button>
                                
                                 <button 
-                                    data-keyword-id="${kw.id}"
+                                    data-keyword-id="${kw._id || kw.id}"
                                     data-action="delete"
                                     class="keyword-action-btn text-red-600 hover:text-red-800"
                                     title="Xóa"
@@ -532,10 +578,21 @@ function app() {
         },
 
         setupKeywordActions() {
+            // Remove old event listeners first to avoid duplicates
+            document.querySelectorAll('.keyword-action-btn').forEach(btn => {
+                const newBtn = btn.cloneNode(true);
+                btn.parentNode.replaceChild(newBtn, btn);
+            });
+            
+            // Add new event listeners
             document.querySelectorAll('.keyword-action-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
-                    const keywordId = parseInt(btn.getAttribute('data-keyword-id'));
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const keywordId = btn.getAttribute('data-keyword-id'); // MongoDB dùng string ID
                     const action = btn.getAttribute('data-action');
+                    
+                    console.log('Keyword action clicked:', action, keywordId); // Debug
                     
                     if (action === 'edit') {
                         this.editKeyword(keywordId);
@@ -549,9 +606,16 @@ function app() {
         },
 
         editKeyword(keywordId) {
-            const keyword = this.keywords.find(kw => kw.id === keywordId);
+            console.log('Edit keyword called with ID:', keywordId); // Debug
+            console.log('Available keywords:', this.keywords.map(kw => ({ id: kw._id || kw.id, keyword: kw.keyword }))); // Debug
+            
+            const keyword = this.keywords.find(kw => {
+                const kwId = kw._id || kw.id;
+                return String(kwId) === String(keywordId);
+            });
+            
             if (!keyword) {
-                this.showNotify('Không tìm thấy keyword', 'error');
+                this.showNotify('Không tìm thấy keyword với ID: ' + keywordId, 'error');
                 return;
             }
             
@@ -638,7 +702,7 @@ function app() {
 
         onKeywordSelect() {
             if (this.selectedKeywordId) {
-                const selectedKw = this.activeKeywords.find(kw => kw.id == this.selectedKeywordId);
+                const selectedKw = this.activeKeywords.find(kw => (kw._id || kw.id) == this.selectedKeywordId);
                 if (selectedKw) {
                     this.selectedKeyword = selectedKw;
                     this.numVideos = selectedKw.num_videos || 1;
@@ -658,9 +722,15 @@ function app() {
                     this.vizData = data || {};
                     setTimeout(() => {
                         try {
-                            this.renderCharts();
-                            this.renderWordCloud();
-                            this.renderVisualizationKeywordsTable();
+                            // Chỉ render visualization charts nếu đang ở tab visualization
+                            if (this.activeTab === 'visualization') {
+                                this.renderCharts();
+                                this.renderWordCloud();
+                                this.renderVisualizationKeywordsTable();
+                            } else if (this.activeTab === 'keywords') {
+                                // Nếu đang ở tab keywords, chỉ render Top Keywords
+                                this.renderKeywordsTable();
+                            }
                         } catch (e) {
                             console.error('Error rendering visualization:', e);
                         }
