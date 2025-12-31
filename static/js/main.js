@@ -691,7 +691,9 @@ function app() {
 
                 if (response.ok) {
                     this.activeKeywords = data.keywords || [];
+                    console.log('Active keywords loaded:', this.activeKeywords); // Debug
                 } else {
+                    console.error('Error loading active keywords:', data.error);
                     this.activeKeywords = [];
                 }
             } catch (error) {
@@ -701,11 +703,23 @@ function app() {
         },
 
         onKeywordSelect() {
+            console.log('Keyword selected:', this.selectedKeywordId); // Debug
+            console.log('Available keywords:', this.activeKeywords.map(kw => ({ id: kw._id || kw.id, keyword: kw.keyword }))); // Debug
+            
             if (this.selectedKeywordId) {
-                const selectedKw = this.activeKeywords.find(kw => (kw._id || kw.id) == this.selectedKeywordId);
+                const selectedKw = this.activeKeywords.find(kw => {
+                    const kwId = String(kw._id || kw.id);
+                    const selectedId = String(this.selectedKeywordId);
+                    return kwId === selectedId;
+                });
+                
                 if (selectedKw) {
                     this.selectedKeyword = selectedKw;
                     this.numVideos = selectedKw.num_videos || 1;
+                    console.log('Selected keyword:', selectedKw); // Debug
+                } else {
+                    console.error('Keyword not found:', this.selectedKeywordId); // Debug
+                    this.selectedKeyword = null;
                 }
             } else {
                 this.selectedKeyword = null;

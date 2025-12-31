@@ -171,8 +171,8 @@
                                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                     >
                                         <option value="">-- Chọn keyword --</option>
-                                        <template x-for="kw in activeKeywords" :key="kw.id">
-                                            <option :value="kw.id" x-text="kw.keyword + ' (Số video: ' + kw.num_videos + ')'"></option>
+                                        <template x-for="kw in activeKeywords" :key="kw._id || kw.id">
+                                            <option :value="kw._id || kw.id" x-text="kw.keyword + ' (Số video: ' + kw.num_videos + ')'"></option>
                                         </template>
                                     </select>
                                     <p class="text-xs text-gray-500 mt-1" x-show="activeKeywords.length === 0">
