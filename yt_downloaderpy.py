@@ -2,8 +2,9 @@ import yt_dlp
 import json
 import os
 from datetime import datetime
-import mysql.connector
-from mysql.connector import Error
+from pymongo import MongoClient
+from pymongo.errors import ConnectionFailure, DuplicateKeyError
+from bson import ObjectId
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -12,56 +13,51 @@ load_dotenv()
 # ==================== CẤU HÌNH DATABASE ====================
 DB_CONFIG = {
     'host': os.getenv('DB_HOST', 'localhost'),
-    'port': int(os.getenv('DB_PORT', 3306)),
+    'port': int(os.getenv('DB_PORT', 27017)),
     'database': os.getenv('DB_NAME', 'data_collection'),
-    'user': os.getenv('DB_USER', 'root'),
+    'username': os.getenv('DB_USER', ''),
     'password': os.getenv('DB_PASSWORD', ''),
-    'charset': 'utf8mb4',
-    'collation': 'utf8mb4_unicode_ci'
 }
 
 # ==================== HÀM KẾT NỐI DATABASE ====================
 def get_db_connection():
-    """Tạo kết nối đến MySQL database"""
+    """Tạo kết nối đến MongoDB database"""
     try:
-        connection = mysql.connector.connect(**DB_CONFIG)
-        if connection.is_connected():
-            return connection
-    except Error as e:
+        if DB_CONFIG['username'] and DB_CONFIG['password']:
+            connection_string = f"mongodb://{DB_CONFIG['username']}:{DB_CONFIG['password']}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/"
+        else:
+            connection_string = f"mongodb://{DB_CONFIG['host']}:{DB_CONFIG['port']}/"
+        
+        client = MongoClient(connection_string)
+        # Test connection
+        client.admin.command('ping')
+        db = client[DB_CONFIG['database']]
+        return db
+    except (ConnectionFailure, Exception) as e:
         print(f"Lỗi kết nối database: {e}")
         return None
 
 def save_to_database(video_data, download_method='keyword'):
     """
-    Lưu thông tin video vào MySQL database
+    Lưu thông tin video vào MongoDB database
     
     :param video_data: Dictionary chứa thông tin video
     :param download_method: 'keyword' hoặc 'url'
     :return: True nếu thành công, False nếu thất bại
     """
-    connection = get_db_connection()
-    if not connection:
+    db = get_db_connection()
+    if db is None:
         return False
     
     try:
-        cursor = connection.cursor()
+        collection = db['downloaded_videos']
         
         # Kiểm tra xem video đã tồn tại chưa
-        check_query = "SELECT id FROM downloaded_videos WHERE video_id = %s"
-        cursor.execute(check_query, (video_data['id'],))
-        existing = cursor.fetchone()
+        existing = collection.find_one({'video_id': video_data['id']})
         
         if existing:
             print(f"  ⚠ Video {video_data['id']} đã tồn tại trong database, bỏ qua...")
             return False
-        
-        # Insert video mới
-        insert_query = """
-        INSERT INTO downloaded_videos 
-        (video_id, title, url, file_path, duration, fps, width, height, 
-         resolution, platform, keyword, download_method, downloaded_at)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """
         
         # Parse resolution để lấy width và height
         width = video_data.get('width')
@@ -74,35 +70,37 @@ def save_to_database(video_data, download_method='keyword'):
                 except:
                     width = height = None
         
-        values = (
-            video_data['id'],
-            video_data['title'],
-            video_data['url'],
-            video_data.get('file_path'),
-            video_data.get('duration'),
-            video_data.get('fps'),
-            width,
-            height,
-            video_data.get('resolution'),
-            video_data.get('platform', 'youtube'),
-            video_data.get('keyword'),
-            download_method,
-            datetime.now()
-        )
+        # Tạo document theo cấu trúc MongoDB
+        document = {
+            'video_id': video_data['id'],
+            'title': video_data['title'],
+            'url': video_data['url'],
+            'file_path': video_data.get('file_path'),
+            'media_type': 'mp4',  # Mặc định mp4
+            'metadata': {
+                'duration': video_data.get('duration'),
+                'fps': video_data.get('fps'),
+                'width': width,
+                'height': height,
+                'resolution': video_data.get('resolution') or (f"{width}x{height}" if width and height else None)
+            },
+            'platform': video_data.get('platform', 'youtube'),
+            'keyword': video_data.get('keyword'),
+            'download_method': download_method,
+            'downloaded_at': datetime.now(),
+            'created_at': datetime.now()
+        }
         
-        cursor.execute(insert_query, values)
-        connection.commit()
+        collection.insert_one(document)
         print(f"  ✓ Đã lưu video {video_data['id']} vào database")
         return True
         
-    except Error as e:
-        print(f"  ✗ Lỗi lưu vào database: {e}")
-        connection.rollback()
+    except DuplicateKeyError:
+        print(f"  ⚠ Video {video_data['id']} đã tồn tại trong database, bỏ qua...")
         return False
-    finally:
-        if connection.is_connected():
-            cursor.close()
-            connection.close()
+    except Exception as e:
+        print(f"  ✗ Lỗi lưu vào database: {e}")
+        return False
 
 # ==================== HÀM XỬ LÝ VIDEO CHUNG ====================
 def extract_video_info(entry, keyword=None):
@@ -195,19 +193,15 @@ def check_video_exists(video_id):
     :param video_id: ID video YouTube
     :return: True nếu đã tồn tại, False nếu chưa
     """
-    connection = get_db_connection()
-    if not connection:
+    db = get_db_connection()
+    if db is None:
         return False
     
     try:
-        cursor = connection.cursor()
-        check_query = "SELECT id FROM downloaded_videos WHERE video_id = %s"
-        cursor.execute(check_query, (video_id,))
-        exists = cursor.fetchone() is not None
-        cursor.close()
-        connection.close()
+        collection = db['downloaded_videos']
+        exists = collection.find_one({'video_id': video_id}) is not None
         return exists
-    except Error as e:
+    except Exception as e:
         print(f"  ⚠ Lỗi kiểm tra video: {e}")
         return False
 
@@ -303,18 +297,9 @@ def download_by_url(url):
             
             # Kiểm tra xem video đã tồn tại chưa
             video_id = info.get("id")
-            connection = get_db_connection()
-            if connection:
-                cursor = connection.cursor()
-                check_query = "SELECT id FROM downloaded_videos WHERE video_id = %s"
-                cursor.execute(check_query, (video_id,))
-                if cursor.fetchone():
-                    print(f"  ⚠ Video {video_id} đã tồn tại trong database!")
-                    cursor.close()
-                    connection.close()
-                    return None
-                cursor.close()
-                connection.close()
+            if check_video_exists(video_id):
+                print(f"  ⚠ Video {video_id} đã tồn tại trong database!")
+                return None
             
             # Tải video
             print("  --> Đang tải video...")
@@ -361,23 +346,28 @@ def search_videos_by_keyword(keyword):
     :param keyword: Từ khóa cần tìm
     :return: List các video tìm được
     """
-    connection = get_db_connection()
-    if not connection:
+    db = get_db_connection()
+    if db is None:
         return []
     
     try:
-        cursor = connection.cursor(dictionary=True)
-        query = "SELECT * FROM downloaded_videos WHERE keyword LIKE %s ORDER BY downloaded_at DESC"
-        cursor.execute(query, (f'%{keyword}%',))
-        results = cursor.fetchall()
+        collection = db['downloaded_videos']
+        # Tìm kiếm với regex không phân biệt hoa thường
+        query = {'keyword': {'$regex': keyword, '$options': 'i'}}
+        results = list(collection.find(query).sort('downloaded_at', -1))
+        
+        # Chuyển đổi ObjectId thành string và xử lý datetime
+        for result in results:
+            result['_id'] = str(result['_id'])
+            if 'downloaded_at' in result and isinstance(result['downloaded_at'], datetime):
+                result['downloaded_at'] = result['downloaded_at'].isoformat()
+            if 'created_at' in result and isinstance(result['created_at'], datetime):
+                result['created_at'] = result['created_at'].isoformat()
+        
         return results
-    except Error as e:
+    except Exception as e:
         print(f"Lỗi tìm kiếm: {e}")
         return []
-    finally:
-        if connection.is_connected():
-            cursor.close()
-            connection.close()
 
 # ==================== LẤY KEYWORDS TỪ DATABASE ====================
 def get_keywords_from_db(active_only=True, status_filter=None):
@@ -388,34 +378,36 @@ def get_keywords_from_db(active_only=True, status_filter=None):
     :param status_filter: Lọc theo status ('pending', 'processing', 'completed', 'failed', None = tất cả)
     :return: List các keywords
     """
-    connection = get_db_connection()
-    if not connection:
+    db = get_db_connection()
+    if db is None:
         print("✗ Không thể kết nối database")
         return []
     
     try:
-        cursor = connection.cursor(dictionary=True)
+        collection = db['keywords']
         
-        query = "SELECT * FROM keywords WHERE 1=1"
-        params = []
-        
+        # Xây dựng query
+        query = {}
         if active_only:
-            query += " AND is_active = TRUE"
+            query['is_active'] = True
         
         if status_filter:
-            query += " AND status = %s"
-            params.append(status_filter)
+            query['status'] = status_filter
         
-        query += " ORDER BY created_at ASC"
+        keywords = list(collection.find(query).sort('created_at', 1))
         
-        cursor.execute(query, params)
-        keywords = cursor.fetchall()
-        
-        cursor.close()
-        connection.close()
+        # Chuyển đổi ObjectId thành string và xử lý datetime
+        for kw in keywords:
+            kw['_id'] = str(kw['_id'])
+            if 'last_downloaded_at' in kw and kw['last_downloaded_at'] and isinstance(kw['last_downloaded_at'], datetime):
+                kw['last_downloaded_at'] = kw['last_downloaded_at'].isoformat()
+            if 'created_at' in kw and isinstance(kw['created_at'], datetime):
+                kw['created_at'] = kw['created_at'].isoformat()
+            if 'updated_at' in kw and isinstance(kw['updated_at'], datetime):
+                kw['updated_at'] = kw['updated_at'].isoformat()
         
         return keywords
-    except Error as e:
+    except Exception as e:
         print(f"✗ Lỗi khi lấy keywords từ database: {e}")
         return []
 
@@ -453,19 +445,25 @@ def auto_download_from_keywords(active_only=True, status_filter='pending'):
     for kw in keywords:
         keyword = kw['keyword']
         num_videos = kw['num_videos']
-        keyword_id = kw['id']
+        keyword_id = kw['_id']  # MongoDB sử dụng _id thay vì id
+        
+        # Chuyển đổi keyword_id thành ObjectId nếu là string
+        if isinstance(keyword_id, str):
+            keyword_obj_id = ObjectId(keyword_id)
+        else:
+            keyword_obj_id = keyword_id
         
         print(f"\n  📥 Đang xử lý: {keyword}")
         
         # Cập nhật status thành processing
-        connection = get_db_connection()
-        if connection:
+        db = get_db_connection()
+        if db is not None:
             try:
-                cursor = connection.cursor()
-                cursor.execute("UPDATE keywords SET status = 'processing' WHERE id = %s", (keyword_id,))
-                connection.commit()
-                cursor.close()
-                connection.close()
+                collection = db['keywords']
+                collection.update_one(
+                    {'_id': keyword_obj_id},
+                    {'$set': {'status': 'processing', 'updated_at': datetime.now()}}
+                )
             except:
                 pass
         
@@ -475,34 +473,35 @@ def auto_download_from_keywords(active_only=True, status_filter='pending'):
             
             if videos:
                 # Cập nhật status và số lượng đã tải
-                connection = get_db_connection()
-                if connection:
+                db = get_db_connection()
+                if db is not None:
                     try:
-                        cursor = connection.cursor()
-                        cursor.execute("""
-                            UPDATE keywords 
-                            SET status = 'completed', 
-                                total_downloaded = total_downloaded + %s,
-                                last_downloaded_at = NOW()
-                            WHERE id = %s
-                        """, (len(videos), keyword_id))
-                        connection.commit()
-                        cursor.close()
-                        connection.close()
+                        collection = db['keywords']
+                        collection.update_one(
+                            {'_id': keyword_obj_id},
+                            {
+                                '$set': {
+                                    'status': 'completed',
+                                    'last_downloaded_at': datetime.now(),
+                                    'updated_at': datetime.now()
+                                },
+                                '$inc': {'total_downloaded': len(videos)}
+                            }
+                        )
                         success_count += 1
                         print(f"  ✓ Hoàn thành: {len(videos)} video(s) đã tải")
                     except Exception as e:
                         print(f"  ⚠ Lỗi cập nhật database: {e}")
             else:
                 # Không tải được video nào
-                connection = get_db_connection()
-                if connection:
+                db = get_db_connection()
+                if db is not None:
                     try:
-                        cursor = connection.cursor()
-                        cursor.execute("UPDATE keywords SET status = 'failed' WHERE id = %s", (keyword_id,))
-                        connection.commit()
-                        cursor.close()
-                        connection.close()
+                        collection = db['keywords']
+                        collection.update_one(
+                            {'_id': keyword_obj_id},
+                            {'$set': {'status': 'failed', 'updated_at': datetime.now()}}
+                        )
                         failed_count += 1
                         print(f"  ✗ Không tải được video nào")
                     except:
@@ -510,14 +509,14 @@ def auto_download_from_keywords(active_only=True, status_filter='pending'):
         except Exception as e:
             print(f"  ✗ Lỗi: {e}")
             # Cập nhật status failed
-            connection = get_db_connection()
-            if connection:
+            db = get_db_connection()
+            if db is not None:
                 try:
-                    cursor = connection.cursor()
-                    cursor.execute("UPDATE keywords SET status = 'failed' WHERE id = %s", (keyword_id,))
-                    connection.commit()
-                    cursor.close()
-                    connection.close()
+                    collection = db['keywords']
+                    collection.update_one(
+                        {'_id': keyword_obj_id},
+                        {'$set': {'status': 'failed', 'updated_at': datetime.now()}}
+                    )
                     failed_count += 1
                 except:
                     pass

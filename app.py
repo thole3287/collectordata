@@ -2,9 +2,10 @@ from flask import Flask, render_template, jsonify, request, send_from_directory
 from flask_cors import CORS
 import threading
 import yt_downloaderpy as yt
-from datetime import datetime
-import mysql.connector
-from mysql.connector import Error
+from datetime import datetime, timedelta
+from pymongo import MongoClient
+from pymongo.errors import ConnectionFailure, DuplicateKeyError
+from bson import ObjectId
 import os
 import json
 from pathlib import Path
@@ -21,80 +22,79 @@ load_dotenv()
 
 # Database connection function
 def get_db_connection():
-    """Get MySQL database connection."""
+    """Get MongoDB database connection."""
     try:
-        connection = mysql.connector.connect(
-            host=os.getenv('DB_HOST', 'localhost'),
-            port=int(os.getenv('DB_PORT', 3306)),
-            database=os.getenv('DB_NAME', 'data_collection'),
-            user=os.getenv('DB_USER', 'root'),
-            password=os.getenv('DB_PASSWORD', '')
-        )
-        return connection
-    except Error as e:
-        print(f"Error connecting to MySQL: {e}")
+        db_host = os.getenv('DB_HOST', 'localhost')
+        db_port = int(os.getenv('DB_PORT', 27017))
+        db_name = os.getenv('DB_NAME', 'data_collection')
+        db_user = os.getenv('DB_USER', '')
+        db_password = os.getenv('DB_PASSWORD', '')
+        
+        if db_user and db_password:
+            connection_string = f"mongodb://{db_user}:{db_password}@{db_host}:{db_port}/"
+        else:
+            connection_string = f"mongodb://{db_host}:{db_port}/"
+        
+        client = MongoClient(connection_string)
+        # Test connection
+        client.admin.command('ping')
+        db = client[db_name]
+        return db
+    except (ConnectionFailure, Exception) as e:
+        print(f"Error connecting to MongoDB: {e}")
         return None
 
 def save_pexels_video_to_database(video_data, query, download_method='pexels'):
     """
-    Lưu thông tin video Pexels vào MySQL database
+    Lưu thông tin video Pexels vào MongoDB database
     
     :param video_data: Dictionary chứa thông tin video từ Pexels
     :param query: Từ khóa tìm kiếm
     :param download_method: 'pexels'
     :return: True nếu thành công, False nếu thất bại
     """
-    connection = get_db_connection()
-    if not connection:
+    db = get_db_connection()
+    if db is None:
         return False
     
     try:
-        cursor = connection.cursor()
+        collection = db['downloaded_videos']
         
         # Kiểm tra xem video đã tồn tại chưa
-        check_query = "SELECT id FROM downloaded_videos WHERE video_id = %s"
-        cursor.execute(check_query, (str(video_data['id']),))
-        existing = cursor.fetchone()
+        existing = collection.find_one({'video_id': str(video_data['id'])})
         
         if existing:
             return False
         
-        # Insert video mới
-        insert_query = """
-        INSERT INTO downloaded_videos 
-        (video_id, title, url, file_path, duration, fps, width, height, 
-         resolution, platform, keyword, download_method, downloaded_at)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """
+        # Tạo document theo cấu trúc MongoDB
+        document = {
+            'video_id': str(video_data['id']),
+            'title': video_data.get('title', f"Pexels Video {video_data['id']}"),
+            'url': video_data.get('url', f"https://www.pexels.com/video/{video_data['id']}/"),
+            'file_path': video_data.get('file_path'),
+            'media_type': 'mp4',
+            'metadata': {
+                'duration': video_data.get('duration'),
+                'fps': video_data.get('fps'),
+                'width': video_data.get('width'),
+                'height': video_data.get('height'),
+                'resolution': video_data.get('resolution') or (f"{video_data.get('width')}x{video_data.get('height')}" if video_data.get('width') and video_data.get('height') else None)
+            },
+            'platform': 'pexels',
+            'keyword': query,
+            'download_method': download_method,
+            'downloaded_at': datetime.now(),
+            'created_at': datetime.now()
+        }
         
-        values = (
-            str(video_data['id']),
-            video_data.get('title', f"Pexels Video {video_data['id']}"),
-            video_data.get('url', f"https://www.pexels.com/video/{video_data['id']}/"),
-            video_data.get('file_path'),
-            video_data.get('duration'),
-            video_data.get('fps'),
-            video_data.get('width'),
-            video_data.get('height'),
-            video_data.get('resolution'),
-            'pexels',
-            query,
-            download_method,
-            datetime.now()
-        )
-        
-        cursor.execute(insert_query, values)
-        connection.commit()
+        collection.insert_one(document)
         return True
         
-    except Error as e:
-        print(f"Error saving Pexels video to database: {e}")
-        connection.rollback()
+    except DuplicateKeyError:
         return False
-    finally:
-        if connection.is_connected():
-            cursor.close()
-            connection.close()
+    except Exception as e:
+        print(f"Error saving Pexels video to database: {e}")
+        return False
 
 app = Flask(__name__)
 CORS(app)
@@ -176,57 +176,47 @@ def index():
 def get_videos():
     """Lấy danh sách tất cả video từ database"""
     try:
-        connection = yt.get_db_connection()
-        if not connection:
+        db = yt.get_db_connection()
+        if db is None:
             return jsonify({'error': 'Không thể kết nối database'}), 500
         
-        cursor = connection.cursor(dictionary=True)
+        collection = db['downloaded_videos']
         
         # Lấy tham số phân trang
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 20, type=int)
         search = request.args.get('search', '', type=str)
         
-        # Query với tìm kiếm
+        # Xây dựng query
+        query = {}
         if search:
-            query = """
-                SELECT * FROM downloaded_videos 
-                WHERE title LIKE %s OR keyword LIKE %s OR video_id LIKE %s
-                ORDER BY downloaded_at DESC
-                LIMIT %s OFFSET %s
-            """
-            offset = (page - 1) * per_page
-            cursor.execute(query, (f'%{search}%', f'%{search}%', f'%{search}%', per_page, offset))
-        else:
-            query = "SELECT * FROM downloaded_videos ORDER BY downloaded_at DESC LIMIT %s OFFSET %s"
-            offset = (page - 1) * per_page
-            cursor.execute(query, (per_page, offset))
-        
-        videos = cursor.fetchall()
+            query = {
+                '$or': [
+                    {'title': {'$regex': search, '$options': 'i'}},
+                    {'keyword': {'$regex': search, '$options': 'i'}},
+                    {'video_id': {'$regex': search, '$options': 'i'}}
+                ]
+            }
         
         # Đếm tổng số video
-        if search:
-            count_query = """
-                SELECT COUNT(*) as total FROM downloaded_videos 
-                WHERE title LIKE %s OR keyword LIKE %s OR video_id LIKE %s
-            """
-            cursor.execute(count_query, (f'%{search}%', f'%{search}%', f'%{search}%'))
-        else:
-            cursor.execute("SELECT COUNT(*) as total FROM downloaded_videos")
+        total = collection.count_documents(query)
         
-        total = cursor.fetchone()['total']
+        # Lấy video với phân trang
+        offset = (page - 1) * per_page
+        videos = list(collection.find(query)
+                     .sort('downloaded_at', -1)
+                     .skip(offset)
+                     .limit(per_page))
         
-        # Convert datetime objects to strings
+        # Convert ObjectId và datetime objects to strings
         for video in videos:
-            if video.get('downloaded_at'):
-                video['downloaded_at'] = video['downloaded_at'].isoformat() if hasattr(video['downloaded_at'], 'isoformat') else str(video['downloaded_at'])
-            if video.get('created_at'):
-                video['created_at'] = video['created_at'].isoformat() if hasattr(video['created_at'], 'isoformat') else str(video['created_at'])
-            if video.get('updated_at'):
-                video['updated_at'] = video['updated_at'].isoformat() if hasattr(video['updated_at'], 'isoformat') else str(video['updated_at'])
-        
-        cursor.close()
-        connection.close()
+            video['_id'] = str(video['_id'])
+            if 'downloaded_at' in video and video['downloaded_at'] and isinstance(video['downloaded_at'], datetime):
+                video['downloaded_at'] = video['downloaded_at'].isoformat()
+            if 'created_at' in video and video['created_at'] and isinstance(video['created_at'], datetime):
+                video['created_at'] = video['created_at'].isoformat()
+            if 'updated_at' in video and video['updated_at'] and isinstance(video['updated_at'], datetime):
+                video['updated_at'] = video['updated_at'].isoformat()
         
         return jsonify({
             'videos': videos,
@@ -235,8 +225,6 @@ def get_videos():
             'per_page': per_page,
             'total_pages': (total + per_page - 1) // per_page
         })
-    except Error as e:
-        return jsonify({'error': f'Lỗi database: {str(e)}'}), 500
     except Exception as e:
         return jsonify({'error': f'Lỗi: {str(e)}'}), 500
 
@@ -328,29 +316,26 @@ def download_by_keyword_api():
 def get_stats():
     """Lấy thống kê tổng quan"""
     try:
-        connection = yt.get_db_connection()
-        if not connection:
+        db = yt.get_db_connection()
+        if db is None:
             return jsonify({'error': 'Không thể kết nối database'}), 500
         
-        cursor = connection.cursor(dictionary=True)
+        collection = db['downloaded_videos']
         
         # Tổng số video
-        cursor.execute("SELECT COUNT(*) as total FROM downloaded_videos")
-        total_videos = cursor.fetchone()['total']
+        total_videos = collection.count_documents({})
         
         # Video theo method
-        cursor.execute("SELECT download_method, COUNT(*) as count FROM downloaded_videos GROUP BY download_method")
-        by_method = {row['download_method']: row['count'] for row in cursor.fetchall()}
+        pipeline_method = [
+            {'$group': {'_id': '$download_method', 'count': {'$sum': 1}}}
+        ]
+        by_method = {}
+        for row in collection.aggregate(pipeline_method):
+            by_method[row['_id']] = row['count']
         
         # Video mới nhất trong 24h
-        cursor.execute("""
-            SELECT COUNT(*) as count FROM downloaded_videos 
-            WHERE downloaded_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-        """)
-        recent_24h = cursor.fetchone()['count']
-        
-        cursor.close()
-        connection.close()
+        yesterday = datetime.now() - timedelta(hours=24)
+        recent_24h = collection.count_documents({'downloaded_at': {'$gte': yesterday}})
         
         return jsonify({
             'total_videos': total_videos,
@@ -364,101 +349,100 @@ def get_stats():
 def get_visualization_data():
     """Lấy dữ liệu để visualize"""
     try:
-        connection = yt.get_db_connection()
-        if not connection:
+        db = yt.get_db_connection()
+        if db is None:
             return jsonify({'error': 'Không thể kết nối database'}), 500
         
-        cursor = connection.cursor(dictionary=True)
+        collection = db['downloaded_videos']
         
         # 1. Phân bố theo platform
-        cursor.execute("SELECT platform, COUNT(*) as count FROM downloaded_videos GROUP BY platform")
-        by_platform = [{'platform': row['platform'], 'count': row['count']} for row in cursor.fetchall()]
+        pipeline_platform = [
+            {'$group': {'_id': '$platform', 'count': {'$sum': 1}}}
+        ]
+        by_platform = [{'platform': row['_id'], 'count': row['count']} for row in collection.aggregate(pipeline_platform)]
         
         # 2. Phân bố theo keyword (top keywords) với platform
-        cursor.execute("""
-            SELECT 
-                keyword, 
-                COUNT(*) as count,
-                GROUP_CONCAT(DISTINCT platform ORDER BY platform SEPARATOR ', ') as platforms
-            FROM downloaded_videos 
-            WHERE keyword IS NOT NULL 
-            GROUP BY keyword 
-            ORDER BY count DESC 
-            LIMIT 20
-        """)
+        pipeline_keyword = [
+            {'$match': {'keyword': {'$ne': None}}},
+            {'$group': {
+                '_id': '$keyword',
+                'count': {'$sum': 1},
+                'platforms': {'$addToSet': '$platform'}
+            }},
+            {'$sort': {'count': -1}},
+            {'$limit': 20}
+        ]
         by_keyword = []
-        for row in cursor.fetchall():
-            platforms = row['platforms'].split(', ') if row['platforms'] else []
+        for row in collection.aggregate(pipeline_keyword):
             by_keyword.append({
-                'keyword': row['keyword'], 
+                'keyword': row['_id'],
                 'count': row['count'],
-                'platforms': platforms
+                'platforms': row['platforms']
             })
         
         # 3. Phân bố theo resolution
-        cursor.execute("""
-            SELECT resolution, COUNT(*) as count 
-            FROM downloaded_videos 
-            WHERE resolution IS NOT NULL 
-            GROUP BY resolution 
-            ORDER BY count DESC
-        """)
-        by_resolution = [{'resolution': row['resolution'], 'count': row['count']} for row in cursor.fetchall()]
+        pipeline_resolution = [
+            {'$match': {'metadata.resolution': {'$ne': None}}},
+            {'$group': {'_id': '$metadata.resolution', 'count': {'$sum': 1}}},
+            {'$sort': {'count': -1}}
+        ]
+        by_resolution = [{'resolution': row['_id'], 'count': row['count']} for row in collection.aggregate(pipeline_resolution)]
         
         # 4. Phân bố theo download method
-        cursor.execute("SELECT download_method, COUNT(*) as count FROM downloaded_videos GROUP BY download_method")
-        by_method = [{'method': row['download_method'], 'count': row['count']} for row in cursor.fetchall()]
+        pipeline_method = [
+            {'$group': {'_id': '$download_method', 'count': {'$sum': 1}}}
+        ]
+        by_method = [{'method': row['_id'], 'count': row['count']} for row in collection.aggregate(pipeline_method)]
         
         # 5. Video theo thời gian (theo ngày)
-        cursor.execute("""
-            SELECT DATE(downloaded_at) as date, COUNT(*) as count 
-            FROM downloaded_videos 
-            GROUP BY DATE(downloaded_at) 
-            ORDER BY date DESC 
-            LIMIT 30
-        """)
-        by_date = [{'date': str(row['date']), 'count': row['count']} for row in cursor.fetchall()]
+        pipeline_date = [
+            {
+                '$group': {
+                    '_id': {'$dateToString': {'format': '%Y-%m-%d', 'date': '$downloaded_at'}},
+                    'count': {'$sum': 1}
+                }
+            },
+            {'$sort': {'_id': -1}},
+            {'$limit': 30}
+        ]
+        by_date = [{'date': row['_id'], 'count': row['count']} for row in collection.aggregate(pipeline_date)]
         
         # 6. Phân bố theo duration (ranges)
-        cursor.execute("""
-            SELECT 
-                CASE 
-                    WHEN duration < 60 THEN '0-60s'
-                    WHEN duration < 300 THEN '1-5min'
-                    WHEN duration < 600 THEN '5-10min'
-                    WHEN duration < 1800 THEN '10-30min'
-                    ELSE '30min+'
-                END as duration_range,
-                COUNT(*) as count
-            FROM downloaded_videos 
-            WHERE duration IS NOT NULL
-            GROUP BY duration_range
-            ORDER BY 
-                CASE duration_range
-                    WHEN '0-60s' THEN 1
-                    WHEN '1-5min' THEN 2
-                    WHEN '5-10min' THEN 3
-                    WHEN '10-30min' THEN 4
-                    ELSE 5
-                END
-        """)
-        by_duration = [{'range': row['duration_range'], 'count': row['count']} for row in cursor.fetchall()]
+        pipeline_duration = [
+            {'$match': {'metadata.duration': {'$ne': None}}},
+            {
+                '$addFields': {
+                    'duration_range': {
+                        '$switch': {
+                            'branches': [
+                                {'case': {'$lt': ['$metadata.duration', 60]}, 'then': '0-60s'},
+                                {'case': {'$lt': ['$metadata.duration', 300]}, 'then': '1-5min'},
+                                {'case': {'$lt': ['$metadata.duration', 600]}, 'then': '5-10min'},
+                                {'case': {'$lt': ['$metadata.duration', 1800]}, 'then': '10-30min'},
+                                {'case': {'$gte': ['$metadata.duration', 1800]}, 'then': '30min+'}
+                            ],
+                            'default': 'unknown'
+                        }
+                    }
+                }
+            },
+            {'$group': {'_id': '$duration_range', 'count': {'$sum': 1}}}
+        ]
+        by_duration_raw = list(collection.aggregate(pipeline_duration))
+        
+        # Sắp xếp theo thứ tự logic
+        order_map = {'0-60s': 1, '1-5min': 2, '5-10min': 3, '10-30min': 4, '30min+': 5}
+        by_duration = sorted(
+            [{'range': row['_id'], 'count': row['count']} for row in by_duration_raw],
+            key=lambda x: order_map.get(x['range'], 99)
+        )
         
         # 7. Data quality check
-        cursor.execute("SELECT COUNT(*) as total FROM downloaded_videos")
-        total = cursor.fetchone()['total']
-        
-        cursor.execute("SELECT COUNT(*) as count FROM downloaded_videos WHERE file_path IS NOT NULL")
-        has_file = cursor.fetchone()['count']
-        
-        cursor.execute("SELECT COUNT(*) as count FROM downloaded_videos WHERE duration IS NOT NULL")
-        has_duration = cursor.fetchone()['count']
-        
-        cursor.execute("SELECT COUNT(*) as count FROM downloaded_videos WHERE resolution IS NOT NULL")
-        has_resolution = cursor.fetchone()['count']
-        
-        cursor.execute("SELECT COUNT(*) as count FROM downloaded_videos WHERE keyword IS NOT NULL")
-        has_keyword = cursor.fetchone()['count']
+        total = collection.count_documents({})
+        has_file = collection.count_documents({'file_path': {'$ne': None}})
+        has_duration = collection.count_documents({'metadata.duration': {'$ne': None}})
+        has_resolution = collection.count_documents({'metadata.resolution': {'$ne': None}})
+        has_keyword = collection.count_documents({'keyword': {'$ne': None}})
         
         quality_stats = {
             'total': total,
@@ -473,9 +457,6 @@ def get_visualization_data():
                 'keyword': round((has_keyword / total * 100) if total > 0 else 0, 2),
             }
         }
-        
-        cursor.close()
-        connection.close()
         
         return jsonify({
             'by_platform': by_platform,
@@ -495,41 +476,31 @@ def get_visualization_data():
 def get_keywords():
     """Lấy danh sách keywords"""
     try:
-        connection = yt.get_db_connection()
-        if not connection:
+        db = yt.get_db_connection()
+        if db is None:
             return jsonify({'error': 'Không thể kết nối database'}), 500
         
-        cursor = connection.cursor(dictionary=True)
+        collection = db['keywords']
         
         # Lấy tham số active_only
         active_only = request.args.get('active_only', 'false').lower() == 'true'
         
+        # Xây dựng query
+        query = {}
         if active_only:
-            query = """
-                SELECT * FROM keywords 
-                WHERE is_active = TRUE
-                ORDER BY created_at DESC
-            """
-        else:
-            query = """
-                SELECT * FROM keywords 
-                ORDER BY created_at DESC
-            """
+            query['is_active'] = True
         
-        cursor.execute(query)
-        keywords = cursor.fetchall()
+        keywords = list(collection.find(query).sort('created_at', -1))
         
-        # Convert datetime objects to strings
+        # Convert ObjectId và datetime objects to strings
         for kw in keywords:
-            if kw.get('last_downloaded_at'):
-                kw['last_downloaded_at'] = kw['last_downloaded_at'].isoformat() if hasattr(kw['last_downloaded_at'], 'isoformat') else str(kw['last_downloaded_at'])
-            if kw.get('created_at'):
-                kw['created_at'] = kw['created_at'].isoformat() if hasattr(kw['created_at'], 'isoformat') else str(kw['created_at'])
-            if kw.get('updated_at'):
-                kw['updated_at'] = kw['updated_at'].isoformat() if hasattr(kw['updated_at'], 'isoformat') else str(kw['updated_at'])
-        
-        cursor.close()
-        connection.close()
+            kw['_id'] = str(kw['_id'])
+            if 'last_downloaded_at' in kw and kw['last_downloaded_at'] and isinstance(kw['last_downloaded_at'], datetime):
+                kw['last_downloaded_at'] = kw['last_downloaded_at'].isoformat()
+            if 'created_at' in kw and isinstance(kw['created_at'], datetime):
+                kw['created_at'] = kw['created_at'].isoformat()
+            if 'updated_at' in kw and isinstance(kw['updated_at'], datetime):
+                kw['updated_at'] = kw['updated_at'].isoformat()
         
         return jsonify({'keywords': keywords})
     except Exception as e:
@@ -547,136 +518,145 @@ def create_keyword():
         if not keyword:
             return jsonify({'error': 'Vui lòng nhập từ khóa'}), 400
         
-        connection = yt.get_db_connection()
-        if not connection:
+        db = yt.get_db_connection()
+        if db is None:
             return jsonify({'error': 'Không thể kết nối database'}), 500
         
-        cursor = connection.cursor()
+        collection = db['keywords']
         try:
-            cursor.execute("""
-                INSERT INTO keywords (keyword, num_videos, description, status)
-                VALUES (%s, %s, %s, 'pending')
-            """, (keyword, num_videos, description))
-            connection.commit()
-            keyword_id = cursor.lastrowid
-            cursor.close()
-            connection.close()
+            # Kiểm tra keyword đã tồn tại chưa
+            existing = collection.find_one({'keyword': keyword})
+            if existing:
+                return jsonify({'error': 'Keyword đã tồn tại'}), 400
+            
+            # Tạo document mới
+            now = datetime.now()
+            document = {
+                'keyword': keyword,
+                'num_videos': num_videos,
+                'status': 'pending',
+                'total_downloaded': 0,
+                'last_downloaded_at': None,
+                'description': description,
+                'is_active': True,
+                'created_at': now,
+                'updated_at': now
+            }
+            
+            result = collection.insert_one(document)
             
             return jsonify({
                 'message': 'Đã thêm keyword thành công',
-                'id': keyword_id
+                'id': str(result.inserted_id)
             })
-        except mysql.connector.IntegrityError:
-            connection.rollback()
-            cursor.close()
-            connection.close()
+        except DuplicateKeyError:
             return jsonify({'error': 'Keyword đã tồn tại'}), 400
     except Exception as e:
         return jsonify({'error': f'Lỗi: {str(e)}'}), 500
 
-@app.route('/api/keywords/<int:keyword_id>', methods=['PUT'])
+@app.route('/api/keywords/<keyword_id>', methods=['PUT'])
 def update_keyword(keyword_id):
     """Cập nhật keyword"""
     try:
         data = request.json
-        connection = yt.get_db_connection()
-        if not connection:
+        db = yt.get_db_connection()
+        if db is None:
             return jsonify({'error': 'Không thể kết nối database'}), 500
         
-        cursor = connection.cursor(dictionary=True)
+        collection = db['keywords']
         
         # Kiểm tra keyword có tồn tại không
-        cursor.execute("SELECT id FROM keywords WHERE id = %s", (keyword_id,))
-        if not cursor.fetchone():
-            cursor.close()
-            connection.close()
+        try:
+            keyword_obj_id = ObjectId(keyword_id)
+        except:
+            return jsonify({'error': 'Keyword ID không hợp lệ'}), 400
+        
+        existing = collection.find_one({'_id': keyword_obj_id})
+        if not existing:
             return jsonify({'error': 'Keyword không tồn tại'}), 404
         
-        # Cập nhật keyword
-        update_fields = []
-        values = []
+        # Xây dựng update document
+        update_doc = {'updated_at': datetime.now()}
         
         if 'keyword' in data:
-            update_fields.append("keyword = %s")
-            values.append(data['keyword'])
+            update_doc['keyword'] = data['keyword']
         
         if 'num_videos' in data:
-            update_fields.append("num_videos = %s")
-            values.append(int(data['num_videos']))
+            update_doc['num_videos'] = int(data['num_videos'])
         
         if 'description' in data:
-            update_fields.append("description = %s")
-            values.append(data['description'])
+            update_doc['description'] = data['description']
         
         if 'is_active' in data:
-            update_fields.append("is_active = %s")
-            values.append(bool(data['is_active']))
+            update_doc['is_active'] = bool(data['is_active'])
         
         if 'status' in data:
-            update_fields.append("status = %s")
-            values.append(data['status'])
+            update_doc['status'] = data['status']
         
-        if not update_fields:
-            cursor.close()
-            connection.close()
+        if len(update_doc) == 1:  # Chỉ có updated_at
             return jsonify({'error': 'Không có trường nào để cập nhật'}), 400
         
-        update_fields.append("updated_at = NOW()")
-        values.append(keyword_id)
-        
-        query = f"UPDATE keywords SET {', '.join(update_fields)} WHERE id = %s"
-        cursor.execute(query, values)
-        connection.commit()
-        cursor.close()
-        connection.close()
+        collection.update_one(
+            {'_id': keyword_obj_id},
+            {'$set': update_doc}
+        )
         
         return jsonify({'message': 'Đã cập nhật keyword thành công'}), 200
     except Exception as e:
         return jsonify({'error': f'Lỗi: {str(e)}'}), 500
 
-@app.route('/api/keywords/<int:keyword_id>', methods=['DELETE'])
+@app.route('/api/keywords/<keyword_id>', methods=['DELETE'])
 def delete_keyword(keyword_id):
     """Xóa keyword"""
     try:
-        connection = yt.get_db_connection()
-        if not connection:
+        db = yt.get_db_connection()
+        if db is None:
             return jsonify({'error': 'Không thể kết nối database'}), 500
         
-        cursor = connection.cursor()
-        cursor.execute("DELETE FROM keywords WHERE id = %s", (keyword_id,))
-        connection.commit()
-        cursor.close()
-        connection.close()
+        collection = db['keywords']
+        
+        try:
+            keyword_obj_id = ObjectId(keyword_id)
+        except:
+            return jsonify({'error': 'Keyword ID không hợp lệ'}), 400
+        
+        result = collection.delete_one({'_id': keyword_obj_id})
+        
+        if result.deleted_count == 0:
+            return jsonify({'error': 'Keyword không tồn tại'}), 404
         
         return jsonify({'message': 'Đã xóa keyword thành công'})
     except Exception as e:
         return jsonify({'error': f'Lỗi: {str(e)}'}), 500
 
-@app.route('/api/keywords/<int:keyword_id>/download', methods=['POST'])
+@app.route('/api/keywords/<keyword_id>/download', methods=['POST'])
 def download_by_keyword_id(keyword_id):
     """Tải video từ keyword ID"""
     try:
-        connection = yt.get_db_connection()
-        if not connection:
+        db = yt.get_db_connection()
+        if db is None:
             return jsonify({'error': 'Không thể kết nối database'}), 500
         
-        cursor = connection.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM keywords WHERE id = %s", (keyword_id,))
-        keyword_data = cursor.fetchone()
+        collection = db['keywords']
+        
+        try:
+            keyword_obj_id = ObjectId(keyword_id)
+        except:
+            return jsonify({'error': 'Keyword ID không hợp lệ'}), 400
+        
+        keyword_data = collection.find_one({'_id': keyword_obj_id})
         
         if not keyword_data:
-            cursor.close()
-            connection.close()
             return jsonify({'error': 'Keyword không tồn tại'}), 404
         
         keyword = keyword_data['keyword']
         num_videos = keyword_data['num_videos']
         
         # Cập nhật status
-        cursor.execute("UPDATE keywords SET status = 'processing' WHERE id = %s", (keyword_id,))
-        connection.commit()
-        cursor.close()
-        connection.close()
+        collection.update_one(
+            {'_id': keyword_obj_id},
+            {'$set': {'status': 'processing', 'updated_at': datetime.now()}}
+        )
         
         # Chạy download trong thread riêng
         def download_thread():
@@ -699,29 +679,30 @@ def download_by_keyword_id(keyword_id):
                             json.dump(extract_result, f, ensure_ascii=False, indent=2)
                 
                 # Cập nhật status và số lượng đã tải
-                connection = yt.get_db_connection()
-                if connection:
-                    cursor = connection.cursor()
-                    cursor.execute("""
-                        UPDATE keywords 
-                        SET status = 'completed', 
-                            total_downloaded = total_downloaded + %s,
-                            last_downloaded_at = NOW()
-                        WHERE id = %s
-                    """, (len(videos) if videos else 0, keyword_id))
-                    connection.commit()
-                    cursor.close()
-                    connection.close()
+                db = yt.get_db_connection()
+                if db is not None:
+                    collection = db['keywords']
+                    collection.update_one(
+                        {'_id': keyword_obj_id},
+                        {
+                            '$set': {
+                                'status': 'completed',
+                                'last_downloaded_at': datetime.now(),
+                                'updated_at': datetime.now()
+                            },
+                            '$inc': {'total_downloaded': len(videos) if videos else 0}
+                        }
+                    )
             except Exception as e:
                 print(f"Lỗi khi tải từ keyword {keyword}: {e}")
                 # Cập nhật status failed
-                connection = yt.get_db_connection()
-                if connection:
-                    cursor = connection.cursor()
-                    cursor.execute("UPDATE keywords SET status = 'failed' WHERE id = %s", (keyword_id,))
-                    connection.commit()
-                    cursor.close()
-                    connection.close()
+                db = yt.get_db_connection()
+                if db is not None:
+                    collection = db['keywords']
+                    collection.update_one(
+                        {'_id': keyword_obj_id},
+                        {'$set': {'status': 'failed', 'updated_at': datetime.now()}}
+                    )
         
         thread = threading.Thread(target=download_thread)
         thread.daemon = True
