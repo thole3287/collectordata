@@ -15,6 +15,7 @@ import services.video_service as video_service
 import services.keyword_service as keyword_service
 # MinIO service (rename helper use)
 import services.minio_service as minio_service
+import services.auto_collector_service as auto_collector_service
 import cv2
 import numpy as np
 
@@ -197,6 +198,24 @@ def download_by_keyword_api():
         'message': f'Đã bắt đầu tải video cho từ khóa: {keyword}',
         'status': 'processing'
     })
+
+# ==================== ROUTES: AUTO COLLECTOR ====================
+
+@app.route('/api/auto-collector/start', methods=['POST'])
+def start_auto_collector():
+    result = auto_collector_service.auto_collector.start()
+    return jsonify(result)
+
+@app.route('/api/auto-collector/stop', methods=['POST'])
+def stop_auto_collector():
+    result = auto_collector_service.auto_collector.stop()
+    return jsonify(result)
+
+@app.route('/api/auto-collector/status', methods=['GET'])
+def get_auto_collector_status():
+    result = auto_collector_service.auto_collector.get_status()
+    return jsonify(result)
+
 
 # ==================== ROUTES: STATS ====================
 

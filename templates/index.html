@@ -93,6 +93,51 @@
                     <h2 class="text-2xl font-semibold text-gray-800"
                         x-text="activeTab === 'visualization' ? 'Visualize Data' : activeTab === 'download' ? 'Tải Video Youtube' : activeTab === 'videos' ? 'Danh Sách Video' : activeTab === 'keywords' ? 'Quản Lý Keywords' : activeTab === 'camera' ? 'Camera Collector' : activeTab === 'pexels' ? 'Pexels Dataset' : ''">
                     </h2>
+
+                    <!-- Auto Run Toggle -->
+                    <div class="flex items-center gap-4 ml-auto mr-4" x-data="{
+                        autoStatus: false,
+                        autoMessage: '',
+                        async checkStatus() {
+                            try {
+                                const response = await fetch('/api/auto-collector/status');
+                                const data = await response.json();
+                                this.autoStatus = data.is_running;
+                                this.autoMessage = data.message;
+                            } catch(e) { console.error(e); }
+                        },
+                        async toggleAuto() {
+                            const endpoint = this.autoStatus ? '/api/auto-collector/stop' : '/api/auto-collector/start';
+                            try {
+                                const response = await fetch(endpoint, { method: 'POST' });
+                                const data = await response.json();
+                                if(data.success) {
+                                    this.autoStatus = !this.autoStatus;
+                                    this.checkStatus();
+                                }
+                            } catch(e) { alert('Error toggling auto collector'); }
+                        }
+                    }" x-init="checkStatus(); setInterval(() => checkStatus(), 5000)">
+                        <div class="flex items-center gap-2">
+                            <div class="text-xs text-right hidden sm:block">
+                                <span class="block font-bold" :class="autoStatus ? 'text-green-600' : 'text-gray-500'">
+                                    AUTO RUN
+                                </span>
+                                <span class="block text-gray-400" x-text="autoMessage"
+                                    style="max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></span>
+                            </div>
+                            <button @click="toggleAuto()"
+                                class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                                :class="autoStatus ? 'bg-green-600' : 'bg-gray-200'" role="switch"
+                                :aria-checked="autoStatus">
+                                <span aria-hidden="true"
+                                    class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                                    :class="autoStatus ? 'translate-x-5' : 'translate-x-0'">
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="flex items-center gap-4">
                         <button @click="loadVideos()" class="text-gray-600 hover:text-gray-900">
                             <i class="fas fa-sync-alt"></i>
