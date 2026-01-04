@@ -150,20 +150,30 @@ def download_file(bucket_name, object_name, file_path):
         return False
 
 
+# Public access configuration (for browser)
+MINIO_PUBLIC_ENDPOINT = os.getenv('MINIO_PUBLIC_ENDPOINT', 'localhost')
+MINIO_PUBLIC_PORT = int(os.getenv('MINIO_PUBLIC_PORT', 9000))
+
+def get_public_minio_client():
+    """
+    Tạo MinIO client cho public URL generation (không check connection)
+    """
+    endpoint = f"{MINIO_PUBLIC_ENDPOINT}:{MINIO_PUBLIC_PORT}"
+    return Minio(
+        endpoint,
+        access_key=MINIO_ACCESS_KEY,
+        secret_key=MINIO_SECRET_KEY,
+        secure=MINIO_USE_SSL
+    )
+
 def get_file_url(bucket_name, object_name, expires=3600):
     """
     Lấy presigned URL để truy cập file (tạm thời)
-    
-    Args:
-        bucket_name: Tên bucket
-        object_name: Tên object
-        expires: Thời gian hết hạn (giây), mặc định 1 giờ
-    
-    Returns:
-        URL string hoặc None nếu lỗi
+    Sử dụng public endpoint để browser có thể truy cập
     """
     try:
-        client = get_minio_client()
+        # Use public client to generate URL accessible from browser
+        client = get_public_minio_client()
         url = client.presigned_get_object(bucket_name, object_name, expires=expires)
         return url
     except S3Error as e:

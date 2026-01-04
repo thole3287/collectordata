@@ -218,3 +218,52 @@ def remove_camera_from_collection(camera_id):
         return True, "Camera removed successfully"
     except Exception as e:
         return False, str(e)
+
+def get_recent_images_from_db(limit: int = 10):
+    """Get recent collected images from MongoDB."""
+    try:
+        import services.database as db_service
+        import services.minio_service as minio_service
+        
+        db = db_service.get_db_connection()
+        if db is None:
+            return []
+        
+        collection = db['camera_images']
+        
+        # Query: Sort by timestamp desc, limit
+        cursor = collection.find().sort('timestamp', -1).limit(limit)
+        
+        images = []
+        for doc in cursor:
+            # Create a simplified object for frontend
+            img_data = {
+                'id': str(doc.get('_id')),
+                'camera_id': doc.get('camera_id'),
+                'camera_name': doc.get('camera_name'),
+                'timestamp': doc.get('timestamp').isoformat() if doc.get('timestamp') else None,
+            }
+            
+            # Generate Presigned URL if MinIO key exists
+            if 'storage_refs' in doc:
+                bucket = doc['storage_refs'].get('bucket')
+                key = doc['storage_refs'].get('key')
+                if bucket and key:
+                    # Use Proxy URL instead of direct MinIO URL to solve network/CORS/Mixed-Content issues
+                    # url = minio_service.get_file_url(bucket, key, expires=3600)
+                    url = f"/api/image-proxy?bucket={bucket}&key={key}"
+                    if url:
+                        img_data['url'] = url
+            
+            # Legacy fallback: if no URL, try to provide a 'path' if it existed, 
+            # though locally they are deleted. But for the frontend loop key, 'id' is now provided.
+            # We also provide 'path' as a fallback for the key if 'id' fails, but 'id' should be there.
+            if 'file_path' in doc and 'url' not in img_data:
+                 img_data['path'] = os.path.basename(doc['file_path'])
+
+            images.append(img_data)
+            
+        return images
+    except Exception as e:
+        print(f"Error fetching recent images from DB: {e}")
+        return []

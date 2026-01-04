@@ -2,6 +2,10 @@ import os
 import cv2
 import json
 import threading
+import services.database as db_service
+import services.minio_service as minio_service
+from datetime import datetime
+import numpy as np
 
 FRAMES_OUTPUT_ROOT = "dataset_extracted"
 VALID_VIDEO_EXTENSIONS = ('.mp4', '.avi', '.mov', '.mkv', '.wmv')
@@ -66,11 +70,58 @@ def extract_frames_from_folder(input_folder, output_root=None, progress_file_pat
                 if count % frame_step == 0:
                     try:
                         resized_frame = cv2.resize(frame, (TARGET_WIDTH, TARGET_HEIGHT), interpolation=cv2.INTER_AREA)
-                        filename = f"{video_name}_fr{saved_count:05d}.jpg"
+                        
+                        # Convert to 16-bit PNG (scale up)
+                        frame_16bit = resized_frame.astype(np.uint16) * 256
+                        
+                        # Save as .png
+                        filename = f"{video_name}_fr{saved_count:05d}.png"
                         save_path = os.path.join(current_output_dir, filename)
-                        cv2.imwrite(save_path, resized_frame)
+                        
+                        # Use cv2.imwrite for 16-bit PNG
+                        cv2.imwrite(save_path, frame_16bit)
+                        
+                        # --- MinIO & MongoDB Integration ---
+                        try:
+                            # 1. Upload to MinIO (as PNG)
+                            object_name = f"{video_name}/{filename}"
+                            upload_result = minio_service.upload_file(save_path, minio_service.MINIO_BUCKET_FRAMES, object_name)
+                            
+                            minio_key = None
+                            minio_url_path = None
+                            
+                            if upload_result['success']:
+                                minio_key = upload_result['key']
+                                minio_url_path = f"{minio_service.MINIO_BUCKET_FRAMES}/{minio_key}"
+                            
+                            # 2. Save Metadata to MongoDB
+                            db = db_service.get_db_connection()
+                            if db is not None:
+                                doc = {
+                                    'video_name': video_name,
+                                    'frame_index': saved_count,
+                                    'original_video_path': video_path,
+                                    'timestamp': datetime.now(),
+                                    'file_size': os.path.getsize(save_path),
+                                    'created_at': datetime.now()
+                                }
+                                
+                                if minio_key:
+                                    doc['storage_refs'] = {
+                                        'bucket': minio_service.MINIO_BUCKET_FRAMES,
+                                        'key': minio_key
+                                    }
+                                    doc['minio_url_path'] = minio_url_path
+                                
+                                db['video_frames'].insert_one(doc)
+                                
+                        except Exception as e:
+                            print(f"Error saving frame metadata: {e}")
+                        # -----------------------------------
+                        
                         saved_count += 1
                     except Exception as e:
+                        print(f"Error extracting frame: {e}")
                         pass
 
                 count += 1

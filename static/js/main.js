@@ -59,6 +59,14 @@ function app() {
         notificationMessage: '',
         notificationType: 'success',
 
+        // Missing state variables fixed
+        editKeywordForm: {
+            keyword: '',
+            num_videos: 1,
+            description: ''
+        },
+        updatingKeyword: false,
+
         // Methods
         async downloadByUrl() {
             if (!this.urlInput.trim()) {
@@ -199,17 +207,17 @@ function app() {
 
             this.videosTableBody = this.videos.map(video => {
                 // Lấy duration và resolution từ metadata
-                const duration = (video.metadata && video.metadata.duration) 
-                    ? this.formatDuration(video.metadata.duration) 
+                const duration = (video.metadata && video.metadata.duration)
+                    ? this.formatDuration(video.metadata.duration)
                     : (video.duration ? this.formatDuration(video.duration) : 'N/A');
-                const resolution = (video.metadata && video.metadata.resolution) 
-                    ? video.metadata.resolution 
+                const resolution = (video.metadata && video.metadata.resolution)
+                    ? video.metadata.resolution
                     : (video.resolution || 'N/A');
-                const method = video.download_method === 'url' 
+                const method = video.download_method === 'url'
                     ? '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">URL</span>'
                     : '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Keyword</span>';
                 const keyword = video.keyword || '-';
-                const downloadedAt = video.downloaded_at 
+                const downloadedAt = video.downloaded_at
                     ? new Date(video.downloaded_at).toLocaleString('vi-VN')
                     : 'N/A';
 
@@ -261,7 +269,7 @@ function app() {
             const hours = Math.floor(seconds / 3600);
             const minutes = Math.floor((seconds % 3600) / 60);
             const secs = seconds % 60;
-            
+
             if (hours > 0) {
                 return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
             }
@@ -277,7 +285,7 @@ function app() {
             // Sử dụng Toastify để hiển thị thông báo
             const backgroundColor = type === 'success' ? '#10B981' : type === 'error' ? '#EF4444' : '#3B82F6';
             const icon = type === 'success' ? '✓' : type === 'error' ? '✗' : 'ℹ';
-            
+
             Toastify({
                 text: `${icon} ${message}`,
                 duration: 5000,
@@ -294,7 +302,7 @@ function app() {
                     boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)"
                 }
             }).showToast();
-            
+
             // Giữ lại notification cũ để tương thích
             this.notificationMessage = message;
             this.notificationType = type;
@@ -443,7 +451,7 @@ function app() {
                     </tr>
                 `;
             }).join('');
-            
+
             // Setup event listeners sau khi render
             setTimeout(() => this.setupKeywordActions(), 100);
         },
@@ -509,14 +517,14 @@ function app() {
             // Kiểm tra kết quả extract frames sau khi download YouTube xong
             let attempts = 0;
             const maxAttempts = 120; // Tối đa 10 phút (120 * 5s)
-            
+
             const checkInterval = setInterval(async () => {
                 attempts++;
-                
+
                 try {
                     const response = await fetch('/api/frames/youtube-result');
                     const data = await response.json();
-                    
+
                     if (data.exists && data.result) {
                         clearInterval(checkInterval);
                         if (data.result.success) {
@@ -548,14 +556,14 @@ function app() {
             // Kiểm tra kết quả extract frames sau khi download Pexels xong
             let attempts = 0;
             const maxAttempts = 120; // Tối đa 10 phút (120 * 5s)
-            
+
             const checkInterval = setInterval(async () => {
                 attempts++;
-                
+
                 try {
                     const response = await fetch('/api/frames/result');
                     const result = await response.json();
-                    
+
                     if (result.success !== undefined) {
                         clearInterval(checkInterval);
                         if (result.success) {
@@ -589,7 +597,7 @@ function app() {
                 const newBtn = btn.cloneNode(true);
                 btn.parentNode.replaceChild(newBtn, btn);
             });
-            
+
             // Add new event listeners
             document.querySelectorAll('.keyword-action-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
@@ -597,9 +605,9 @@ function app() {
                     e.stopPropagation();
                     const keywordId = btn.getAttribute('data-keyword-id'); // MongoDB dùng string ID
                     const action = btn.getAttribute('data-action');
-                    
+
                     console.log('Keyword action clicked:', action, keywordId); // Debug
-                    
+
                     if (action === 'edit') {
                         this.editKeyword(keywordId);
                     } else if (action === 'download') {
@@ -614,17 +622,17 @@ function app() {
         editKeyword(keywordId) {
             console.log('Edit keyword called with ID:', keywordId); // Debug
             console.log('Available keywords:', this.keywords.map(kw => ({ id: kw._id || kw.id, keyword: kw.keyword }))); // Debug
-            
+
             const keyword = this.keywords.find(kw => {
                 const kwId = kw._id || kw.id;
                 return String(kwId) === String(keywordId);
             });
-            
+
             if (!keyword) {
                 this.showNotify('Không tìm thấy keyword với ID: ' + keywordId, 'error');
                 return;
             }
-            
+
             this.editingKeyword = keywordId;
             this.editKeywordForm = {
                 keyword: keyword.keyword,
@@ -711,14 +719,14 @@ function app() {
         onKeywordSelect() {
             console.log('Keyword selected:', this.selectedKeywordId); // Debug
             console.log('Available keywords:', this.activeKeywords.map(kw => ({ id: kw._id || kw.id, keyword: kw.keyword }))); // Debug
-            
+
             if (this.selectedKeywordId) {
                 const selectedKw = this.activeKeywords.find(kw => {
                     const kwId = String(kw._id || kw.id);
                     const selectedId = String(this.selectedKeywordId);
                     return kwId === selectedId;
                 });
-                
+
                 if (selectedKw) {
                     this.selectedKeyword = selectedKw;
                     this.numVideos = selectedKw.num_videos || 1;
@@ -811,7 +819,7 @@ function app() {
                         'url': 'URL',
                         'pexels': 'Pexels Dataset'
                     };
-                    
+
                     this.charts.method = new Chart(ctx, {
                         type: 'pie',
                         data: {
@@ -978,7 +986,7 @@ function app() {
                 gridSize: Math.round(16 / Math.sqrt(Math.max(words.length, 1))),
                 weightFactor: 1,
                 fontFamily: 'Arial, sans-serif',
-                color: function() {
+                color: function () {
                     const colors = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444', '#06B6D4'];
                     return colors[Math.floor(Math.random() * colors.length)];
                 },
@@ -989,13 +997,13 @@ function app() {
                 drawOutOfBound: false,
                 shrinkToFit: true,
                 // Hover callback - this is the key feature!
-                hover: function(item, dimension, event) {
+                hover: function (item, dimension, event) {
                     if (item) {
                         const keyword = item[0];
                         const keywordData = keywordMap[keyword] || { count: 0, platforms: [] };
                         const count = keywordData.count;
                         const platforms = keywordData.platforms || [];
-                        
+
                         // Format platform display
                         let platformText = '';
                         if (platforms.length > 0) {
@@ -1006,7 +1014,7 @@ function app() {
                             const formattedPlatforms = platforms.map(p => platformLabels[p.toLowerCase()] || p).join(', ');
                             platformText = `<div style="font-size: 11px; color: #60A5FA; margin-top: 4px;">Platform: ${formattedPlatforms}</div>`;
                         }
-                        
+
                         tooltip.style.display = 'block';
                         tooltip.innerHTML = `
                             <div style="font-weight: bold; margin-bottom: 4px;">${keyword}</div>
@@ -1056,12 +1064,12 @@ function app() {
         },
 
         // ==================== CAMERA COLLECTOR FUNCTIONS ====================
-        
+
         async loadCameraStatus() {
             try {
                 const response = await fetch('/api/camera/status');
                 const data = await response.json();
-                
+
                 if (response.ok) {
                     this.cameraSchedulerRunning = data.scheduler_running || false;
                     this.cameraLastCollection = data.last_collection ? this.formatDateTime(data.last_collection) : null;
@@ -1088,7 +1096,7 @@ function app() {
             try {
                 const response = await fetch('/api/camera/list');
                 const data = await response.json();
-                
+
                 if (response.ok) {
                     this.allCameras = data.cameras || [];
                     this.filteredCameraList = data.cameras || [];
@@ -1112,18 +1120,18 @@ function app() {
                 this.filteredCameraList = this.allCameras;
                 return;
             }
-            
+
             const query = this.cameraSearchQuery.toLowerCase();
             this.filteredCameraList = this.allCameras.filter(cam => {
                 const title = (cam.title || '').toLowerCase();
                 const code = (cam.code || '').toLowerCase();
                 const displayName = (cam.display_name || '').toLowerCase();
                 const cameraId = (cam.camera_id || '').toLowerCase();
-                
-                return title.includes(query) || 
-                       code.includes(query) || 
-                       displayName.includes(query) ||
-                       cameraId.includes(query);
+
+                return title.includes(query) ||
+                    code.includes(query) ||
+                    displayName.includes(query) ||
+                    cameraId.includes(query);
             });
         },
 
@@ -1143,7 +1151,7 @@ function app() {
                 this.showNotify('Vui lòng chọn camera', 'error');
                 return;
             }
-            
+
             this.addingCamera = true;
             try {
                 const response = await fetch('/api/camera/add', {
@@ -1153,7 +1161,7 @@ function app() {
                     },
                     body: JSON.stringify({ camera_id: this.selectedCameraId }),
                 });
-                
+
                 const data = await response.json();
                 if (response.ok) {
                     this.showNotify(data.message || 'Đã thêm camera thành công', 'success');
@@ -1174,7 +1182,7 @@ function app() {
             if (!confirm('Bạn có chắc muốn xóa camera này khỏi danh sách thu thập?')) {
                 return;
             }
-            
+
             try {
                 const response = await fetch('/api/camera/remove', {
                     method: 'POST',
@@ -1183,7 +1191,7 @@ function app() {
                     },
                     body: JSON.stringify({ camera_id: cameraId }),
                 });
-                
+
                 const data = await response.json();
                 if (response.ok) {
                     this.showNotify(data.message || 'Đã xóa camera thành công', 'success');
@@ -1202,7 +1210,7 @@ function app() {
                 const endpoint = this.cameraSchedulerRunning ? '/api/camera/stop' : '/api/camera/start';
                 const response = await fetch(endpoint, { method: 'POST' });
                 const data = await response.json();
-                
+
                 if (response.ok) {
                     this.showNotify(data.message || 'Thành công', 'success');
                     this.loadCameraStatus();
@@ -1220,16 +1228,16 @@ function app() {
             try {
                 const response = await fetch('/api/camera/recent-images?limit=12');
                 const data = await response.json();
-                
+
                 if (response.ok) {
                     const images = data.images || [];
                     this.cameraRecentImages = images;
-                    
+
                     // Hiển thị ảnh mới nhất trên map nếu có
                     if (images.length > 0) {
                         const latest = images[0];
                         // Chỉ cập nhật nếu là ảnh mới hơn
-                        if (!this.latestCameraImage || 
+                        if (!this.latestCameraImage ||
                             new Date(latest.timestamp) > new Date(this.latestCameraImage.timestamp)) {
                             this.latestCameraImage = latest;
                         }
@@ -1239,13 +1247,13 @@ function app() {
                 console.error('Error loading recent images:', error);
             }
         },
-        
+
         startCameraAutoRefresh() {
             // Dừng interval cũ nếu có
             if (this.cameraAutoRefreshInterval) {
                 clearInterval(this.cameraAutoRefreshInterval);
             }
-            
+
             // Tự động refresh mỗi 5 giây
             this.cameraAutoRefreshInterval = setInterval(() => {
                 if (this.activeTab === 'camera') {
@@ -1254,7 +1262,7 @@ function app() {
                 }
             }, 5000);
         },
-        
+
         stopCameraAutoRefresh() {
             try {
                 if (this.cameraAutoRefreshInterval) {
@@ -1291,7 +1299,7 @@ function app() {
                     const selectedId = String(this.selectedPexelsKeywordId);
                     return kwId === selectedId;
                 });
-                
+
                 if (selectedKw) {
                     this.selectedPexelsKeyword = selectedKw;
                     // Tự động set số lượng video từ keyword nếu chưa có
@@ -1324,7 +1332,7 @@ function app() {
 
             this.pexelsDownloading = true;
             this.pexelsDownloadProgress = 0;
-            
+
             // Poll progress từ server
             const progressInterval = setInterval(async () => {
                 try {
@@ -1337,7 +1345,7 @@ function app() {
                     // Ignore errors
                 }
             }, 1000);
-            
+
             try {
                 const response = await fetch('/api/pexels/download', {
                     method: 'POST',
@@ -1353,7 +1361,7 @@ function app() {
                 const data = await response.json();
                 if (response.ok) {
                     this.showNotify(data.message || 'Đã bắt đầu tải video từ Pexels', 'success');
-                    
+
                     // Poll để check kết quả sau khi tải xong
                     this.checkPexelsDownloadResult(progressInterval);
                 } else {
@@ -1374,29 +1382,29 @@ function app() {
             // Poll mỗi 2 giây để check kết quả
             const maxAttempts = 150; // Tối đa 5 phút (150 * 2s)
             let attempts = 0;
-            
+
             const checkInterval = setInterval(async () => {
                 attempts++;
                 try {
                     const response = await fetch('/api/pexels/result');
                     const result = await response.json();
-                    
+
                     if (result.success !== undefined) {
                         clearInterval(checkInterval);
                         if (progressInterval) clearInterval(progressInterval);
-                        
+
                         // Complete progress
                         this.pexelsDownloadProgress = 100;
-                        
+
                         setTimeout(() => {
                             this.pexelsDownloading = false;
                             this.pexelsDownloadProgress = 0;
                         }, 1000);
-                        
+
                         if (result.success) {
                             const dbMsg = result.saved_to_db > 0 ? ` (${result.saved_to_db} video đã lưu vào database)` : '';
                             this.showNotify(`✅ Tải video thành công! Đã tải ${result.count} video vào thư mục pexels_traffic_dataset${dbMsg}`, 'success');
-                            
+
                             // Kiểm tra kết quả extract frames tự động
                             this.checkPexelsExtractResult();
                         } else {
@@ -1423,7 +1431,7 @@ function app() {
         async extractFrames() {
             this.pexelsExtracting = true;
             this.pexelsExtractProgress = 0;
-            
+
             // Poll progress từ server
             const progressInterval = setInterval(async () => {
                 try {
@@ -1436,7 +1444,7 @@ function app() {
                     // Ignore errors
                 }
             }, 1000);
-            
+
             try {
                 const response = await fetch('/api/frames/extract', {
                     method: 'POST',
@@ -1448,7 +1456,7 @@ function app() {
                 const data = await response.json();
                 if (response.ok) {
                     this.showNotify(data.message || 'Đã bắt đầu tạo frame từ video', 'success');
-                    
+
                     // Poll để check kết quả sau khi tạo xong
                     this.checkExtractFramesResult(progressInterval);
                 } else {
@@ -1469,25 +1477,25 @@ function app() {
             // Poll mỗi 3 giây để check kết quả (tạo frame có thể lâu hơn)
             const maxAttempts = 200; // Tối đa 10 phút (200 * 3s)
             let attempts = 0;
-            
+
             const checkInterval = setInterval(async () => {
                 attempts++;
                 try {
                     const response = await fetch('/api/frames/result');
                     const result = await response.json();
-                    
+
                     if (result.success !== undefined) {
                         clearInterval(checkInterval);
                         if (progressInterval) clearInterval(progressInterval);
-                        
+
                         // Complete progress
                         this.pexelsExtractProgress = 100;
-                        
+
                         setTimeout(() => {
                             this.pexelsExtracting = false;
                             this.pexelsExtractProgress = 0;
                         }, 1000);
-                        
+
                         if (result.success) {
                             const videoCount = result.videos ? result.videos.length : 0;
                             this.showNotify(`✅ Tạo frame thành công! Đã tạo ${result.total_frames} frame từ ${videoCount} video trong thư mục dataset_extracted`, 'success');

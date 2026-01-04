@@ -8,9 +8,9 @@ Hệ thống thu thập dữ liệu giao thông từ nhiều nguồn (YouTube, P
     -   **YouTube**: Tải video theo từ khóa hoặc URL.
     -   **Pexels**: Tải video chất lượng cao cho dataset.
     -   **Camera IP**: Chụp ảnh định kỳ từ danh sách camera.
-2.  **Lưu trữ thông minh**:
-    -   **MinIO (S3 Validated)**: Lưu trữ file gốc (Video, Image, Frames).
-    -   **MongoDB**: Lưu trữ metadata, đường dẫn file, trạng thái.
+2.  **Lưu trữ thông minh (Hybrid Storage)**:
+    -   **MinIO (Object Storage)**: Lưu trữ file gốc (Blob) như Video, Image, Frames.
+    -   **MongoDB (Metadata)**: Lưu trữ thông tin nghiệp vụ và tham chiếu đến MinIO.
 3.  **Xử lý dữ liệu**:
     -   **Frame Extraction**: Tự động cắt frame từ video tải về.
     -   **Vehicle Detection**: API nhận kết quả detect từ AI model (Bao gồm ảnh crop, biển số).
@@ -18,93 +18,99 @@ Hệ thống thu thập dữ liệu giao thông từ nhiều nguồn (YouTube, P
 
 ---
 
-## 🛠 Cấu trúc hệ thống
+## 🏗 Kiến trúc Hybrid Storage
 
-Dự án được chia thành các Services trong thư mục `/services`:
+Hệ thống sử dụng mô hình **Hybrid Storage** kết hợp giữa MinIO và MongoDB.
 
--   `services/database.py`: Kết nối MongoDB.
--   `services/minio_service.py`: Xử lý upload/download file với MinIO.
--   `services/camera_service.py`: Quản lý Camera Collector.
--   `services/video_service.py`: Xử lý video (cắt frame).
--   `services/pexels_service.py`: Logic tải video từ Pexels.
--   `services/keyword_service.py`: Quản lý từ khóa tìm kiếm.
+### 1. Phân chia trách nhiệm
+| Thành phần | Lưu cái gì? | Tại sao? |
+| :--- | :--- | :--- |
+| **MinIO** | Ảnh gốc (Full frame), ảnh cắt (Cropped vehicle/plate), video clip. | Tối ưu lưu file nhị phân lớn, rẻ, dễ mở rộng. |
+| **MongoDB** | Biển số, loại xe, thời gian, tọa độ, **MinIO Key**. | Tối ưu tìm kiếm, lọc, thống kê nhanh. |
+
+### 2. Schema Liên Kết (Link)
+MongoDB lưu **Key** (đường dẫn tương đối) của object trong MinIO.
+
+*   **MinIO Key**: `2024/01/02/cam_01/evt_12345_full.jpg`
+*   **MongoDB Document**:
+```json
+{
+  "_id": "ObjectId...",
+  "event_id": "evt_12345",
+  "storage_refs": {
+    "bucket": "vehicle-detection",
+    "full_frame_key": "2024/01/02/cam_01/evt_12345_full.jpg"
+  }
+}
+```
+
+---
+
+## 🛠 Hướng dẫn xem Dữ liệu
+
+### 1. Xem Metadata (MongoDB)
+Cách tốt nhất là dùng **MongoDB Compass** (Miễn phí từ MongoDB).
+
+*   **Tải về**: [Download MongoDB Compass](https://www.mongodb.com/try/download/compass)
+*   **Connection String**: `mongodb://localhost:27017`
+*   **Database**: `data_collection`
+*   **Các Collections chính**:
+    *   `downloaded_videos`: Video từ YouTube/Pexels.
+    *   `video_frames`: Frame ảnh tách ra.
+    *   `camera_images`: Ảnh chụp từ Camera IP.
+    *   `vehicle_detections`: Kết quả nhận diện AI.
+
+### 2. Xem File gốc (MinIO)
+*   **Truy cập**: [http://localhost:9001](http://localhost:9001)
+*   **User**: `minioadmin`
+*   **Password**: `minioadmin123`
+*   **Buckets**: `videos`, `frames`, `camera`, `vehicle-detection`.
 
 ---
 
 ## 🔄 Luồng hoạt động (Workflow)
 
-### 1. Luồng Tải Video (YouTube/Pexels)
-1.  **User** gửi request (API/UI) để tải video (theo keyword hoặc URL).
-2.  **App** gọi `yt_downloaderpy` (hoặc `PexelsService`).
-3.  **Download**: Video được tải về máy chủ (thư mục `downloads` hoặc `pexels_traffic_dataset`).
-4.  **Upload MinIO** (Nếu bật `UPLOAD_TO_MINIO=true`):
-    -   Video gốc được đẩy lên MinIO bucket `videos`.
-    -   Local file **tự động xóa** để tiết kiệm dung lượng.
-5.  **Extract Frames**:
-    -   Video được cắt thành ảnh (frames).
-    -   Frames được đẩy lên MinIO bucket `frames`.
-6.  **Save DB**: Metadata (ID, Title, MinIO Path, Frame Paths) được lưu vào MongoDB.
+### 1. Vehicle Detection
+AI Model -> Upload MinIO (lấy Key) -> Save MongoDB (Metadata + Key).
 
-### 2. Luồng Camera Collector
-1.  **Scheduler** chạy định kỳ (mặc định 5s - 60s tùy config).
-2.  **Collector**: Kết nối đến từng Camera IP (RTSP/HTTP).
-3.  **Capture**: Chụp ảnh hiện tại.
-4.  **Save**:
-    -   Lưu ảnh vào MinIO bucket `camera`.
-    -   Lưu metadata (Camera ID, Timestamp) vào MongoDB.
-
-### 3. Luồng Vehicle Detection (AI Integration)
-1.  **AI Model** gửi kết quả detection về API `/api/vehicle-detection/upload`.
-2.  **App**:
-    -   Upload ảnh full, ảnh crop xe, ảnh biển số lên MinIO bucket `vehicle-detection`.
-    -   Lưu thông tin chi tiết (Biển số, loại xe, màu sắc...) vào MongoDB.
+### 2. Tải Video & Camera
+File gốc -> MinIO. Thông tin -> MongoDB.
 
 ---
 
 ## ⚙️ Cài đặt & Chạy ứng dụng
 
-### 1. Cấu hình
-Tạo file `.env` từ `env.example`:
+### 1. Cấu hình (.env)
 ```env
-# MinIO Config
 MINIO_ENDPOINT=localhost
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-UPLOAD_TO_MINIO=true   # Bật tính năng upload lên MinIO
-
-# MongoDB Config
+UPLOAD_TO_MINIO=true
 DB_HOST=localhost
-DB_PORT=27017
-
-# App Config
-FLASK_PORT=5000
+MINIO_ROOT_USER=minioadmin
+MINIO_ROOT_PASSWORD=minioadmin123
 ```
 
-### 2. Chạy bằng Docker (Khuyên dùng)
+### 2. Chạy (Docker)
 ```bash
 docker-compose up -d --build
 ```
-Hệ thống sẽ khởi tạo:
--   **App**: `http://localhost:5000`
--   **MinIO Console**: `http://localhost:9001` (User/Pass: minioadmin)
--   **MongoDB**: `localhost:27017`
+*   App: `http://localhost:5000`
+*   MinIO: `http://localhost:9001`
+*   Compass Kết nối: `localhost:27017`
 
-### 3. Chạy thủ công (Dev)
-```bash
-pip install -r requirements.txt
-python app.py
-```
+## ❓ FAQ / Xử lý sự cố
 
----
+### Q: Tại sao tôi thấy dữ liệu cũ trong MongoDB?
+**A:** Docker sử dụng **Volumes** để giữ dữ liệu không bị mất khi bạn restart container.
+*   Nếu bạn thấy "dữ liệu cũ", đó là tính năng (Data Persistence).
+*   Nếu bạn muốn **XÓA TRẮNG** database để chạy lại từ đầu, hãy chạy lệnh này:
+    ```bash
+    docker-compose down -v
+    ```
+    *(Lệnh này sẽ xóa toàn bộ Volumes bao gồm Database và File MinIO cũ)*.
 
-## 📂 Dữ liệu được lưu ở đâu?
-
-| Loại dữ liệu | MinIO Bucket | MongoDB Collection | Mặc định Local (Nếu tắt MinIO) |
-| :--- | :--- | :--- | :--- |
-| **Video YouTube/Pexels** | `videos` | `downloaded_videos` | `downloads/` |
-| **Ảnh trích xuất** | `frames` | `video_frames` | `dataset_extracted/` |
-| **Ảnh Camera** | `camera` | `camera_images` | `camera_collector_data/` |
-| **Vehicle Detection** | `vehicle-detection` | `vehicle_detections` | N/A |
+### Q: Tôi không kết nối được MongoDB ở localhost:27017?
+**A:** Có thể bạn đang chạy một MongoDB khác trên máy tính (Windows Service).
+*   Hãy tắt MongoDB trên Windows, hoặc đổi port trong `docker-compose.yml`.
 
 ---
 *Created by Antigravity*

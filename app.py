@@ -15,6 +15,8 @@ import services.video_service as video_service
 import services.keyword_service as keyword_service
 # MinIO service (rename helper use)
 import services.minio_service as minio_service
+import cv2
+import numpy as np
 
 # Load environment variables
 load_dotenv()
@@ -442,10 +444,9 @@ def camera_remove():
 
 @app.route('/api/camera/recent-images')
 def camera_recent_images():
-    if not camera_service.camera_collector_instance:
-         return jsonify({"images": []}), 200
     limit = int(request.args.get('limit', 10))
-    images = camera_service.camera_collector_instance.get_recent_images(limit=limit)
+    # Use the new DB-based function which returns MinIO URLs
+    images = camera_service.get_recent_images_from_db(limit=limit)
     return jsonify({"images": images}), 200
 
 @app.route('/api/camera/images/<path:image_path>')
@@ -616,15 +617,49 @@ def upload_vehicle_detection():
         storage_refs = {'bucket': minio_service.MINIO_BUCKET_VEHICLE_DETECTION}
         
         # Upload helpers
-        def upload_asset(path, type_):
-            if path:
-                res = minio_service.upload_and_get_key(path, minio_service.MINIO_BUCKET_VEHICLE_DETECTION, camera_id=camera_id, event_id=event_id, file_type=type_)
-                return res['key'] if res['success'] else None
+        # Upload helpers
+        def convert_and_upload_png(path, type_):
+            if path and os.path.exists(path):
+                # Convert to PNG 16-bit
+                try:
+                    img = cv2.imread(path)
+                    if img is not None:
+                        # Resize if type is 'full' (Full Frame)
+                        if type_ == 'full':
+                            img = cv2.resize(img, (1280, 720), interpolation=cv2.INTER_AREA)
+                            
+                        img_16bit = img.astype(np.uint16) * 256
+                        # Use .png extension
+                        base_name = os.path.splitext(os.path.basename(path))[0]
+                        png_path = os.path.join(os.path.dirname(path), f"{base_name}.png")
+                        cv2.imwrite(png_path, img_16bit)
+                        
+                        # Upload PNG
+                        res = minio_service.upload_and_get_key(
+                            png_path, 
+                            minio_service.MINIO_BUCKET_VEHICLE_DETECTION, 
+                            camera_id=camera_id, 
+                            event_id=event_id, 
+                            file_type=type_, 
+                            content_type='image/png'
+                        )
+                        
+                        # Cleanup generated PNG
+                        try:
+                            os.remove(png_path)
+                            # Optionally delete original JPG if needed? keeping it safe for now.
+                        except:
+                            pass
+                            
+                        return res['key'] if res['success'] else None
+                except Exception as e:
+                    print(f"Error converting/uploading PNG: {e}")
+                    pass
             return None
 
-        storage_refs['full_frame_key'] = upload_asset(data.get('full_frame_path'), 'full')
-        storage_refs['cropped_vehicle_key'] = upload_asset(data.get('cropped_vehicle_path'), 'crop')
-        storage_refs['cropped_plate_key'] = upload_asset(data.get('cropped_plate_path'), 'plate')
+        storage_refs['full_frame_key'] = convert_and_upload_png(data.get('full_frame_path'), 'full')
+        storage_refs['cropped_vehicle_key'] = convert_and_upload_png(data.get('cropped_vehicle_path'), 'crop')
+        storage_refs['cropped_plate_key'] = convert_and_upload_png(data.get('cropped_plate_path'), 'plate')
         
         if data.get('video_clip_path'):
             res = minio_service.upload_and_get_key(data['video_clip_path'], minio_service.MINIO_BUCKET_VEHICLE_DETECTION, camera_id=camera_id, event_id=event_id, file_type='video', content_type='video/mp4')
@@ -697,6 +732,43 @@ def create_minio_buckets():
 
 
 # ==================== MAIN ====================
+
+
+# ==================== PROXY ROUTE ====================
+@app.route('/api/image-proxy')
+def image_proxy():
+    """
+    Proxy image from MinIO to frontend to avoid CORS/Network issues.
+    Query params: bucket, key
+    """
+    bucket = request.args.get('bucket')
+    key = request.args.get('key')
+    
+    if not bucket or not key:
+        return jsonify({"error": "Missing bucket or key"}), 400
+        
+    try:
+        # Get internal client (uses minio:9000 inside docker)
+        # We don't use the public one here because we are inside the container
+        client = minio_service.get_minio_client()
+        
+        # Get object
+        response = client.get_object(bucket, key)
+        
+        # Stream the response
+        from flask import Response, stream_with_context
+        
+        return Response(
+            stream_with_context(response.stream(32*1024)),
+            headers={
+                "Content-Type": response.headers.get("Content-Type", "image/jpeg"),
+                "Content-Length": response.headers.get("Content-Length"),
+                "Cache-Control": "public, max-age=3600"
+            }
+        )
+    except Exception as e:
+        print(f"Proxy error: {e}")
+        return jsonify({"error": str(e)}), 404
 
 if __name__ == '__main__':
     flask_host = os.getenv('FLASK_HOST', '127.0.0.1')

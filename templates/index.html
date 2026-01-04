@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,20 +12,22 @@
     <script src="https://cdn.jsdelivr.net/npm/toastify-js@1.12.0/src/toastify.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js@1.12.0/src/toastify.min.css">
     <style>
-        [x-cloak] { display: none !important; }
+        [x-cloak] {
+            display: none !important;
+        }
+
         #wordcloud-canvas {
             width: 100%;
             height: 400px;
         }
     </style>
 </head>
+
 <body class="bg-gray-100" x-data="app()">
     <div class="flex h-screen overflow-hidden">
         <!-- Sidebar -->
-        <aside 
-            :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
-            class="fixed inset-y-0 left-0 z-50 w-64 bg-gradient-to-b from-blue-900 to-blue-800 text-white transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 shadow-2xl"
-        >
+        <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
+            class="fixed inset-y-0 left-0 z-50 w-64 bg-gradient-to-b from-blue-900 to-blue-800 text-white transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 shadow-2xl">
             <div class="flex items-center justify-between h-16 px-6 border-b border-blue-700">
                 <h1 class="text-xl font-bold flex items-center gap-2">
                     <i class="fas fa-download"></i>
@@ -34,53 +37,41 @@
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            
+
             <nav class="mt-8 px-4">
-                <a 
-                    @click="activeTab = 'visualization'; stopCameraAutoRefresh(); loadVisualization(); sidebarOpen = false" 
+                <a @click="activeTab = 'visualization'; stopCameraAutoRefresh(); loadVisualization(); sidebarOpen = false"
                     :class="activeTab === 'visualization' ? 'bg-blue-700 text-white' : 'text-blue-100 hover:bg-blue-700 hover:text-white'"
-                    class="flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors cursor-pointer"
-                >
+                    class="flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors cursor-pointer">
                     <i class="fas fa-chart-pie w-5"></i>
                     <span>Visualize Data</span>
                 </a>
-                <a 
-                    @click="activeTab = 'download'; stopCameraAutoRefresh(); loadActiveKeywords(); sidebarOpen = false" 
+                <a @click="activeTab = 'download'; stopCameraAutoRefresh(); loadActiveKeywords(); sidebarOpen = false"
                     :class="activeTab === 'download' ? 'bg-blue-700 text-white' : 'text-blue-100 hover:bg-blue-700 hover:text-white'"
-                    class="flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors cursor-pointer"
-                >
+                    class="flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors cursor-pointer">
                     <i class="fas fa-cloud-download-alt w-5"></i>
                     <span>Tải Video Youtube</span>
                 </a>
-                <a 
-                    @click="activeTab = 'videos'; stopCameraAutoRefresh(); loadVideos(); sidebarOpen = false" 
+                <a @click="activeTab = 'videos'; stopCameraAutoRefresh(); loadVideos(); sidebarOpen = false"
                     :class="activeTab === 'videos' ? 'bg-blue-700 text-white' : 'text-blue-100 hover:bg-blue-700 hover:text-white'"
-                    class="flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors cursor-pointer"
-                >
+                    class="flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors cursor-pointer">
                     <i class="fas fa-database w-5"></i>
                     <span>Danh Sách Video</span>
                 </a>
-                <a 
-                    @click="activeTab = 'keywords'; stopCameraAutoRefresh(); loadKeywords(); sidebarOpen = false" 
+                <a @click="activeTab = 'keywords'; stopCameraAutoRefresh(); loadKeywords(); sidebarOpen = false"
                     :class="activeTab === 'keywords' ? 'bg-blue-700 text-white' : 'text-blue-100 hover:bg-blue-700 hover:text-white'"
-                    class="flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors cursor-pointer"
-                >
+                    class="flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors cursor-pointer">
                     <i class="fas fa-key w-5"></i>
                     <span>Quản Lý Keywords</span>
                 </a>
-                <a 
-                    @click="activeTab = 'camera'; loadCameraStatus(); loadCameraList(); loadCameraRecentImages(); startCameraAutoRefresh(); sidebarOpen = false" 
+                <a @click="activeTab = 'camera'; loadCameraStatus(); loadCameraList(); loadCameraRecentImages(); startCameraAutoRefresh(); sidebarOpen = false"
                     :class="activeTab === 'camera' ? 'bg-blue-700 text-white' : 'text-blue-100 hover:bg-blue-700 hover:text-white'"
-                    class="flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors cursor-pointer"
-                >
+                    class="flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors cursor-pointer">
                     <i class="fas fa-camera w-5"></i>
                     <span>Camera Collector</span>
                 </a>
-                <a 
-                    @click="activeTab = 'pexels'; stopCameraAutoRefresh(); loadActiveKeywords(); sidebarOpen = false" 
+                <a @click="activeTab = 'pexels'; stopCameraAutoRefresh(); loadActiveKeywords(); sidebarOpen = false"
                     :class="activeTab === 'pexels' ? 'bg-blue-700 text-white' : 'text-blue-100 hover:bg-blue-700 hover:text-white'"
-                    class="flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors cursor-pointer"
-                >
+                    class="flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors cursor-pointer">
                     <i class="fas fa-video w-5"></i>
                     <span>Pexels Dataset</span>
                 </a>
@@ -88,12 +79,8 @@
         </aside>
 
         <!-- Overlay for mobile -->
-        <div 
-            x-show="sidebarOpen" 
-            @click="sidebarOpen = false"
-            x-cloak
-            class="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-        ></div>
+        <div x-show="sidebarOpen" @click="sidebarOpen = false" x-cloak
+            class="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"></div>
 
         <!-- Main Content -->
         <div class="flex-1 flex flex-col overflow-hidden">
@@ -103,7 +90,9 @@
                     <button @click="sidebarOpen = true" class="lg:hidden text-gray-600 hover:text-gray-900">
                         <i class="fas fa-bars text-xl"></i>
                     </button>
-                    <h2 class="text-2xl font-semibold text-gray-800" x-text="activeTab === 'visualization' ? 'Visualize Data' : activeTab === 'download' ? 'Tải Video Youtube' : activeTab === 'videos' ? 'Danh Sách Video' : activeTab === 'keywords' ? 'Quản Lý Keywords' : activeTab === 'camera' ? 'Camera Collector' : activeTab === 'pexels' ? 'Pexels Dataset' : ''"></h2>
+                    <h2 class="text-2xl font-semibold text-gray-800"
+                        x-text="activeTab === 'visualization' ? 'Visualize Data' : activeTab === 'download' ? 'Tải Video Youtube' : activeTab === 'videos' ? 'Danh Sách Video' : activeTab === 'keywords' ? 'Quản Lý Keywords' : activeTab === 'camera' ? 'Camera Collector' : activeTab === 'pexels' ? 'Pexels Dataset' : ''">
+                    </h2>
                     <div class="flex items-center gap-4">
                         <button @click="loadVideos()" class="text-gray-600 hover:text-gray-900">
                             <i class="fas fa-sync-alt"></i>
@@ -128,18 +117,12 @@
                                     <label class="block text-sm font-medium text-gray-700 mb-2">
                                         Nhập URL (mỗi URL một dòng)
                                     </label>
-                                    <textarea 
-                                        x-model="urlInput"
-                                        rows="6"
+                                    <textarea x-model="urlInput" rows="6"
                                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        placeholder="https://www.youtube.com/watch?v=...&#10;https://www.youtube.com/watch?v=..."
-                                    ></textarea>
+                                        placeholder="https://www.youtube.com/watch?v=...&#10;https://www.youtube.com/watch?v=..."></textarea>
                                 </div>
-                                <button 
-                                    type="submit"
-                                    :disabled="!urlInput.trim() || downloading"
-                                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                                >
+                                <button type="submit" :disabled="!urlInput.trim() || downloading"
+                                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                                     <i class="fas fa-download" x-show="!downloading"></i>
                                     <i class="fas fa-spinner fa-spin" x-show="downloading"></i>
                                     <span x-text="downloading ? 'Đang tải...' : 'Bắt đầu tải'"></span>
@@ -155,8 +138,9 @@
                             </h3>
                             <div class="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                                 <p class="text-sm text-yellow-800">
-                                    <i class="fas fa-info-circle"></i> 
-                                    <strong>Lưu ý:</strong> Bạn cần thêm keyword vào tab "Quản Lý Keywords" trước khi có thể tải video.
+                                    <i class="fas fa-info-circle"></i>
+                                    <strong>Lưu ý:</strong> Bạn cần thêm keyword vào tab "Quản Lý Keywords" trước khi có
+                                    thể tải video.
                                 </p>
                             </div>
                             <form @submit.prevent="downloadByKeyword()">
@@ -164,15 +148,12 @@
                                     <label class="block text-sm font-medium text-gray-700 mb-2">
                                         Chọn từ khóa từ danh sách *
                                     </label>
-                                    <select 
-                                        x-model="selectedKeywordId"
-                                        @change="onKeywordSelect()"
-                                        required
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                    >
+                                    <select x-model="selectedKeywordId" @change="onKeywordSelect()" required
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                         <option value="">-- Chọn keyword --</option>
                                         <template x-for="kw in activeKeywords" :key="kw._id || kw.id">
-                                            <option :value="kw._id || kw.id" x-text="kw.keyword + ' (Số video: ' + kw.num_videos + ')'"></option>
+                                            <option :value="kw._id || kw.id"
+                                                x-text="kw.keyword + ' (Số video: ' + kw.num_videos + ')'"></option>
                                         </template>
                                     </select>
                                     <p class="text-xs text-gray-500 mt-1" x-show="activeKeywords.length === 0">
@@ -183,22 +164,16 @@
                                     <label class="block text-sm font-medium text-gray-700 mb-2">
                                         Số lượng video (có thể thay đổi)
                                     </label>
-                                    <input 
-                                        type="number"
-                                        x-model="numVideos"
-                                        min="1"
-                                        max="20"
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                    />
+                                    <input type="number" x-model="numVideos" min="1" max="20"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                                     <p class="text-xs text-gray-500 mt-1">
-                                        Số lượng mặc định từ keyword: <span x-text="selectedKeyword ? selectedKeyword.num_videos : '-'"></span>
+                                        Số lượng mặc định từ keyword: <span
+                                            x-text="selectedKeyword ? selectedKeyword.num_videos : '-'"></span>
                                     </p>
                                 </div>
-                                <button 
-                                    type="submit"
+                                <button type="submit"
                                     :disabled="!selectedKeywordId || downloading || activeKeywords.length === 0"
-                                    class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                                >
+                                    class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                                     <i class="fas fa-search" x-show="!downloading"></i>
                                     <i class="fas fa-spinner fa-spin" x-show="downloading"></i>
                                     <span x-text="downloading ? 'Đang tải...' : 'Tìm và tải'"></span>
@@ -214,55 +189,61 @@
                         <div class="flex items-center justify-between mb-6">
                             <h3 class="text-xl font-semibold text-gray-800">Danh Sách Video</h3>
                             <div class="flex items-center gap-4">
-                                <input 
-                                    type="text"
-                                    x-model="searchQuery"
-                                    @input="loadVideos()"
-                                    placeholder="Tìm kiếm..."
-                                    class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                />
-                                <button @click="loadVideos()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+                                <input type="text" x-model="searchQuery" @input="loadVideos()" placeholder="Tìm kiếm..."
+                                    class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                                <button @click="loadVideos()"
+                                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
                                     <i class="fas fa-sync-alt"></i>
                                 </button>
                             </div>
                         </div>
-                        
+
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Video ID</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tiêu đề</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Độ phân giải</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thời lượng</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phương thức</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Từ khóa</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ngày tải</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thao tác</th>
+                                        <th
+                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Video ID</th>
+                                        <th
+                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Tiêu đề</th>
+                                        <th
+                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Độ phân giải</th>
+                                        <th
+                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Thời lượng</th>
+                                        <th
+                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Phương thức</th>
+                                        <th
+                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Từ khóa</th>
+                                        <th
+                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Ngày tải</th>
+                                        <th
+                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200" x-html="videosTableBody"></tbody>
                             </table>
                         </div>
-                        
+
                         <!-- Pagination -->
                         <div class="mt-4 flex items-center justify-between" x-show="totalPages > 1">
                             <div class="text-sm text-gray-700">
                                 Trang <span x-text="currentPage"></span> / <span x-text="totalPages"></span>
                             </div>
                             <div class="flex gap-2">
-                                <button 
-                                    @click="changePage(currentPage - 1)"
-                                    :disabled="currentPage === 1"
-                                    class="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                                >
+                                <button @click="changePage(currentPage - 1)" :disabled="currentPage === 1"
+                                    class="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50">
                                     Trước
                                 </button>
-                                <button 
-                                    @click="changePage(currentPage + 1)"
-                                    :disabled="currentPage === totalPages"
-                                    class="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                                >
+                                <button @click="changePage(currentPage + 1)" :disabled="currentPage === totalPages"
+                                    class="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50">
                                     Sau
                                 </button>
                             </div>
@@ -281,40 +262,24 @@
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Từ khóa *</label>
-                                    <input 
-                                        type="text"
-                                        x-model="newKeyword.keyword"
-                                        required
+                                    <input type="text" x-model="newKeyword.keyword" required
                                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                        placeholder="Road traffic video..."
-                                    />
+                                        placeholder="Road traffic video..." />
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Số lượng video</label>
-                                    <input 
-                                        type="number"
-                                        x-model="newKeyword.num_videos"
-                                        min="1"
-                                        max="20"
-                                        value="1"
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                    />
+                                    <input type="number" x-model="newKeyword.num_videos" min="1" max="20" value="1"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Mô tả</label>
-                                    <input 
-                                        type="text"
-                                        x-model="newKeyword.description"
+                                    <input type="text" x-model="newKeyword.description"
                                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                        placeholder="Mô tả về keyword này..."
-                                    />
+                                        placeholder="Mô tả về keyword này..." />
                                 </div>
                             </div>
-                            <button 
-                                type="submit"
-                                :disabled="addingKeyword"
-                                class="mt-4 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
-                            >
+                            <button type="submit" :disabled="addingKeyword"
+                                class="mt-4 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2">
                                 <i class="fas fa-plus" x-show="!addingKeyword"></i>
                                 <i class="fas fa-spinner fa-spin" x-show="addingKeyword"></i>
                                 <span x-text="addingKeyword ? 'Đang thêm...' : 'Thêm Keyword'"></span>
@@ -329,7 +294,8 @@
                                 <i class="fas fa-chart-bar text-blue-600"></i>
                                 Top Keywords (Theo Số Lượng Video)
                             </h3>
-                            <button @click="loadVisualization()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
+                            <button @click="loadVisualization()"
+                                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
                                 <i class="fas fa-sync-alt"></i> Làm mới
                             </button>
                         </div>
@@ -337,10 +303,14 @@
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">STT</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Keyword</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Số Lượng Video</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tỷ Lệ</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">STT
+                                        </th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                            Keyword</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Số
+                                            Lượng Video</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tỷ
+                                            Lệ</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200" x-html="keywordsTableBody"></tbody>
@@ -351,22 +321,37 @@
                     <div class="bg-white rounded-lg shadow-md p-6">
                         <div class="flex items-center justify-between mb-6">
                             <h3 class="text-xl font-semibold text-gray-800">Danh Sách Keywords</h3>
-                            <button @click="loadKeywords()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+                            <button @click="loadKeywords()"
+                                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
                                 <i class="fas fa-sync-alt"></i>
                             </button>
                         </div>
-                        
+
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">STT</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Keyword</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Số video</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Đã tải</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng thái</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mô tả</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thao tác</th>
+                                        <th
+                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            STT</th>
+                                        <th
+                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Keyword</th>
+                                        <th
+                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Số video</th>
+                                        <th
+                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Đã tải</th>
+                                        <th
+                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Trạng thái</th>
+                                        <th
+                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Mô tả</th>
+                                        <th
+                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200" x-html="vizKeywordsTableBody"></tbody>
@@ -383,22 +368,29 @@
                             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <div class="bg-blue-50 p-4 rounded-lg">
                                     <p class="text-sm text-gray-600">Total Videos</p>
-                                    <p class="text-2xl font-bold text-blue-600" x-text="vizData.quality?.total || 0"></p>
+                                    <p class="text-2xl font-bold text-blue-600" x-text="vizData.quality?.total || 0">
+                                    </p>
                                 </div>
                                 <div class="bg-green-50 p-4 rounded-lg">
                                     <p class="text-sm text-gray-600">Has File Path</p>
-                                    <p class="text-2xl font-bold text-green-600" x-text="vizData.quality?.has_file || 0"></p>
-                                    <p class="text-xs text-gray-500" x-text="'(' + (vizData.quality?.completeness?.file || 0) + '%)'"></p>
+                                    <p class="text-2xl font-bold text-green-600"
+                                        x-text="vizData.quality?.has_file || 0"></p>
+                                    <p class="text-xs text-gray-500"
+                                        x-text="'(' + (vizData.quality?.completeness?.file || 0) + '%)'"></p>
                                 </div>
                                 <div class="bg-purple-50 p-4 rounded-lg">
                                     <p class="text-sm text-gray-600">Has Duration</p>
-                                    <p class="text-2xl font-bold text-purple-600" x-text="vizData.quality?.has_duration || 0"></p>
-                                    <p class="text-xs text-gray-500" x-text="'(' + (vizData.quality?.completeness?.duration || 0) + '%)'"></p>
+                                    <p class="text-2xl font-bold text-purple-600"
+                                        x-text="vizData.quality?.has_duration || 0"></p>
+                                    <p class="text-xs text-gray-500"
+                                        x-text="'(' + (vizData.quality?.completeness?.duration || 0) + '%)'"></p>
                                 </div>
                                 <div class="bg-orange-50 p-4 rounded-lg">
                                     <p class="text-sm text-gray-600">Has Resolution</p>
-                                    <p class="text-2xl font-bold text-orange-600" x-text="vizData.quality?.has_resolution || 0"></p>
-                                    <p class="text-xs text-gray-500" x-text="'(' + (vizData.quality?.completeness?.resolution || 0) + '%)'"></p>
+                                    <p class="text-2xl font-bold text-orange-600"
+                                        x-text="vizData.quality?.has_resolution || 0"></p>
+                                    <p class="text-xs text-gray-500"
+                                        x-text="'(' + (vizData.quality?.completeness?.resolution || 0) + '%)'"></p>
                                 </div>
                             </div>
                         </div>
@@ -441,19 +433,16 @@
 
                     <!-- Video Over Time -->
                     <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Video Theo Thời Gian (30 ngày gần nhất)</h3>
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Video Theo Thời Gian (30 ngày gần nhất)
+                        </h3>
                         <canvas id="timeChart"></canvas>
                     </div>
 
                 </div>
 
                 <!-- Edit Keyword Modal -->
-                <div 
-                    x-show="showEditKeywordModal" 
-                    @click.away="showEditKeywordModal = false"
-                    x-cloak
-                    class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-                >
+                <div x-show="showEditKeywordModal" @click.away="showEditKeywordModal = false" x-cloak
+                    class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
                     <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full" @click.stop>
                         <div class="p-6">
                             <div class="flex items-center justify-between mb-6">
@@ -461,43 +450,31 @@
                                     <i class="fas fa-edit text-yellow-600"></i>
                                     Sửa Keyword
                                 </h3>
-                                <button 
-                                    @click="showEditKeywordModal = false"
-                                    class="text-gray-500 hover:text-gray-700"
-                                >
+                                <button @click="showEditKeywordModal = false" class="text-gray-500 hover:text-gray-700">
                                     <i class="fas fa-times"></i>
                                 </button>
                             </div>
-                            
+
                             <form @submit.prevent="updateKeyword()">
                                 <div class="space-y-4">
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-2">Từ khóa *</label>
-                                        <input 
-                                            type="text"
-                                            x-model="editKeywordForm.keyword"
-                                            required
+                                        <input type="text" x-model="editKeywordForm.keyword" required
                                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                                            placeholder="Road traffic video..."
-                                        />
+                                            placeholder="Road traffic video..." />
                                     </div>
                                     <div class="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Số lượng video</label>
-                                            <input 
-                                                type="number"
-                                                x-model="editKeywordForm.num_videos"
-                                                min="1"
-                                                max="20"
-                                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                                            />
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Số lượng
+                                                video</label>
+                                            <input type="number" x-model="editKeywordForm.num_videos" min="1" max="20"
+                                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent" />
                                         </div>
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Trạng thái</label>
-                                            <select 
-                                                x-model="editKeywordForm.status"
-                                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                                            >
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Trạng
+                                                thái</label>
+                                            <select x-model="editKeywordForm.status"
+                                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent">
                                                 <option value="pending">Chờ xử lý</option>
                                                 <option value="processing">Đang tải</option>
                                                 <option value="completed">Hoàn thành</option>
@@ -507,39 +484,26 @@
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-2">Mô tả</label>
-                                        <textarea 
-                                            x-model="editKeywordForm.description"
-                                            rows="3"
+                                        <textarea x-model="editKeywordForm.description" rows="3"
                                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                                            placeholder="Mô tả về keyword này..."
-                                        ></textarea>
+                                            placeholder="Mô tả về keyword này..."></textarea>
                                     </div>
                                     <div class="flex items-center">
-                                        <input 
-                                            type="checkbox"
-                                            x-model="editKeywordForm.is_active"
-                                            id="edit-is-active"
-                                            class="w-4 h-4 text-yellow-600 border-gray-300 rounded focus:ring-yellow-500"
-                                        />
+                                        <input type="checkbox" x-model="editKeywordForm.is_active" id="edit-is-active"
+                                            class="w-4 h-4 text-yellow-600 border-gray-300 rounded focus:ring-yellow-500" />
                                         <label for="edit-is-active" class="ml-2 text-sm text-gray-700">
                                             Kích hoạt keyword này
                                         </label>
                                     </div>
                                 </div>
-                                
+
                                 <div class="flex items-center justify-end gap-3 mt-6">
-                                    <button 
-                                        type="button"
-                                        @click="showEditKeywordModal = false"
-                                        class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                                    >
+                                    <button type="button" @click="showEditKeywordModal = false"
+                                        class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
                                         Hủy
                                     </button>
-                                    <button 
-                                        type="submit"
-                                        :disabled="updatingKeyword"
-                                        class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
-                                    >
+                                    <button type="submit" :disabled="updatingKeyword"
+                                        class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2">
                                         <i class="fas fa-save" x-show="!updatingKeyword"></i>
                                         <i class="fas fa-spinner fa-spin" x-show="updatingKeyword"></i>
                                         <span x-text="updatingKeyword ? 'Đang lưu...' : 'Lưu thay đổi'"></span>
@@ -561,12 +525,9 @@
                                     <i class="fas fa-play-circle text-green-600"></i>
                                     Điều Khiển
                                 </h3>
-                                <button 
-                                    @click="toggleCameraCollector()"
-                                    :disabled="cameraLoading"
+                                <button @click="toggleCameraCollector()" :disabled="cameraLoading"
                                     :class="cameraSchedulerRunning ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'"
-                                    class="w-full text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                                >
+                                    class="w-full text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                                     <i :class="cameraSchedulerRunning ? 'fas fa-stop' : 'fas fa-play'"></i>
                                     <span x-text="cameraSchedulerRunning ? 'Dừng Thu Thập' : 'Bắt Đầu Thu Thập'"></span>
                                 </button>
@@ -581,13 +542,15 @@
                                 <div class="space-y-3">
                                     <div class="flex justify-between items-center">
                                         <span class="text-gray-600">Trạng thái:</span>
-                                        <span :class="cameraSchedulerRunning ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" 
-                                              class="px-3 py-1 rounded-full text-sm font-semibold"
-                                              x-text="cameraSchedulerRunning ? 'Đang chạy' : 'Dừng'"></span>
+                                        <span
+                                            :class="cameraSchedulerRunning ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+                                            class="px-3 py-1 rounded-full text-sm font-semibold"
+                                            x-text="cameraSchedulerRunning ? 'Đang chạy' : 'Dừng'"></span>
                                     </div>
                                     <div class="flex justify-between items-center">
                                         <span class="text-gray-600">Lần thu thập cuối:</span>
-                                        <span class="text-gray-800 font-medium" x-text="cameraLastCollection || '-'"></span>
+                                        <span class="text-gray-800 font-medium"
+                                            x-text="cameraLastCollection || '-'"></span>
                                     </div>
                                 </div>
                             </div>
@@ -601,11 +564,13 @@
                                 <div class="space-y-3">
                                     <div class="flex justify-between items-center">
                                         <span class="text-gray-600">Tổng số lần:</span>
-                                        <span class="text-gray-800 font-bold" x-text="cameraStats.total_attempts || 0"></span>
+                                        <span class="text-gray-800 font-bold"
+                                            x-text="cameraStats.total_attempts || 0"></span>
                                     </div>
                                     <div class="flex justify-between items-center">
                                         <span class="text-gray-600">Thành công:</span>
-                                        <span class="text-green-600 font-bold" x-text="cameraStats.successful || 0"></span>
+                                        <span class="text-green-600 font-bold"
+                                            x-text="cameraStats.successful || 0"></span>
                                     </div>
                                     <div class="flex justify-between items-center">
                                         <span class="text-gray-600">Thất bại:</span>
@@ -622,39 +587,33 @@
                                 </h3>
                                 <div class="space-y-4">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Tìm kiếm camera</label>
-                                        <input 
-                                            type="text"
-                                            x-model="cameraSearchQuery"
-                                            @input="filterCameraList()"
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Tìm kiếm
+                                            camera</label>
+                                        <input type="text" x-model="cameraSearchQuery" @input="filterCameraList()"
                                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                            placeholder="Nhập tên hoặc ID camera..."
-                                        />
+                                            placeholder="Nhập tên hoặc ID camera..." />
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-2">Chọn camera</label>
-                                        <select 
-                                            x-model="selectedCameraId"
-                                            @change="onCameraSelect()"
+                                        <select x-model="selectedCameraId" @change="onCameraSelect()"
                                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                            size="5"
-                                        >
+                                            size="5">
                                             <template x-for="cam in filteredCameraList" :key="cam.camera_id">
-                                                <option :value="cam.camera_id" x-text="(cam.title || cam.code || cam.camera_id) + (cam.display_name ? ' - ' + cam.display_name : '')"></option>
+                                                <option :value="cam.camera_id"
+                                                    x-text="(cam.title || cam.code || cam.camera_id) + (cam.display_name ? ' - ' + cam.display_name : '')">
+                                                </option>
                                             </template>
                                         </select>
                                     </div>
                                     <div x-show="selectedCameraId" class="bg-gray-50 p-3 rounded-lg">
                                         <div class="text-sm">
                                             <div class="font-semibold text-gray-800" x-text="selectedCameraName"></div>
-                                            <div class="text-gray-600 text-xs mt-1" x-text="'ID: ' + selectedCameraId"></div>
+                                            <div class="text-gray-600 text-xs mt-1" x-text="'ID: ' + selectedCameraId">
+                                            </div>
                                         </div>
                                     </div>
-                                    <button 
-                                        @click="addCamera()"
-                                        :disabled="!selectedCameraId || addingCamera"
-                                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                                    >
+                                    <button @click="addCamera()" :disabled="!selectedCameraId || addingCamera"
+                                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                                         <i :class="addingCamera ? 'fas fa-spinner fa-spin' : 'fas fa-plus'"></i>
                                         <span x-text="addingCamera ? 'Đang thêm...' : 'Thêm Camera'"></span>
                                     </button>
@@ -674,11 +633,8 @@
                                                 <div class="font-medium text-gray-800" x-text="cam.name"></div>
                                                 <div class="text-xs text-gray-500" x-text="'ID: ' + cam.id"></div>
                                             </div>
-                                            <button 
-                                                @click="removeCamera(cam.id)"
-                                                class="text-red-600 hover:text-red-800 p-1"
-                                                title="Xóa camera"
-                                            >
+                                            <button @click="removeCamera(cam.id)"
+                                                class="text-red-600 hover:text-red-800 p-1" title="Xóa camera">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         </div>
@@ -704,38 +660,31 @@
                                     </div>
                                 </div>
                                 <div class="relative" style="height: 500px;">
-                                    <iframe 
-                                        src="https://giaothong.hochiminhcity.gov.vn/Map.aspx"
+                                    <iframe src="https://giaothong.hochiminhcity.gov.vn/Map.aspx"
                                         class="w-full h-full border-0 rounded-lg"
-                                        title="Ho Chi Minh City Traffic Camera Map"
-                                        allowfullscreen>
+                                        title="Ho Chi Minh City Traffic Camera Map" allowfullscreen>
                                     </iframe>
-                                    
+
                                     <!-- Center Image Display - Hiển thị ảnh mới nhất trên map -->
-                                    <div 
-                                        x-show="latestCameraImage && activeTab === 'camera'"
-                                        x-cloak
+                                    <div x-show="latestCameraImage && activeTab === 'camera'" x-cloak
                                         class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full h-full bg-black bg-opacity-50 z-50 flex items-center justify-center"
-                                        style="display: none;"
-                                    >
+                                        style="display: none;">
                                         <div class="relative w-full h-full flex items-center justify-center p-4">
-                                            <button 
-                                                @click="latestCameraImage = null"
-                                                class="absolute top-4 right-4 bg-black bg-opacity-70 text-white rounded-full w-10 h-10 flex items-center justify-center hover:bg-opacity-90 z-10"
-                                            >
+                                            <button @click="latestCameraImage = null"
+                                                class="absolute top-4 right-4 bg-black bg-opacity-70 text-white rounded-full w-10 h-10 flex items-center justify-center hover:bg-opacity-90 z-10">
                                                 <i class="fas fa-times text-lg"></i>
                                             </button>
-                                            <img 
-                                                :src="latestCameraImage ? '/api/camera/images/' + latestCameraImage.path : ''"
+                                            <img :src="latestCameraImage.url || ('/api/camera/images/' + latestCameraImage.path)"
                                                 :alt="latestCameraImage?.camera_name"
                                                 class="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-                                            />
+                                                style="width: 100%;" />
                                         </div>
                                     </div>
                                 </div>
                                 <div class="mt-2 text-xs text-gray-500">
-                                    <i class="fas fa-exclamation-triangle text-yellow-500"></i> 
-                                    Lưu ý: Các lỗi WebSocket và JavaScript trong console là từ trang map của TP.HCM, không phải từ hệ thống này. 
+                                    <i class="fas fa-exclamation-triangle text-yellow-500"></i>
+                                    Lưu ý: Các lỗi WebSocket và JavaScript trong console là từ trang map của TP.HCM,
+                                    không phải từ hệ thống này.
                                     Bạn có thể bỏ qua các lỗi này.
                                 </div>
                             </div>
@@ -748,33 +697,34 @@
                                         Ảnh Thu Thập Gần Nhất
                                     </h3>
                                     <div class="flex items-center gap-2">
-                                        <span class="text-xs text-green-600 bg-green-100 px-2 py-1 rounded" x-show="cameraAutoRefreshInterval">
+                                        <span class="text-xs text-green-600 bg-green-100 px-2 py-1 rounded"
+                                            x-show="cameraAutoRefreshInterval">
                                             <i class="fas fa-sync-alt fa-spin"></i> Tự động cập nhật
                                         </span>
-                                        <button 
-                                            @click="loadCameraRecentImages()"
-                                            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
-                                        >
+                                        <button @click="loadCameraRecentImages()"
+                                            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
                                             <i class="fas fa-sync-alt"></i> Làm mới
                                         </button>
                                     </div>
                                 </div>
                                 <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                                    <template x-for="img in cameraRecentImages" :key="img.path">
+                                    <template x-for="(img, index) in cameraRecentImages" :key="index">
                                         <div class="relative group cursor-pointer" @click="showCameraImage(img)">
-                                            <img 
-                                                :src="'/api/camera/images/' + img.path" 
+                                            <img :src="img.url || ('/api/camera/images/' + img.path)"
                                                 :alt="img.camera_name"
                                                 class="w-full h-32 object-cover rounded-lg border-2 border-gray-200 group-hover:border-blue-500 transition-colors"
-                                                loading="lazy"
-                                            />
-                                            <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 rounded-b-lg">
-                                                <div class="text-white text-xs font-semibold truncate" x-text="img.camera_name"></div>
-                                                <div class="text-white text-xs opacity-75" x-text="formatDateTime(img.timestamp)"></div>
+                                                loading="lazy" />
+                                            <div
+                                                class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 rounded-b-lg">
+                                                <div class="text-white text-xs font-semibold truncate"
+                                                    x-text="img.camera_name"></div>
+                                                <div class="text-white text-xs opacity-75"
+                                                    x-text="formatDateTime(img.timestamp)"></div>
                                             </div>
                                         </div>
                                     </template>
-                                    <div x-show="cameraRecentImages.length === 0" class="col-span-full text-center text-gray-500 py-8">
+                                    <div x-show="cameraRecentImages.length === 0"
+                                        class="col-span-full text-center text-gray-500 py-8">
                                         Chưa có ảnh nào được thu thập
                                     </div>
                                 </div>
@@ -794,8 +744,9 @@
                             </h3>
                             <div class="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                                 <p class="text-sm text-yellow-800">
-                                    <i class="fas fa-info-circle"></i> 
-                                    <strong>Lưu ý:</strong> Bạn cần thêm keyword vào tab "Quản Lý Keywords" trước khi có thể tải video.
+                                    <i class="fas fa-info-circle"></i>
+                                    <strong>Lưu ý:</strong> Bạn cần thêm keyword vào tab "Quản Lý Keywords" trước khi có
+                                    thể tải video.
                                 </p>
                             </div>
                             <div class="space-y-4">
@@ -803,15 +754,12 @@
                                     <label class="block text-sm font-medium text-gray-700 mb-2">
                                         Chọn từ khóa từ danh sách *
                                     </label>
-                                    <select 
-                                        x-model="selectedPexelsKeywordId"
-                                        @change="onPexelsKeywordSelect()"
-                                        required
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    >
+                                    <select x-model="selectedPexelsKeywordId" @change="onPexelsKeywordSelect()" required
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                                         <option value="">-- Chọn keyword --</option>
                                         <template x-for="kw in activeKeywords" :key="kw._id || kw.id">
-                                            <option :value="kw._id || kw.id" x-text="kw.keyword + ' (Số video: ' + kw.num_videos + ')'"></option>
+                                            <option :value="kw._id || kw.id"
+                                                x-text="kw.keyword + ' (Số video: ' + kw.num_videos + ')'"></option>
                                         </template>
                                     </select>
                                     <p class="text-xs text-gray-500 mt-1" x-show="activeKeywords.length === 0">
@@ -822,22 +770,16 @@
                                     <label class="block text-sm font-medium text-gray-700 mb-2">
                                         Số lượng video (có thể thay đổi)
                                     </label>
-                                    <input 
-                                        type="number" 
-                                        x-model="pexelsNumVideos"
-                                        min="1"
-                                        max="80"
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    />
+                                    <input type="number" x-model="pexelsNumVideos" min="1" max="80"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                                     <p class="text-xs text-gray-500 mt-1">
-                                        Số lượng mặc định từ keyword: <span x-text="selectedPexelsKeyword ? selectedPexelsKeyword.num_videos : '-'"></span>
+                                        Số lượng mặc định từ keyword: <span
+                                            x-text="selectedPexelsKeyword ? selectedPexelsKeyword.num_videos : '-'"></span>
                                     </p>
                                 </div>
-                                <button 
-                                    @click="downloadPexelsVideos()"
+                                <button @click="downloadPexelsVideos()"
                                     :disabled="!selectedPexelsKeywordId || pexelsDownloading || activeKeywords.length === 0"
-                                    class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2"
-                                >
+                                    class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2">
                                     <i class="fas fa-download" x-show="!pexelsDownloading"></i>
                                     <i class="fas fa-spinner fa-spin" x-show="pexelsDownloading"></i>
                                     <span x-text="pexelsDownloading ? 'Đang tải...' : 'Tải Video'"></span>
@@ -846,13 +788,12 @@
                                 <div x-show="pexelsDownloading" x-cloak class="mt-4">
                                     <div class="flex items-center justify-between mb-2">
                                         <span class="text-sm text-gray-600">Đang tải video...</span>
-                                        <span class="text-sm font-semibold text-blue-600" x-text="pexelsDownloadProgress + '%'"></span>
+                                        <span class="text-sm font-semibold text-blue-600"
+                                            x-text="pexelsDownloadProgress + '%'"></span>
                                     </div>
                                     <div class="w-full bg-gray-200 rounded-full h-2.5">
-                                        <div 
-                                            class="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out"
-                                            :style="'width: ' + pexelsDownloadProgress + '%'"
-                                        ></div>
+                                        <div class="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out"
+                                            :style="'width: ' + pexelsDownloadProgress + '%'"></div>
                                     </div>
                                 </div>
                             </div>
@@ -865,12 +806,8 @@
     </div>
 
     <!-- Camera Image Modal -->
-    <div 
-        x-show="showCameraImageModal" 
-        @click.away="showCameraImageModal = false"
-        x-cloak
-        class="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4"
-    >
+    <div x-show="showCameraImageModal" @click.away="showCameraImageModal = false" x-cloak
+        class="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-auto" @click.stop>
             <div class="p-4 border-b flex items-center justify-between">
                 <h3 class="text-lg font-semibold text-gray-800" x-text="selectedCameraImage?.camera_name"></h3>
@@ -879,13 +816,12 @@
                 </button>
             </div>
             <div class="p-4">
-                <img 
-                    :src="selectedCameraImage ? '/api/camera/images/' + selectedCameraImage.path : ''"
-                    :alt="selectedCameraImage?.camera_name"
-                    class="w-full h-auto rounded-lg"
-                />
+                <img :src="selectedCameraImage ? (selectedCameraImage.url || '/api/camera/images/' + selectedCameraImage.path) : ''"
+                    :alt="selectedCameraImage?.camera_name" class="w-full h-auto rounded-lg" />
                 <div class="mt-4 text-sm text-gray-600">
-                    <div><strong>Thời gian:</strong> <span x-text="selectedCameraImage ? formatDateTime(selectedCameraImage.timestamp) : ''"></span></div>
+                    <div><strong>Thời gian:</strong> <span
+                            x-text="selectedCameraImage ? formatDateTime(selectedCameraImage.timestamp) : ''"></span>
+                    </div>
                     <div><strong>Camera ID:</strong> <span x-text="selectedCameraImage?.camera_id"></span></div>
                 </div>
             </div>
@@ -897,17 +833,17 @@
     <script>
         // Suppress console errors from iframe map (chỉ để giảm noise trong console)
         // Lưu ý: Các lỗi này là từ trang map của TP.HCM, không phải từ hệ thống này
-        window.addEventListener('error', function(e) {
+        window.addEventListener('error', function (e) {
             // Kiểm tra xem lỗi có phải từ iframe map không
             if (e.filename && e.filename.includes('giaothong.hochiminhcity.gov.vn')) {
                 // Không log lỗi từ iframe map
                 return true;
             }
         }, true);
-        
+
         // Suppress WebSocket và các lỗi JavaScript khác từ iframe
         const originalError = console.error;
-        console.error = function(...args) {
+        console.error = function (...args) {
             const message = args.join(' ');
             // Bỏ qua các lỗi WebSocket từ iframe map
             if (message.includes('WebSocket') && message.includes('giaothong.hochiminhcity.gov.vn')) {
@@ -921,5 +857,5 @@
         };
     </script>
 </body>
-</html>
 
+</html>
