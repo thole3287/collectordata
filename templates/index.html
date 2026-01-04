@@ -50,7 +50,7 @@
                     class="flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors cursor-pointer"
                 >
                     <i class="fas fa-cloud-download-alt w-5"></i>
-                    <span>Tải Video</span>
+                    <span>Tải Video Youtube</span>
                 </a>
                 <a 
                     @click="activeTab = 'videos'; stopCameraAutoRefresh(); loadVideos(); sidebarOpen = false" 
@@ -77,7 +77,7 @@
                     <span>Camera Collector</span>
                 </a>
                 <a 
-                    @click="activeTab = 'pexels'; stopCameraAutoRefresh(); sidebarOpen = false" 
+                    @click="activeTab = 'pexels'; stopCameraAutoRefresh(); loadActiveKeywords(); sidebarOpen = false" 
                     :class="activeTab === 'pexels' ? 'bg-blue-700 text-white' : 'text-blue-100 hover:bg-blue-700 hover:text-white'"
                     class="flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors cursor-pointer"
                 >
@@ -103,7 +103,7 @@
                     <button @click="sidebarOpen = true" class="lg:hidden text-gray-600 hover:text-gray-900">
                         <i class="fas fa-bars text-xl"></i>
                     </button>
-                    <h2 class="text-2xl font-semibold text-gray-800" x-text="activeTab === 'visualization' ? 'Visualize Data' : activeTab === 'download' ? 'Tải Video' : activeTab === 'videos' ? 'Danh Sách Video' : activeTab === 'keywords' ? 'Quản Lý Keywords' : activeTab === 'camera' ? 'Camera Collector' : activeTab === 'pexels' ? 'Pexels Dataset' : ''"></h2>
+                    <h2 class="text-2xl font-semibold text-gray-800" x-text="activeTab === 'visualization' ? 'Visualize Data' : activeTab === 'download' ? 'Tải Video Youtube' : activeTab === 'videos' ? 'Danh Sách Video' : activeTab === 'keywords' ? 'Quản Lý Keywords' : activeTab === 'camera' ? 'Camera Collector' : activeTab === 'pexels' ? 'Pexels Dataset' : ''"></h2>
                     <div class="flex items-center gap-4">
                         <button @click="loadVideos()" class="text-gray-600 hover:text-gray-900">
                             <i class="fas fa-sync-alt"></i>
@@ -792,34 +792,50 @@
                                 <i class="fas fa-download text-blue-600"></i>
                                 Tải Video từ Pexels
                             </h3>
+                            <div class="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                <p class="text-sm text-yellow-800">
+                                    <i class="fas fa-info-circle"></i> 
+                                    <strong>Lưu ý:</strong> Bạn cần thêm keyword vào tab "Quản Lý Keywords" trước khi có thể tải video.
+                                </p>
+                            </div>
                             <div class="space-y-4">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-2">
-                                        Từ khóa tìm kiếm
+                                        Chọn từ khóa từ danh sách *
                                     </label>
-                                    <input 
-                                        type="text" 
-                                        x-model="pexelsQuery"
-                                        placeholder="traffic, street cctv, highway, vehicles..."
+                                    <select 
+                                        x-model="selectedPexelsKeywordId"
+                                        @change="onPexelsKeywordSelect()"
+                                        required
                                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    />
+                                    >
+                                        <option value="">-- Chọn keyword --</option>
+                                        <template x-for="kw in activeKeywords" :key="kw._id || kw.id">
+                                            <option :value="kw._id || kw.id" x-text="kw.keyword + ' (Số video: ' + kw.num_videos + ')'"></option>
+                                        </template>
+                                    </select>
+                                    <p class="text-xs text-gray-500 mt-1" x-show="activeKeywords.length === 0">
+                                        Chưa có keyword nào. Vui lòng thêm keyword trong tab "Quản Lý Keywords"
+                                    </p>
                                 </div>
-                                <div>
+                                <div x-show="selectedPexelsKeywordId">
                                     <label class="block text-sm font-medium text-gray-700 mb-2">
-                                        Số lượng video muốn tải
+                                        Số lượng video (có thể thay đổi)
                                     </label>
                                     <input 
                                         type="number" 
                                         x-model="pexelsNumVideos"
                                         min="1"
                                         max="80"
-                                        value="10"
                                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     />
+                                    <p class="text-xs text-gray-500 mt-1">
+                                        Số lượng mặc định từ keyword: <span x-text="selectedPexelsKeyword ? selectedPexelsKeyword.num_videos : '-'"></span>
+                                    </p>
                                 </div>
                                 <button 
                                     @click="downloadPexelsVideos()"
-                                    :disabled="pexelsDownloading"
+                                    :disabled="!selectedPexelsKeywordId || pexelsDownloading || activeKeywords.length === 0"
                                     class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2"
                                 >
                                     <i class="fas fa-download" x-show="!pexelsDownloading"></i>

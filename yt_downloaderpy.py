@@ -70,12 +70,94 @@ def save_to_database(video_data, download_method='keyword'):
                 except:
                     width = height = None
         
+        # Upload video lên MinIO nếu có file_path và MinIO được cấu hình
+        minio_key = None
+        minio_bucket = None
+        file_path = video_data.get('file_path')
+        storage_refs_data = {}  # Lưu thông tin frames
+        
+        # Kiểm tra cấu hình có cho phép upload lên MinIO không
+        should_upload_minio = os.getenv('UPLOAD_TO_MINIO', 'true').lower() == 'true'
+        
+        if file_path and os.path.exists(file_path):
+            if should_upload_minio:
+                try:
+                    import services.minio_service as minio_helper
+                    minio_endpoint = os.getenv('MINIO_ENDPOINT', 'localhost')
+                    
+                    if minio_endpoint:
+                        # Tạo object key: platform/video_id.mp4
+                        video_id = video_data['id']
+                        platform = video_data.get('platform', 'youtube')
+                        file_ext = os.path.splitext(file_path)[1] or '.mp4'
+                        object_key = f"{platform}/{video_id}{file_ext}"
+                        
+                        # Upload lên MinIO
+                        result = minio_helper.upload_and_get_key(
+                            file_path=file_path,
+                            bucket_name=minio_helper.MINIO_BUCKET_VIDEOS,
+                            custom_path=object_key,
+                            content_type='video/mp4'
+                        )
+                        
+                        if result.get('success'):
+                            minio_key = result['key']
+                            minio_bucket = result['bucket']
+                            print(f"  ✓ Đã upload video lên MinIO: {minio_bucket}/{minio_key}")
+                            
+                            # Extract frames và upload lên MinIO
+                            try:
+                                # Lấy FPS từ video metadata
+                                video_fps = video_data.get('fps')
+                                if not video_fps:
+                                    # Nếu không có trong metadata, sẽ tự động detect từ video
+                                    video_fps = None
+                                
+                                frames_result = minio_helper.extract_and_upload_frames(
+                                    video_path=file_path,
+                                    video_id=video_id,
+                                    platform=platform,
+                                    fps=video_fps,  # FPS của video (tự động tính frame_step)
+                                    interval_seconds=None,  # Đọc từ env FRAME_INTERVAL_SECONDS (mặc định 1.0 giây)
+                                    target_width=1280,
+                                    target_height=720,
+                                    db=db  # Truyền db để lưu metadata frames vào MongoDB
+                                )
+                                
+                                if frames_result.get('success'):
+                                    print(f"  ✓ Đã extract và upload {frames_result['frames_uploaded']} frames lên MinIO")
+                                    # Lưu frame keys vào storage_refs_data
+                                    storage_refs_data['frames_bucket'] = frames_result['bucket']
+                                    storage_refs_data['frame_keys'] = frames_result['frame_keys']
+                                    storage_refs_data['frames_count'] = frames_result['frames_uploaded']
+                                    
+                                    # --- XÓA FILE LOCAL SAU KHI UPLOAD THÀNH CÔNG ---
+                                    # Chỉ xóa khi cả video và frames đều đã lên MinIO an toàn (hoặc ít nhất là video)
+                                    # Ở đây chọn phương án: Video lên OK là có thể xóa, frames đã extract xong.
+                                    try:
+                                        os.remove(file_path)
+                                        print(f"  ✓ Đã xóa file local: {file_path}")
+                                    except Exception as e:
+                                        print(f"  ⚠ Không thể xóa file local: {e}")
+                                else:
+                                    print(f"  ⚠ Không thể extract frames: {frames_result.get('error')}")
+                            except Exception as e:
+                                import traceback
+                                print(f"  ⚠ Lỗi khi extract frames: {e}")
+                                print(f"  ⚠ Traceback: {traceback.format_exc()}")
+                except Exception as e:
+                    import traceback
+                    print(f"  ⚠ Không thể upload lên MinIO: {e}")
+                    print(f"  ⚠ Traceback: {traceback.format_exc()}")
+            else:
+                print(f"  ℹ Upload MinIO đang TẮT (UPLOAD_TO_MINIO={should_upload_minio}). Giữ file tại local.")
+        
         # Tạo document theo cấu trúc MongoDB
         document = {
             'video_id': video_data['id'],
             'title': video_data['title'],
             'url': video_data['url'],
-            'file_path': video_data.get('file_path'),
+            'file_path': file_path,  # Giữ lại local path
             'media_type': 'mp4',  # Mặc định mp4
             'metadata': {
                 'duration': video_data.get('duration'),
@@ -90,6 +172,20 @@ def save_to_database(video_data, download_method='keyword'):
             'downloaded_at': datetime.now(),
             'created_at': datetime.now()
         }
+        
+        # Thêm MinIO storage reference nếu có
+        if minio_key:
+            document['storage_refs'] = {
+                'bucket': minio_bucket,
+                'key': minio_key
+            }
+            # Thêm frame references nếu có
+            if storage_refs_data.get('frames_bucket'):
+                document['storage_refs'].update({
+                    'frames_bucket': storage_refs_data['frames_bucket'],
+                    'frame_keys': storage_refs_data.get('frame_keys', []),
+                    'frames_count': storage_refs_data.get('frames_count', 0)
+                })
         
         collection.insert_one(document)
         print(f"  ✓ Đã lưu video {video_data['id']} vào database")

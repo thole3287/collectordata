@@ -1,0 +1,88 @@
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: collectordata_mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    environment:
+      MONGO_INITDB_DATABASE: data_collection
+    networks:
+      - collectordata_network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: collectordata_minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"  # API port
+      - "9001:9001"  # Console port
+    volumes:
+      - minio_data:/data
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    command: server /data --console-address ":9001"
+    networks:
+      - collectordata_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  app:
+    build: .
+    container_name: collectordata_app
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./downloads:/app/downloads
+      - ./dataset_extracted:/app/dataset_extracted
+      - ./pexels_traffic_dataset:/app/pexels_traffic_dataset
+      - ./camera_collector_data:/app/camera_collector_data
+      - ./camera_collector_config:/app/camera_collector_config
+      - ./.env:/app/.env
+      - ./templates:/app/templates
+      - ./static:/app/static
+    environment:
+      - DB_HOST=mongodb
+      - DB_PORT=27017
+      - DB_NAME=data_collection
+      - DB_USER=
+      - DB_PASSWORD=
+      - FLASK_HOST=0.0.0.0
+      - FLASK_PORT=5000
+      - FLASK_DEBUG=True
+      - MINIO_ENDPOINT=minio
+      - MINIO_PORT=9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin123
+      - MINIO_USE_SSL=False
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - collectordata_network
+
+volumes:
+  mongodb_data:
+  mongodb_config:
+  minio_data:
+
+networks:
+  collectordata_network:
+    driver: bridge
+
+

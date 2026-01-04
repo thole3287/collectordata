@@ -39,7 +39,8 @@ function app() {
         latestCameraImage: null,
         cameraAutoRefreshInterval: null,
         // Pexels Dataset state
-        pexelsQuery: 'traffic',
+        selectedPexelsKeywordId: '',
+        selectedPexelsKeyword: null,
         pexelsNumVideos: 10,
         pexelsDownloading: false,
         pexelsExtracting: false,
@@ -197,8 +198,13 @@ function app() {
             }
 
             this.videosTableBody = this.videos.map(video => {
-                const duration = video.duration ? this.formatDuration(video.duration) : 'N/A';
-                const resolution = video.resolution || 'N/A';
+                // Lấy duration và resolution từ metadata
+                const duration = (video.metadata && video.metadata.duration) 
+                    ? this.formatDuration(video.metadata.duration) 
+                    : (video.duration ? this.formatDuration(video.duration) : 'N/A');
+                const resolution = (video.metadata && video.metadata.resolution) 
+                    ? video.metadata.resolution 
+                    : (video.resolution || 'N/A');
                 const method = video.download_method === 'url' 
                     ? '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">URL</span>'
                     : '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Keyword</span>';
@@ -1278,9 +1284,36 @@ function app() {
             });
         },
 
+        onPexelsKeywordSelect() {
+            if (this.selectedPexelsKeywordId) {
+                const selectedKw = this.activeKeywords.find(kw => {
+                    const kwId = String(kw._id || kw.id);
+                    const selectedId = String(this.selectedPexelsKeywordId);
+                    return kwId === selectedId;
+                });
+                
+                if (selectedKw) {
+                    this.selectedPexelsKeyword = selectedKw;
+                    // Tự động set số lượng video từ keyword nếu chưa có
+                    if (!this.pexelsNumVideos || this.pexelsNumVideos === 10) {
+                        this.pexelsNumVideos = selectedKw.num_videos || 10;
+                    }
+                } else {
+                    this.selectedPexelsKeyword = null;
+                }
+            } else {
+                this.selectedPexelsKeyword = null;
+            }
+        },
+
         async downloadPexelsVideos() {
-            if (!this.pexelsQuery.trim()) {
-                this.showNotify('Vui lòng nhập từ khóa tìm kiếm', 'error');
+            if (!this.selectedPexelsKeywordId) {
+                this.showNotify('Vui lòng chọn từ khóa từ danh sách', 'error');
+                return;
+            }
+
+            if (!this.selectedPexelsKeyword) {
+                this.showNotify('Vui lòng chọn từ khóa hợp lệ', 'error');
                 return;
             }
 
@@ -1312,7 +1345,7 @@ function app() {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        query: this.pexelsQuery.trim(),
+                        query: this.selectedPexelsKeyword.keyword.trim(),
                         num_videos: this.pexelsNumVideos
                     }),
                 });
