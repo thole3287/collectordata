@@ -6,6 +6,7 @@ import os
 from datetime import datetime
 from minio import Minio
 from minio.error import S3Error
+import numpy as np
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -563,12 +564,15 @@ def extract_and_upload_frames(video_path, video_id, platform='youtube',
                             interpolation=cv2.INTER_AREA
                         )
                         
-                        # Lưu frame tạm thời
-                        frame_filename = f"{video_id}_fr{saved_count:05d}.jpg"
-                        temp_frame_path = os.path.join(temp_dir, frame_filename)
-                        cv2.imwrite(temp_frame_path, resized_frame)
+                        # Convert to 16-bit PNG (scale up)
+                        frame_16bit = resized_frame.astype(np.uint16) * 256
                         
-                        # Tạo object key: platform/video_id/frame_xxx.jpg
+                        # Lưu frame tạm thời (PNG)
+                        frame_filename = f"{video_id}_fr{saved_count:05d}.png"
+                        temp_frame_path = os.path.join(temp_dir, frame_filename)
+                        cv2.imwrite(temp_frame_path, frame_16bit)
+                        
+                        # Tạo object key: platform/video_id/frame_xxx.png
                         object_key = f"{platform}/{video_id}/{frame_filename}"
                         
                         # Upload lên MinIO
@@ -576,7 +580,7 @@ def extract_and_upload_frames(video_path, video_id, platform='youtube',
                             bucket_name,
                             object_key,
                             temp_frame_path,
-                            content_type='image/jpeg'
+                            content_type='image/png'
                         )
                         
                         frame_keys.append(object_key)

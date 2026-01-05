@@ -505,11 +505,10 @@ def pexels_download():
             json.dump(result, f, ensure_ascii=False, indent=2)
             
         if result.get("success") and result.get("count", 0) > 0:
-            video_service.extract_frames_from_videos_task(
-                PEXELS_OUTPUT_FOLDER,
-                FRAMES_OUTPUT_ROOT,
-                os.path.join(FRAMES_OUTPUT_ROOT, '.extract_result.json')
-            )
+            pass
+            # video_service.extract_frames_from_videos_task is redundant because 
+            # pexels_service.download_pexels_videos -> save_pexels_video_to_database 
+            # already handles extraction internally and deletes the file.
 
     thread = threading.Thread(target=download_task)
     thread.daemon = True
