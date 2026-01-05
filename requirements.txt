@@ -1,11 +1,12 @@
-yt-dlp>=2025.12.8
 pymongo>=4.6.0
+yt-dlp
+mysql-connector-python>=8.0.33
 flask>=2.3.0
 flask-cors>=4.0.0
 APScheduler>=3.10.4
 requests>=2.31.0
 opencv-python>=4.11.0
-numpy>=2.4.0
+numpy
 python-dotenv>=1.0.0
 minio>=7.2.0
 kafka-python>=2.0.2
