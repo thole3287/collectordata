@@ -10,6 +10,7 @@ import services.video_service as video_service
 import yt_downloaderpy as yt
 import os
 import services.minio_service as minio_service
+from services.kafka_producer import kafka_queue
 
 # Logging setup
 logging.basicConfig(level=logging.INFO)
@@ -75,34 +76,22 @@ class AutoCollectorService:
                     if not keyword:
                         continue
                         
-                    logger.info(f"Auto-Collecting for keyword: {keyword}")
+                    logger.info(f"Dispatching task for keyword: {keyword}")
                     
                     # --- YOUTUBE ---
                     try:
-                        # Download 1 video per cycle to be gentle
-                        videos = yt.download_by_keyword(keyword, num_videos=1)
-                        if videos:
-                             self._process_downloaded_folder()
+                        kafka_queue.send_task('youtube', keyword)
                     except Exception as e:
-                        logger.error(f"Error auto-downloading YouTube for {keyword}: {e}")
+                        logger.error(f"Error dispatching YouTube task for {keyword}: {e}")
 
                     # --- PEXELS ---
                     try:
-                        # Download 1 video per cycle
-                        api_key = os.getenv('PEXELS_API_KEY')
-                        if api_key:
-                            pexels_service.download_pexels_videos(keyword, num_videos=1, api_key=api_key)
-                            # Pexels service handles its own frame extraction/cleanup internally 
-                            # inside save_pexels_video_to_database via minio helper extraction call
-                            # But wait, pexels_service.download_pexels_videos saves file to disk and then calls save...
-                            # We might need to ensure frame extraction happens if it wasn't automatic.
-                            # Checking pexels_service: it calls save_pexels_video_to_database -> extract_and_upload_frames.
-                            # So it is handled.
+                        kafka_queue.send_task('pexels', keyword)
                     except Exception as e:
-                        logger.error(f"Error auto-downloading Pexels for {keyword}: {e}")
+                        logger.error(f"Error dispatching Pexels task for {keyword}: {e}")
                     
-                    # Short sleep between keywords to avoid rate limits
-                    time.sleep(5) 
+                    # Short sleep just to avoid flooding the queue instantly (optional, can be removed for pure async)
+                    time.sleep(1) 
 
                 logger.info("Cycle completed. Sleeping.")
                 self._status_message = "Sleeping..."

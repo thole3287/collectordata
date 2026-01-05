@@ -39,6 +39,71 @@ services:
       timeout: 20s
       retries: 3
 
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: collectordata_zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - collectordata_network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: collectordata_kafka
+    restart: unless-stopped
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - collectordata_network
+    healthcheck:
+      test: nc -z localhost 9092 || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  worker:
+    build: .
+    container_name: collectordata_worker
+    restart: unless-stopped
+    command: python worker.py
+    volumes:
+      - ./downloads:/app/downloads
+      - ./dataset_extracted:/app/dataset_extracted
+      - ./pexels_traffic_dataset:/app/pexels_traffic_dataset
+      - ./camera_collector_data:/app/camera_collector_data
+      - ./camera_collector_config:/app/camera_collector_config
+      - ./.env:/app/.env
+    environment:
+      - DB_HOST=mongodb
+      - DB_PORT=27017
+      - DB_NAME=data_collection
+      - MINIO_ENDPOINT=minio
+      - MINIO_PORT=9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin123
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - PEXEL_API_KEY=${PEXELS_API_KEY} 
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - collectordata_network
+
   app:
     build: .
     container_name: collectordata_app
@@ -68,6 +133,7 @@ services:
       - MINIO_ACCESS_KEY=minioadmin
       - MINIO_SECRET_KEY=minioadmin123
       - MINIO_USE_SSL=False
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
     depends_on:
       mongodb:
         condition: service_healthy
