@@ -93,7 +93,7 @@ services:
       - MINIO_ACCESS_KEY=minioadmin
       - MINIO_SECRET_KEY=minioadmin123
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - PEXEL_API_KEY=${PEXELS_API_KEY} 
+      - PEXELS_API_KEY=${PEXELS_API_KEY} 
     depends_on:
       mongodb:
         condition: service_healthy

@@ -3,9 +3,14 @@ import requests
 import json
 import time
 import threading
+import random
 from datetime import datetime
 from pymongo.errors import DuplicateKeyError
+import logging
 from services.database import get_db_connection
+
+# Setup logger
+logger = logging.getLogger(__name__)
 
 PEXELS_OUTPUT_FOLDER = "pexels_traffic_dataset"
 TARGET_WIDTH = 1280
@@ -76,9 +81,9 @@ def save_pexels_video_to_database(video_data, query, download_method='pexels'):
                                 except:
                                     pass
                         except Exception as e:
-                            print(f"Error extracting frames: {e}")
+                            logger.error(f"Error extracting frames: {e}")
             except Exception as e:
-                print(f"Error uploading to MinIO: {e}")
+                logger.error(f"Error uploading to MinIO: {e}")
 
         # Create Document
         document = {
@@ -118,7 +123,7 @@ def save_pexels_video_to_database(video_data, query, download_method='pexels'):
     except DuplicateKeyError:
         return False
     except Exception as e:
-        print(f"Error saving Pexels video: {e}")
+        logger.error(f"Error saving Pexels video: {e}")
         return False
 
 def download_pexels_videos(query, num_videos, api_key):
@@ -128,15 +133,21 @@ def download_pexels_videos(query, num_videos, api_key):
             os.makedirs(PEXELS_OUTPUT_FOLDER)
 
         headers = {"Authorization": api_key}
-        url = f"https://api.pexels.com/videos/search?query={query}&per_page={num_videos}&orientation=landscape"
+        # Random page to get different videos each time
+        random_page = random.randint(1, 100) 
+        logger.info(f"Checking Pexels page {random_page} for query '{query}'")
+        
+        url = f"https://api.pexels.com/videos/search?query={query}&per_page={num_videos}&orientation=landscape&page={random_page}"
         response = requests.get(url, headers=headers)
         
         if response.status_code != 200:
+            logger.error(f"Pexels API Error: {response.status_code} - {response.text}")
             return {"success": False, "error": f"API error: {response.status_code}"}
 
         data = response.json()
         videos = data.get("videos", [])[:num_videos]
         total = len(videos)
+        logger.info(f"Pexels API found {len(data.get('videos', []))} videos for query '{query}', downloading {total}")
         
         count = 0
         saved_to_db = 0
@@ -181,6 +192,9 @@ def download_pexels_videos(query, num_videos, api_key):
                 
                 if save_pexels_video_to_database(video_data, query):
                     saved_to_db += 1
+                    logger.info(f"Successfully processed video {video_id}")
+                else:
+                    logger.warning(f"Failed to save video {video_id} to DB (duplicate or error)")
                 
                 count += 1
                 

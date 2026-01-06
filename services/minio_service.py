@@ -3,7 +3,7 @@ MinIO Helper - Utility functions để upload/download files từ MinIO
 Tích hợp với MongoDB để lưu metadata và storage references
 """
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from minio import Minio
 from minio.error import S3Error
 import numpy as np
@@ -21,7 +21,7 @@ MINIO_USE_SSL = os.getenv('MINIO_USE_SSL', 'False').lower() == 'true'
 # Bucket names
 MINIO_BUCKET_VIDEOS = os.getenv('MINIO_BUCKET_VIDEOS', 'videos')
 MINIO_BUCKET_IMAGES = os.getenv('MINIO_BUCKET_IMAGES', 'images')
-MINIO_BUCKET_FRAMES = os.getenv('MINIO_BUCKET_FRAMES', 'frames')
+MINIO_BUCKET_FRAMES = os.getenv('MINIO_BUCKET_FRAMES', 'dataset')
 MINIO_BUCKET_CAMERA = os.getenv('MINIO_BUCKET_CAMERA', 'camera-images')
 MINIO_BUCKET_VEHICLE_DETECTION = os.getenv('MINIO_BUCKET_VEHICLE_DETECTION', 'vehicle-detection')
 
@@ -50,9 +50,9 @@ def ensure_buckets_exist():
         client = get_minio_client()
         buckets = [
             MINIO_BUCKET_VIDEOS,
-            MINIO_BUCKET_IMAGES,
+            # MINIO_BUCKET_IMAGES, # Deprecated
             MINIO_BUCKET_FRAMES,
-            MINIO_BUCKET_CAMERA,
+            # MINIO_BUCKET_CAMERA, # Deprecated, using frames/camera instead
             MINIO_BUCKET_VEHICLE_DETECTION
         ]
         
@@ -155,17 +155,26 @@ def download_file(bucket_name, object_name, file_path):
 MINIO_PUBLIC_ENDPOINT = os.getenv('MINIO_PUBLIC_ENDPOINT', 'localhost')
 MINIO_PUBLIC_PORT = int(os.getenv('MINIO_PUBLIC_PORT', 9000))
 
+
+# Singleton public client
+_public_client = None
+
 def get_public_minio_client():
     """
-    Tạo MinIO client cho public URL generation (không check connection)
+    Tạo MinIO client cho public URL generation (Singleton)
     """
+    global _public_client
+    if _public_client is not None:
+        return _public_client
+        
     endpoint = f"{MINIO_PUBLIC_ENDPOINT}:{MINIO_PUBLIC_PORT}"
-    return Minio(
+    _public_client = Minio(
         endpoint,
         access_key=MINIO_ACCESS_KEY,
         secret_key=MINIO_SECRET_KEY,
         secure=MINIO_USE_SSL
     )
+    return _public_client
 
 def get_file_url(bucket_name, object_name, expires=3600):
     """
@@ -173,9 +182,20 @@ def get_file_url(bucket_name, object_name, expires=3600):
     Sử dụng public endpoint để browser có thể truy cập
     """
     try:
-        # Use public client to generate URL accessible from browser
-        client = get_public_minio_client()
+        # Use internal client to generate URL (avoids connection errors inside container)
+        client = get_minio_client()
+        
+        # Ensure expires is timedelta
+        if isinstance(expires, int):
+            expires = timedelta(seconds=expires)
+            
         url = client.presigned_get_object(bucket_name, object_name, expires=expires)
+        
+        # Replace internal container hostname (minio) with public hostname (localhost)
+        # so the browser can access it
+        if url and 'minio:9000' in url:
+            url = url.replace('minio:9000', 'localhost:9000')
+            
         return url
     except S3Error as e:
         print(f"Error getting presigned URL: {e}")
@@ -389,6 +409,10 @@ def get_presigned_urls_for_detection(db, event_id, expires=3600):
         
         urls = {}
         client = get_minio_client()
+        
+        # Ensure expires is timedelta
+        if isinstance(expires, int):
+            expires = timedelta(seconds=expires)
         
         # Tạo presigned URL cho từng file
         if storage_refs.get('full_frame_key'):

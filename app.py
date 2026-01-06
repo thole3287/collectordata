@@ -54,6 +54,17 @@ try:
 except Exception as e:
     print(f"⚠️ MinIO initialization skipped: {e}")
 
+# Initialize Database Indexes
+try:
+    print("🔧 Ensuring Database Indexes...")
+    db = db_service.get_db_connection()
+    if db is not None:
+        # Create index for downloaded_videos sorting
+        db['downloaded_videos'].create_index([('downloaded_at', -1)])
+        print("✓ Database indexes created")
+except Exception as e:
+    print(f"⚠️ Database index creation skipped: {e}")
+
 
 # ==================== ROUTES: HOME ====================
 
