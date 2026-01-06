@@ -145,6 +145,15 @@ def download_pexels_videos(query, num_videos, api_key):
         
         for idx, video in enumerate(videos):
             video_id = video["id"]
+            
+            # [OPTIMIZATION] Check DB before downloading
+            db = get_db_connection()
+            if db:
+                existing_video = db['downloaded_videos'].find_one({'video_id': str(video_id)})
+                if existing_video:
+                    logger.info(f"Video {video_id} already exists in DB. Skipping.")
+                    continue
+
             video_files = video["video_files"]
             
             # Find best file ~1280px width
