@@ -1,5 +1,5 @@
 # Sử dụng Python 3.11 slim image
-FROM python:3.11-slim
+FROM python:3.10-slim
 
 # Set working directory
 WORKDIR /app
@@ -23,6 +23,9 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel cython
 
 # Install PyTorch CPU first (to avoid downloading GPU version and help dependencies)
 RUN pip install --no-cache-dir torch==2.1.0 torchvision==0.16.0 --index-url https://download.pytorch.org/whl/cpu
+
+# Install AI restoration libraries with --no-build-isolation to use pre-installed CPU torch
+RUN pip install --no-cache-dir --no-build-isolation basicsr>=1.4.2 facexlib>=0.3.0 gfpgan>=1.3.8 realesrgan>=0.3.0
 
 # Install remaining dependencies
 RUN pip install --no-cache-dir -r requirements.txt

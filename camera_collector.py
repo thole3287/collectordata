@@ -156,8 +156,8 @@ class CameraCollector:
                     
                     if should_upload_minio:
                         now = datetime.now()
-                        # Key format: YYYY/MM/DD/{camera_id}/HH-MM-SS.png
-                        object_key = f"{now.strftime('%Y/%m/%d')}/{camera_id}/{os.path.basename(file_path)}"
+                        # Key format: camera/YYYY/MM/DD/{camera_id}/HH-MM-SS.png
+                        object_key = f"camera/{now.strftime('%Y/%m/%d')}/{camera_id}/{os.path.basename(file_path)}"
                         
                         result = minio_service.upload_and_get_key(
                             file_path=file_path,
