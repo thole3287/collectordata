@@ -3,7 +3,7 @@ MinIO Helper - Utility functions để upload/download files từ MinIO
 Tích hợp với MongoDB để lưu metadata và storage references
 """
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from minio import Minio
 from minio.error import S3Error
 import numpy as np
@@ -21,7 +21,7 @@ MINIO_USE_SSL = os.getenv('MINIO_USE_SSL', 'False').lower() == 'true'
 # Bucket names
 MINIO_BUCKET_VIDEOS = os.getenv('MINIO_BUCKET_VIDEOS', 'videos')
 MINIO_BUCKET_IMAGES = os.getenv('MINIO_BUCKET_IMAGES', 'images')
-MINIO_BUCKET_FRAMES = os.getenv('MINIO_BUCKET_FRAMES', 'frames')
+MINIO_BUCKET_FRAMES = os.getenv('MINIO_BUCKET_FRAMES', 'dataset')
 MINIO_BUCKET_CAMERA = os.getenv('MINIO_BUCKET_CAMERA', 'camera-images')
 MINIO_BUCKET_VEHICLE_DETECTION = os.getenv('MINIO_BUCKET_VEHICLE_DETECTION', 'vehicle-detection')
 
@@ -50,18 +50,18 @@ def ensure_buckets_exist():
         client = get_minio_client()
         buckets = [
             MINIO_BUCKET_VIDEOS,
-            MINIO_BUCKET_IMAGES,
+            # MINIO_BUCKET_IMAGES, # Deprecated
             MINIO_BUCKET_FRAMES,
-            MINIO_BUCKET_CAMERA,
+            # MINIO_BUCKET_CAMERA, # Deprecated, using frames/camera instead
             MINIO_BUCKET_VEHICLE_DETECTION
         ]
         
         for bucket_name in buckets:
             if not client.bucket_exists(bucket_name):
                 client.make_bucket(bucket_name)
-                print(f"✓ Created bucket: {bucket_name}")
+                print(f"[OK] Created bucket: {bucket_name}")
             else:
-                print(f"✓ Bucket already exists: {bucket_name}")
+                print(f"[OK] Bucket already exists: {bucket_name}")
         
         return True
     except S3Error as e:
@@ -108,7 +108,7 @@ def upload_file(file_path, bucket_name, object_name=None, content_type=None):
             content_type=content_type
         )
         
-        print(f"✓ Uploaded {file_path} to {bucket_name}/{object_name}")
+        print(f"[OK] Uploaded {file_path} to {bucket_name}/{object_name}")
         return True
         
     except S3Error as e:
@@ -140,7 +140,7 @@ def download_file(bucket_name, object_name, file_path):
         # Download file
         client.fget_object(bucket_name, object_name, file_path)
         
-        print(f"✓ Downloaded {bucket_name}/{object_name} to {file_path}")
+        print(f"[OK] Downloaded {bucket_name}/{object_name} to {file_path}")
         return True
         
     except S3Error as e:
@@ -155,17 +155,26 @@ def download_file(bucket_name, object_name, file_path):
 MINIO_PUBLIC_ENDPOINT = os.getenv('MINIO_PUBLIC_ENDPOINT', 'localhost')
 MINIO_PUBLIC_PORT = int(os.getenv('MINIO_PUBLIC_PORT', 9000))
 
+
+# Singleton public client
+_public_client = None
+
 def get_public_minio_client():
     """
-    Tạo MinIO client cho public URL generation (không check connection)
+    Tạo MinIO client cho public URL generation (Singleton)
     """
+    global _public_client
+    if _public_client is not None:
+        return _public_client
+        
     endpoint = f"{MINIO_PUBLIC_ENDPOINT}:{MINIO_PUBLIC_PORT}"
-    return Minio(
+    _public_client = Minio(
         endpoint,
         access_key=MINIO_ACCESS_KEY,
         secret_key=MINIO_SECRET_KEY,
         secure=MINIO_USE_SSL
     )
+    return _public_client
 
 def get_file_url(bucket_name, object_name, expires=3600):
     """
@@ -173,9 +182,20 @@ def get_file_url(bucket_name, object_name, expires=3600):
     Sử dụng public endpoint để browser có thể truy cập
     """
     try:
-        # Use public client to generate URL accessible from browser
-        client = get_public_minio_client()
+        # Use internal client to generate URL (avoids connection errors inside container)
+        client = get_minio_client()
+        
+        # Ensure expires is timedelta
+        if isinstance(expires, int):
+            expires = timedelta(seconds=expires)
+            
         url = client.presigned_get_object(bucket_name, object_name, expires=expires)
+        
+        # Replace internal container hostname (minio) with public hostname (localhost)
+        # so the browser can access it
+        if url and 'minio:9000' in url:
+            url = url.replace('minio:9000', 'localhost:9000')
+            
         return url
     except S3Error as e:
         print(f"Error getting presigned URL: {e}")
@@ -222,7 +242,7 @@ def delete_file(bucket_name, object_name):
     try:
         client = get_minio_client()
         client.remove_object(bucket_name, object_name)
-        print(f"✓ Deleted {bucket_name}/{object_name}")
+        print(f"[OK] Deleted {bucket_name}/{object_name}")
         return True
     except S3Error as e:
         print(f"Error deleting file: {e}")
@@ -390,6 +410,10 @@ def get_presigned_urls_for_detection(db, event_id, expires=3600):
         urls = {}
         client = get_minio_client()
         
+        # Ensure expires is timedelta
+        if isinstance(expires, int):
+            expires = timedelta(seconds=expires)
+        
         # Tạo presigned URL cho từng file
         if storage_refs.get('full_frame_key'):
             urls['full_frame'] = client.presigned_get_object(
@@ -532,7 +556,7 @@ def extract_and_upload_frames(video_path, video_id, platform='youtube',
                 else:
                     # Fallback: dùng 30 fps nếu không detect được
                     fps = 30.0
-                    print(f"  ⚠ Không thể detect FPS, dùng mặc định: {fps} fps")
+                    print(f"  [!] Cannot detect FPS, using default: {fps} fps")
             else:
                 video_fps = fps
             
@@ -544,7 +568,7 @@ def extract_and_upload_frames(video_path, video_id, platform='youtube',
             if frame_step < 1:
                 frame_step = 1
             
-            print(f"  📹 Video FPS: {fps:.2f}, Interval: {interval_seconds}s → Frame step: {frame_step}")
+            print(f"  [INFO] Video FPS: {fps:.2f}, Interval: {interval_seconds}s -> Frame step: {frame_step}")
             
             count = 0
             saved_count = 0
@@ -638,8 +662,8 @@ if __name__ == "__main__":
     # Test connection và tạo buckets
     print("Testing MinIO connection...")
     if ensure_buckets_exist():
-        print("✓ MinIO setup successful!")
+        print("[OK] MinIO setup successful!")
     else:
-        print("✗ MinIO setup failed!")
+        print("[FAIL] MinIO setup failed!")
 
 

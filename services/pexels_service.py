@@ -3,13 +3,18 @@ import requests
 import json
 import time
 import threading
+import random
 from datetime import datetime
 from pymongo.errors import DuplicateKeyError
+import logging
 from services.database import get_db_connection
 import logging
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Setup logger
 logger = logging.getLogger(__name__)
 
 PEXELS_OUTPUT_FOLDER = "pexels_traffic_dataset"
@@ -20,12 +25,14 @@ def save_pexels_video_to_database(video_data, query, download_method='pexels'):
     """Lưu thông tin video Pexels vào Database"""
     db = get_db_connection()
     if db is None:
+        print("[ERROR] No database connection")
         return False
     
     try:
         collection = db['downloaded_videos']
         existing = collection.find_one({'video_id': str(video_data['id'])})
         if existing:
+            print(f"[INFO] Video {video_data['id']} already exists in DB")
             return False
         
         # Upload MinIO Logic
@@ -36,17 +43,19 @@ def save_pexels_video_to_database(video_data, query, download_method='pexels'):
         
         # Check toggle
         should_upload_minio = os.getenv('UPLOAD_TO_MINIO', 'true').lower() == 'true'
+        print(f"[INFO] Upload to MinIO: {should_upload_minio}, File: {file_path}")
         
         if file_path and os.path.exists(file_path) and should_upload_minio:
             try:
                 import services.minio_service as minio_service
                 minio_endpoint = os.getenv('MINIO_ENDPOINT')
-                # Strict check logic or relaxed? using same logic as yt_downloaderpy update
-                if minio_endpoint or True: # Assuming defaults work if env not set
+                
+                if minio_endpoint:
                     video_id = str(video_data['id'])
                     file_ext = os.path.splitext(file_path)[1] or '.mp4'
                     object_key = f"pexels/{video_id}{file_ext}"
                     
+                    print(f"[INFO] Uploading to MinIO: {object_key}")
                     result = minio_service.upload_and_get_key(
                         file_path=file_path,
                         bucket_name=minio_service.MINIO_BUCKET_VIDEOS,
@@ -57,10 +66,12 @@ def save_pexels_video_to_database(video_data, query, download_method='pexels'):
                     if result.get('success'):
                         minio_key = result['key']
                         minio_bucket = result['bucket']
+                        print(f"[OK] Uploaded video to MinIO: {minio_key}")
                         
                         # Extract frames
                         try:
                             video_fps = video_data.get('fps')
+                            print(f"[INFO] Extracting frames for {video_id}...")
                             frames_result = minio_service.extract_and_upload_frames(
                                 video_path=file_path,
                                 video_id=video_id,
@@ -74,12 +85,16 @@ def save_pexels_video_to_database(video_data, query, download_method='pexels'):
                                 storage_refs_data['frames_bucket'] = frames_result['bucket']
                                 storage_refs_data['frame_keys'] = frames_result['frame_keys']
                                 storage_refs_data['frames_count'] = frames_result['frames_uploaded']
+                                print(f"[OK] Extracted and uploaded {frames_result['frames_uploaded']} frames")
                                 
                                 # Delete local file
                                 try:
                                     os.remove(file_path)
-                                except:
-                                    pass
+                                    print(f"[INFO] Deleted local file: {file_path}")
+                                except Exception as e:
+                                    print(f"[WARN] Error deleting file: {e}")
+                            else:
+                                print(f"[ERROR] Frame extraction failed: {frames_result.get('error')}")
                         except Exception as e:
                             print(f"Error extracting frames: {e}")
             except Exception as e:
@@ -119,6 +134,7 @@ def save_pexels_video_to_database(video_data, query, download_method='pexels'):
                 })
         
         collection.insert_one(document)
+        print(f"[OK] Saved video info to DB: {video_data['id']}")
         return True
     except DuplicateKeyError:
         return False
@@ -133,15 +149,21 @@ def download_pexels_videos(query, num_videos, api_key):
             os.makedirs(PEXELS_OUTPUT_FOLDER)
 
         headers = {"Authorization": api_key}
-        url = f"https://api.pexels.com/videos/search?query={query}&per_page={num_videos}&orientation=landscape"
+        # Random page to get different videos each time
+        random_page = random.randint(1, 100) 
+        logger.info(f"Checking Pexels page {random_page} for query '{query}'")
+        
+        url = f"https://api.pexels.com/videos/search?query={query}&per_page={num_videos}&orientation=landscape&page={random_page}"
         response = requests.get(url, headers=headers)
         
         if response.status_code != 200:
+            logger.error(f"Pexels API Error: {response.status_code} - {response.text}")
             return {"success": False, "error": f"API error: {response.status_code}"}
 
         data = response.json()
         videos = data.get("videos", [])[:num_videos]
         total = len(videos)
+        logger.info(f"Pexels API found {len(data.get('videos', []))} videos for query '{query}', downloading {total}")
         
         count = 0
         saved_to_db = 0
@@ -195,6 +217,18 @@ def download_pexels_videos(query, num_videos, api_key):
                 
                 if save_pexels_video_to_database(video_data, query):
                     saved_to_db += 1
+                    logger.info(f"Successfully processed video {video_id}")
+                else:
+                    logger.warning(f"Failed to save video {video_id} to DB (duplicate or error)")
+                
+                # Cleanup: Ensure local file is removed regardless of result (success/duplicate/error)
+                # save_pexels_video_to_database attempts delete on success, but we double check here
+                try:
+                    if os.path.exists(filename):
+                        os.remove(filename)
+                        print(f"[INFO] Deleted local file (cleanup): {filename}")
+                except Exception as e:
+                    print(f"[WARN] Failed to delete local file {filename}: {e}")
                 
                 count += 1
                 

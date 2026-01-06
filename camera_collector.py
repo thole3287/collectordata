@@ -99,11 +99,11 @@ class CameraCollector:
 
             if minio_key:
                 doc['storage_refs'] = {
-                    'bucket': minio_service.MINIO_BUCKET_CAMERA,
+                    'bucket': minio_service.MINIO_BUCKET_FRAMES,
                     'key': minio_key
                 }
                 # Add explicit path for easier frontend/proxy access
-                doc['minio_url_path'] = f"{minio_service.MINIO_BUCKET_CAMERA}/{minio_key}"
+                doc['minio_url_path'] = f"{minio_service.MINIO_BUCKET_FRAMES}/{minio_key}"
 
             db['camera_images'].insert_one(doc)
         except Exception as e:
@@ -161,7 +161,7 @@ class CameraCollector:
                         
                         result = minio_service.upload_and_get_key(
                             file_path=file_path,
-                            bucket_name=minio_service.MINIO_BUCKET_CAMERA,
+                            bucket_name=minio_service.MINIO_BUCKET_FRAMES, # Changed to frames bucket
                             custom_path=object_key,
                             content_type='image/png' # Changed to PNG
                         )

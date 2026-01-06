@@ -11,10 +11,10 @@ function app() {
         numVideos: 1,
         downloading: false,
         videos: [],
-        videosTableBody: '',
+        totalVideos: 0,
         currentPage: 1,
-        totalPages: 1,
-        perPage: 20,
+        perPage: 10,
+        totalPages: 0,
         searchQuery: '',
         vizData: {},
         charts: {},
@@ -83,8 +83,15 @@ function app() {
             clahe_tile_size: 8
         },
 
-
-
+        init() {
+            console.log('App initialized');
+            // Load initial data based on active tab
+            if (this.activeTab === 'visualization') {
+                this.loadVisualization();
+            }
+            // Always load active keywords for dropdowns
+            this.loadActiveKeywords();
+        },
         // Methods
         async downloadByUrl() {
             if (!this.urlInput.trim()) {
@@ -254,6 +261,11 @@ function app() {
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             ${duration}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full ${video.platform === 'pexels' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                ${video.platform || 'youtube'}
+                            </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">
                             ${method}
