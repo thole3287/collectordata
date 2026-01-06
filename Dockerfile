@@ -9,12 +9,22 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
     wget \
     curl \
+    build-essential \
+    libgl1 \
+    libglib2.0-0 \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements file
 COPY requirements.txt .
 
-# Install Python dependencies
+# Upgrade pip and install build dependencies
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel cython
+
+# Install PyTorch CPU first (to avoid downloading GPU version and help dependencies)
+RUN pip install --no-cache-dir torch==2.1.0 torchvision==0.16.0 --index-url https://download.pytorch.org/whl/cpu
+
+# Install remaining dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code

@@ -67,6 +67,24 @@ function app() {
         },
         updatingKeyword: false,
 
+        // Preprocessing Config State
+        savingConfig: false,
+        preprocessingConfig: {
+            apply_crop: true,
+            apply_realesrgan: false,
+            apply_resize: true,
+            apply_clahe: true,
+            apply_sharpen: true,
+            realesrgan_denoise_strength: 0.5,
+            realesrgan_scale: 4,
+            blend_with_original: false,
+            blend_alpha: 0.7,
+            clahe_clip_limit: 2.0,
+            clahe_tile_size: 8
+        },
+
+
+
         // Methods
         async downloadByUrl() {
             if (!this.urlInput.trim()) {
@@ -1272,6 +1290,37 @@ function app() {
             } catch (e) {
                 // Ignore errors if interval doesn't exist
             }
+        },
+
+        // --- Preprocessing Config Functions ---
+        loadPreprocessingConfig() {
+            fetch('/api/preprocessing/config')
+                .then(res => res.json())
+                .then(data => {
+                    this.preprocessingConfig = { ...this.preprocessingConfig, ...data };
+                })
+                .catch(err => console.error('Error loading config:', err));
+        },
+
+        savePreprocessingConfig() {
+            this.savingConfig = true;
+            fetch('/api/preprocessing/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(this.preprocessingConfig)
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        this.showNotify('Configuration saved successfully!', 'success');
+                    } else {
+                        this.showNotify('Failed to save: ' + data.message, 'error');
+                    }
+                })
+                .catch(err => this.showNotify('Error saving config: ' + err, 'error'))
+                .finally(() => {
+                    this.savingConfig = false;
+                });
         },
 
         showCameraImage(img) {

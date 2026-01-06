@@ -75,6 +75,12 @@
                     <i class="fas fa-video w-5"></i>
                     <span>Pexels Dataset</span>
                 </a>
+                <a @click="activeTab = 'preprocessing'; stopCameraAutoRefresh(); loadPreprocessingConfig(); sidebarOpen = false"
+                    :class="activeTab === 'preprocessing' ? 'bg-blue-700 text-white' : 'text-blue-100 hover:bg-blue-700 hover:text-white'"
+                    class="flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors cursor-pointer">
+                    <i class="fas fa-sliders-h w-5"></i>
+                    <span>Pipeline Settings</span>
+                </a>
             </nav>
         </aside>
 
@@ -91,7 +97,7 @@
                         <i class="fas fa-bars text-xl"></i>
                     </button>
                     <h2 class="text-2xl font-semibold text-gray-800"
-                        x-text="activeTab === 'visualization' ? 'Visualize Data' : activeTab === 'download' ? 'Tải Video Youtube' : activeTab === 'videos' ? 'Danh Sách Video' : activeTab === 'keywords' ? 'Quản Lý Keywords' : activeTab === 'camera' ? 'Camera Collector' : activeTab === 'pexels' ? 'Pexels Dataset' : ''">
+                        x-text="activeTab === 'visualization' ? 'Visualize Data' : activeTab === 'download' ? 'Tải Video Youtube' : activeTab === 'videos' ? 'Danh Sách Video' : activeTab === 'keywords' ? 'Quản Lý Keywords' : activeTab === 'camera' ? 'Camera Collector' : activeTab === 'pexels' ? 'Pexels Dataset' : activeTab === 'preprocessing' ? 'Pipeline Settings' : ''">
                     </h2>
 
                     <!-- Auto Run Toggle -->
@@ -846,7 +852,256 @@
 
                     </div>
                 </div>
-            </main>
+
+                <!-- Pipeline Settings Tab -->
+                <div x-show="activeTab === 'preprocessing'" x-cloak>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- Left: Pipeline Visualization -->
+                        <div class="lg:col-span-1 space-y-6">
+                            <div class="bg-white rounded-lg shadow-md p-6">
+                                <h3 class="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                                    <i class="fas fa-project-diagram text-purple-600"></i>
+                                    Pipeline Tree
+                                </h3>
+                                <div class="relative pl-4 border-l-2 border-gray-200 space-y-4">
+                                    <!-- Input -->
+                                    <div class="relative pl-4">
+                                        <div class="absolute -left-[21px] top-3 w-4 h-0.5 bg-gray-200"></div>
+                                        <div class="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                                            <div class="font-semibold text-gray-700">Input Image</div>
+                                            <div class="text-xs text-gray-500">Raw Source</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Step 1: Crop -->
+                                    <div class="relative pl-4">
+                                        <div class="absolute -left-[21px] top-3 w-4 h-0.5 bg-gray-200"></div>
+                                        <div class="p-3 rounded-lg border transition-colors"
+                                            :class="preprocessingConfig.apply_crop ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200 opacity-60'">
+                                            <div class="flex items-center justify-between">
+                                                <div class="font-semibold"
+                                                    :class="preprocessingConfig.apply_crop ? 'text-green-700' : 'text-gray-500'">
+                                                    1. Center Crop</div>
+                                                <i class="fas fa-check-circle"
+                                                    :class="preprocessingConfig.apply_crop ? 'text-green-600' : 'text-gray-300'"></i>
+                                            </div>
+                                            <div class="text-xs mt-1"
+                                                :class="preprocessingConfig.apply_crop ? 'text-green-600' : 'text-gray-400'">
+                                                Aspect Ratio 16:9</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Step 2: AI Upscale -->
+                                    <div class="relative pl-4">
+                                        <div class="absolute -left-[21px] top-3 w-4 h-0.5 bg-gray-200"></div>
+                                        <div class="p-3 rounded-lg border transition-colors"
+                                            :class="preprocessingConfig.apply_realesrgan ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200 opacity-60'">
+                                            <div class="flex items-center justify-between">
+                                                <div class="font-semibold"
+                                                    :class="preprocessingConfig.apply_realesrgan ? 'text-blue-700' : 'text-gray-500'">
+                                                    2. Real-ESRGAN</div>
+                                                <i class="fas fa-magic"
+                                                    :class="preprocessingConfig.apply_realesrgan ? 'text-blue-600' : 'text-gray-300'"></i>
+                                            </div>
+                                            <div class="text-xs mt-1"
+                                                :class="preprocessingConfig.apply_realesrgan ? 'text-blue-600' : 'text-gray-400'">
+                                                x4 Upscaling + Denoise</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Step 3: Resize -->
+                                    <div class="relative pl-4">
+                                        <div class="absolute -left-[21px] top-3 w-4 h-0.5 bg-gray-200"></div>
+                                        <div class="p-3 rounded-lg border transition-colors"
+                                            :class="preprocessingConfig.apply_resize ? 'bg-indigo-50 border-indigo-200' : 'bg-gray-50 border-gray-200 opacity-60'">
+                                            <div class="flex items-center justify-between">
+                                                <div class="font-semibold"
+                                                    :class="preprocessingConfig.apply_resize ? 'text-indigo-700' : 'text-gray-500'">
+                                                    3. Resize</div>
+                                                <i class="fas fa-compress"
+                                                    :class="preprocessingConfig.apply_resize ? 'text-indigo-600' : 'text-gray-300'"></i>
+                                            </div>
+                                            <div class="text-xs mt-1"
+                                                :class="preprocessingConfig.apply_resize ? 'text-indigo-600' : 'text-gray-400'">
+                                                Target: 1280x720</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Step 4: CLAHE -->
+                                    <div class="relative pl-4">
+                                        <div class="absolute -left-[21px] top-3 w-4 h-0.5 bg-gray-200"></div>
+                                        <div class="p-3 rounded-lg border transition-colors"
+                                            :class="preprocessingConfig.apply_clahe ? 'bg-orange-50 border-orange-200' : 'bg-gray-50 border-gray-200 opacity-60'">
+                                            <div class="flex items-center justify-between">
+                                                <div class="font-semibold"
+                                                    :class="preprocessingConfig.apply_clahe ? 'text-orange-700' : 'text-gray-500'">
+                                                    4. CLAHE</div>
+                                                <i class="fas fa-adjust"
+                                                    :class="preprocessingConfig.apply_clahe ? 'text-orange-600' : 'text-gray-300'"></i>
+                                            </div>
+                                            <div class="text-xs mt-1"
+                                                :class="preprocessingConfig.apply_clahe ? 'text-orange-600' : 'text-gray-400'">
+                                                Contrast Enhancement</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Step 5: Sharpen -->
+                                    <div class="relative pl-4">
+                                        <div class="absolute -left-[21px] top-3 w-4 h-0.5 bg-gray-200"></div>
+                                        <div class="p-3 rounded-lg border transition-colors"
+                                            :class="preprocessingConfig.apply_sharpen ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200 opacity-60'">
+                                            <div class="flex items-center justify-between">
+                                                <div class="font-semibold"
+                                                    :class="preprocessingConfig.apply_sharpen ? 'text-red-700' : 'text-gray-500'">
+                                                    5. Sharpen</div>
+                                                <i class="fas fa-caret-up"
+                                                    :class="preprocessingConfig.apply_sharpen ? 'text-red-600' : 'text-gray-300'"></i>
+                                            </div>
+                                            <div class="text-xs mt-1"
+                                                :class="preprocessingConfig.apply_sharpen ? 'text-red-600' : 'text-gray-400'">
+                                                Details Enhancement</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Output -->
+                                    <div class="relative pl-4">
+                                        <div class="absolute -left-[21px] top-3 w-4 h-0.5 bg-gray-200"></div>
+                                        <div class="bg-gray-800 p-3 rounded-lg border border-gray-700 text-white">
+                                            <div class="font-semibold">Dataset Image</div>
+                                            <div class="text-xs text-gray-400">Final Output</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Configuration Form -->
+                        <div class="lg:col-span-2 space-y-6">
+                            <div class="bg-white rounded-lg shadow-md p-6">
+                                <div class="flex items-center justify-between mb-6">
+                                    <h3 class="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                                        <i class="fas fa-sliders-h text-gray-600"></i>
+                                        Configuration Parameters
+                                    </h3>
+                                    <button @click="savePreprocessingConfig()" :disabled="savingConfig"
+                                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 disabled:bg-gray-400">
+                                        <i class="fas fa-save" x-show="!savingConfig"></i>
+                                        <i class="fas fa-spinner fa-spin" x-show="savingConfig"></i>
+                                        <span x-text="savingConfig ? 'Saving...' : 'Save Configuration'"></span>
+                                    </button>
+                                </div>
+
+                                <div class="space-y-6">
+                                    <!-- 1. Geometry Section -->
+                                    <div class="border-b pb-4">
+                                        <h4 class="text-lg font-medium text-gray-700 mb-3">Geometry & Cleanup</h4>
+                                        <div class="space-y-3">
+                                            <label class="flex items-center gap-3 cursor-pointer">
+                                                <div class="relative inline-block w-12 h-6 transition duration-200 ease-in-out rounded-full"
+                                                :class="preprocessingConfig.apply_crop ? 'bg-green-600' : 'bg-gray-200'">
+                                                    <input type="checkbox" class="absolute w-0 h-0 opacity-0"
+                                                        x-model="preprocessingConfig.apply_crop" />
+                                                    <span class="absolute left-0 inline-block w-6 h-6 bg-white border-2 rounded-full shadow transform transition-transform duration-200 ease-in-out"
+                                                        :class="preprocessingConfig.apply_crop ? 'translate-x-6 border-green-600' : 'translate-x-0 border-gray-200'"></span>
+                                                </div>
+                                                <span class="text-gray-700 font-medium">Apply Center Crop (16:9)</span>
+                                            </label>
+                                            <label class="flex items-center gap-3 cursor-pointer">
+                                                <div class="relative inline-block w-12 h-6 transition duration-200 ease-in-out rounded-full"
+                                                :class="preprocessingConfig.apply_resize ? 'bg-indigo-600' : 'bg-gray-200'">
+                                                    <input type="checkbox" class="absolute w-0 h-0 opacity-0"
+                                                        x-model="preprocessingConfig.apply_resize" />
+                                                    <span class="absolute left-0 inline-block w-6 h-6 bg-white border-2 rounded-full shadow transform transition-transform duration-200 ease-in-out"
+                                                        :class="preprocessingConfig.apply_resize ? 'translate-x-6 border-indigo-600' : 'translate-x-0 border-gray-200'"></span>
+                                                </div>
+                                                <span class="text-gray-700 font-medium">Force Resize to 1280x720</span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- 2. AI Section -->
+                                    <div class="border-b pb-4">
+                                        <h4 class="text-lg font-medium text-gray-700 mb-3">AI Enhancement (Real-ESRGAN)
+                                        </h4>
+                                        <div class="space-y-4">
+                                            <label class="flex items-center gap-3 cursor-pointer">
+                                                <div class="relative inline-block w-12 h-6 transition duration-200 ease-in-out rounded-full"
+                                                :class="preprocessingConfig.apply_realesrgan ? 'bg-blue-600' : 'bg-gray-200'">
+                                                    <input type="checkbox" class="absolute w-0 h-0 opacity-0"
+                                                        x-model="preprocessingConfig.apply_realesrgan" />
+                                                    <span class="absolute left-0 inline-block w-6 h-6 bg-white border-2 rounded-full shadow transform transition-transform duration-200 ease-in-out"
+                                                        :class="preprocessingConfig.apply_realesrgan ? 'translate-x-6 border-blue-600' : 'translate-x-0 border-gray-200'"></span>
+                                                </div>
+                                                <span class="text-gray-700 font-medium">Enable Real-ESRGAN Upscaling</span>
+                                            </label>
+
+                                            <div class="pl-14 space-y-4" x-show="preprocessingConfig.apply_realesrgan">
+                                                <div>
+                                                    <label class="block text-sm font-medium text-gray-600 mb-1">Denoise
+                                                        Strength (0.1 - 1.0)</label>
+                                                    <div class="flex items-center gap-4">
+                                                        <input type="range" min="0" max="1" step="0.1"
+                                                            x-model="preprocessingConfig.realesrgan_denoise_strength"
+                                                            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
+                                                        <span class="text-sm font-bold w-8"
+                                                            x-text="preprocessingConfig.realesrgan_denoise_strength"></span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 3. Quality Section -->
+                                    <div>
+                                        <h4 class="text-lg font-medium text-gray-700 mb-3">Quality Adjustments</h4>
+                                        <div class="space-y-4">
+                                            <!-- CLAHE -->
+                                            <div>
+                                                <label class="flex items-center gap-3 cursor-pointer mb-2">
+                                                    <div class="relative inline-block w-12 h-6 transition duration-200 ease-in-out rounded-full"
+                                                    :class="preprocessingConfig.apply_clahe ? 'bg-orange-600' : 'bg-gray-200'">
+                                                        <input type="checkbox" class="absolute w-0 h-0 opacity-0"
+                                                            x-model="preprocessingConfig.apply_clahe" />
+                                                        <span class="absolute left-0 inline-block w-6 h-6 bg-white border-2 rounded-full shadow transform transition-transform duration-200 ease-in-out"
+                                                            :class="preprocessingConfig.apply_clahe ? 'translate-x-6 border-orange-600' : 'translate-x-0 border-gray-200'"></span>
+                                                    </div>
+                                                    <span class="text-gray-700 font-medium">Apply CLAHE (Contrast)</span>
+                                                </label>
+                                                <div class="pl-14" x-show="preprocessingConfig.apply_clahe">
+                                                    <label class="block text-sm font-medium text-gray-600 mb-1">Clip Limit
+                                                        (1.0 - 5.0)</label>
+                                                    <div class="flex items-center gap-4">
+                                                        <input type="range" min="1" max="5" step="0.5"
+                                                            x-model="preprocessingConfig.clahe_clip_limit"
+                                                            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
+                                                        <span class="text-sm font-bold w-8"
+                                                            x-text="preprocessingConfig.clahe_clip_limit"></span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Sharpen -->
+                                            <div>
+                                                <label class="flex items-center gap-3 cursor-pointer">
+                                                    <div class="relative inline-block w-12 h-6 transition duration-200 ease-in-out rounded-full"
+                                                    :class="preprocessingConfig.apply_sharpen ? 'bg-red-600' : 'bg-gray-200'">
+                                                        <input type="checkbox" class="absolute w-0 h-0 opacity-0"
+                                                            x-model="preprocessingConfig.apply_sharpen" />
+                                                        <span class="absolute left-0 inline-block w-6 h-6 bg-white border-2 rounded-full shadow transform transition-transform duration-200 ease-in-out"
+                                                            :class="preprocessingConfig.apply_sharpen ? 'translate-x-6 border-red-600' : 'translate-x-0 border-gray-200'"></span>
+                                                    </div>
+                                                    <span class="text-gray-700 font-medium">Apply Sharpening
+                                                        (Unsharp)</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
         </div>
     </div>
 

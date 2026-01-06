@@ -5,6 +5,7 @@ import threading
 import services.database as db_service
 import services.minio_service as minio_service
 from datetime import datetime
+from .preprocessing_service import PreprocessingService
 import numpy as np
 
 FRAMES_OUTPUT_ROOT = "dataset_extracted"
@@ -69,7 +70,9 @@ def extract_frames_from_folder(input_folder, output_root=None, progress_file_pat
 
                 if count % frame_step == 0:
                     try:
-                        resized_frame = cv2.resize(frame, (TARGET_WIDTH, TARGET_HEIGHT), interpolation=cv2.INTER_AREA)
+                        # Use Preprocessing Pipeline (AI Upscale, CLAHE, etc.)
+                        # This returns 8-bit BGR image, resized to 1280x720
+                        resized_frame = PreprocessingService.process_cv2_image(frame)
                         
                         # Convert to 16-bit PNG (scale up)
                         frame_16bit = resized_frame.astype(np.uint16) * 256

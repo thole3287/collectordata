@@ -6,6 +6,11 @@ import threading
 from datetime import datetime
 from pymongo.errors import DuplicateKeyError
 from services.database import get_db_connection
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 PEXELS_OUTPUT_FOLDER = "pexels_traffic_dataset"
 TARGET_WIDTH = 1280

@@ -16,6 +16,7 @@ import services.keyword_service as keyword_service
 # MinIO service (rename helper use)
 import services.minio_service as minio_service
 import services.auto_collector_service as auto_collector_service
+from services.preprocessing_service import PreprocessingService
 import cv2
 import numpy as np
 
@@ -747,6 +748,29 @@ def create_minio_buckets():
         return jsonify({'success': False, 'error': 'Failed to create buckets'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# --- Preprocessing Configuration API ---
+@app.route('/api/preprocessing/config', methods=['GET'])
+def get_preprocessing_config():
+    """Get current preprocessing configuration."""
+    config = PreprocessingService.load_config()
+    return jsonify(config)
+
+@app.route('/api/preprocessing/config', methods=['POST'])
+def save_preprocessing_config():
+    """Save preprocessing configuration."""
+    try:
+        data = request.json
+        if not data:
+            return jsonify({'success': False, 'message': 'No data provided'}), 400
+        
+        success = PreprocessingService.save_config(data)
+        if success:
+            return jsonify({'success': True, 'message': 'Configuration saved successfully'})
+        else:
+            return jsonify({'success': False, 'message': 'Failed to save configuration'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 
 # ==================== MAIN ====================
