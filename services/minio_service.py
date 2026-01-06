@@ -59,9 +59,9 @@ def ensure_buckets_exist():
         for bucket_name in buckets:
             if not client.bucket_exists(bucket_name):
                 client.make_bucket(bucket_name)
-                print(f"✓ Created bucket: {bucket_name}")
+                print(f"[OK] Created bucket: {bucket_name}")
             else:
-                print(f"✓ Bucket already exists: {bucket_name}")
+                print(f"[OK] Bucket already exists: {bucket_name}")
         
         return True
     except S3Error as e:
@@ -108,7 +108,7 @@ def upload_file(file_path, bucket_name, object_name=None, content_type=None):
             content_type=content_type
         )
         
-        print(f"✓ Uploaded {file_path} to {bucket_name}/{object_name}")
+        print(f"[OK] Uploaded {file_path} to {bucket_name}/{object_name}")
         return True
         
     except S3Error as e:
@@ -140,7 +140,7 @@ def download_file(bucket_name, object_name, file_path):
         # Download file
         client.fget_object(bucket_name, object_name, file_path)
         
-        print(f"✓ Downloaded {bucket_name}/{object_name} to {file_path}")
+        print(f"[OK] Downloaded {bucket_name}/{object_name} to {file_path}")
         return True
         
     except S3Error as e:
@@ -242,7 +242,7 @@ def delete_file(bucket_name, object_name):
     try:
         client = get_minio_client()
         client.remove_object(bucket_name, object_name)
-        print(f"✓ Deleted {bucket_name}/{object_name}")
+        print(f"[OK] Deleted {bucket_name}/{object_name}")
         return True
     except S3Error as e:
         print(f"Error deleting file: {e}")
@@ -556,7 +556,7 @@ def extract_and_upload_frames(video_path, video_id, platform='youtube',
                 else:
                     # Fallback: dùng 30 fps nếu không detect được
                     fps = 30.0
-                    print(f"  ⚠ Không thể detect FPS, dùng mặc định: {fps} fps")
+                    print(f"  [!] Cannot detect FPS, using default: {fps} fps")
             else:
                 video_fps = fps
             
@@ -568,7 +568,7 @@ def extract_and_upload_frames(video_path, video_id, platform='youtube',
             if frame_step < 1:
                 frame_step = 1
             
-            print(f"  📹 Video FPS: {fps:.2f}, Interval: {interval_seconds}s → Frame step: {frame_step}")
+            print(f"  [INFO] Video FPS: {fps:.2f}, Interval: {interval_seconds}s -> Frame step: {frame_step}")
             
             count = 0
             saved_count = 0
@@ -662,8 +662,8 @@ if __name__ == "__main__":
     # Test connection và tạo buckets
     print("Testing MinIO connection...")
     if ensure_buckets_exist():
-        print("✓ MinIO setup successful!")
+        print("[OK] MinIO setup successful!")
     else:
-        print("✗ MinIO setup failed!")
+        print("[FAIL] MinIO setup failed!")
 
 
