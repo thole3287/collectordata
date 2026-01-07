@@ -151,9 +151,10 @@ function app() {
                 const response = await fetch('/api/dataset/stats');
                 if (response.ok) {
                     this.galleryStats = await response.json();
+                    this.showNotify('Stats Loaded: ' + (this.galleryStats.timeline?.length || 0) + ' items', 'success');
                     // Delay to ensure DOM is visible/layout computed
                     setTimeout(() => {
-                        this.renderCharts();
+                        this.drawGalleryInterface();
                     }, 100);
                 }
             } catch (error) {
@@ -161,11 +162,15 @@ function app() {
             }
         },
 
-        renderCharts() {
-            console.log("Rendering Gallery Charts...");
+        drawGalleryInterface() {
+            // Debug Notification
+            this.showNotify('Executing Draw Interface...', 'info');
+            console.log("Draw Interface Started");
             try {
                 // 1. Trend Chart
                 const trendEl = document.getElementById('galleryTrendChart');
+                if (!trendEl) this.showNotify('Trend Canvas Not Found!', 'error');
+
                 if (trendEl) {
                     const existing = Chart.getChart(trendEl);
                     if (existing) existing.destroy();
@@ -227,7 +232,8 @@ function app() {
                     }
                 }
             } catch (e) {
-                console.error("Error rendering charts:", e);
+                console.error("Error drawing interface:", e);
+                this.showNotify('Chart Error: ' + e.message, 'error');
             }
         },
 

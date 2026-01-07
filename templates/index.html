@@ -852,7 +852,7 @@
                             <h3 class="text-xl font-semibold text-gray-800 flex items-center gap-2">
                                 <i class="fas fa-database text-purple-600"></i>
                                 Quản Lý Dữ Liệu <span class="text-sm font-normal text-gray-500" x-text="'(' + (galleryMode === 'grouped' ? (galleryTotalGroups || 0) : (galleryTotalFrames || 0)) + ' items)'"></span>
-                                <button @click="renderCharts()" class="ml-4 px-2 py-1 bg-gray-200 text-xs rounded hover:bg-gray-300" title="Force Redraw Charts"><i class="fas fa-sync-alt"></i> Redraw</button>
+                                <button @click="drawGalleryInterface()" class="ml-4 px-2 py-1 bg-gray-200 text-xs rounded hover:bg-gray-300" title="Force Redraw Charts"><i class="fas fa-sync-alt"></i> Redraw</button>
                             </h3>
                             
                             <!-- Filter Bars -->
