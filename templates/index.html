@@ -49,7 +49,7 @@
                     :class="activeTab === 'download' ? 'bg-blue-700 text-white' : 'text-blue-100 hover:bg-blue-700 hover:text-white'"
                     class="flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors cursor-pointer">
                     <i class="fas fa-cloud-download-alt w-5"></i>
-                    <span>Tải Video Youtube</span>
+                    <span>Thu thập Video</span>
                 </a>
                 <a @click="activeTab = 'videos'; stopCameraAutoRefresh(); loadVideos(); sidebarOpen = false"
                     :class="activeTab === 'videos' ? 'bg-blue-700 text-white' : 'text-blue-100 hover:bg-blue-700 hover:text-white'"
@@ -69,12 +69,7 @@
                     <i class="fas fa-camera w-5"></i>
                     <span>Camera Collector</span>
                 </a>
-                <a @click="activeTab = 'pexels'; stopCameraAutoRefresh(); loadActiveKeywords(); sidebarOpen = false"
-                    :class="activeTab === 'pexels' ? 'bg-blue-700 text-white' : 'text-blue-100 hover:bg-blue-700 hover:text-white'"
-                    class="flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors cursor-pointer">
-                    <i class="fas fa-video w-5"></i>
-                    <span>Pexels Dataset</span>
-                </a>
+
                 <a @click="activeTab = 'gallery'; stopCameraAutoRefresh(); loadGallery(); sidebarOpen = false"
                     :class="activeTab === 'gallery' ? 'bg-blue-700 text-white' : 'text-blue-100 hover:bg-blue-700 hover:text-white'"
                     class="flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors cursor-pointer">
@@ -98,7 +93,7 @@
                         <i class="fas fa-bars text-xl"></i>
                     </button>
                     <h2 class="text-2xl font-semibold text-gray-800"
-                        x-text="activeTab === 'visualization' ? 'Visualize Data' : activeTab === 'download' ? 'Tải Video Youtube' : activeTab === 'videos' ? 'Danh Sách Video' : activeTab === 'keywords' ? 'Quản Lý Keywords' : activeTab === 'camera' ? 'Camera Collector' : activeTab === 'pexels' ? 'Pexels Dataset' : activeTab === 'gallery' ? 'Dataset Gallery' : ''">
+                        x-text="activeTab === 'visualization' ? 'Visualize Data' : activeTab === 'download' ? 'Thu thập Video' : activeTab === 'videos' ? 'Danh Sách Video' : activeTab === 'keywords' ? 'Quản Lý Keywords' : activeTab === 'camera' ? 'Camera Collector' : activeTab === 'pexels' ? 'Pexels Dataset' : activeTab === 'gallery' ? 'Dataset Gallery' : ''">
                     </h2>
 
                     <!-- Auto Run Toggle -->
@@ -167,11 +162,20 @@
                             <form @submit.prevent="downloadByUrl()">
                                 <div class="mb-4">
                                     <label class="block text-sm font-medium text-gray-700 mb-2">
+                                        Nền tảng
+                                    </label>
+                                    <select x-model="urlDownloadPlatform"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4">
+                                        <option value="youtube">YouTube</option>
+                                        <option value="pexels">Pexels</option>
+                                    </select>
+
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">
                                         Nhập URL (mỗi URL một dòng)
                                     </label>
                                     <textarea x-model="urlInput" rows="6"
                                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        placeholder="https://www.youtube.com/watch?v=...&#10;https://www.youtube.com/watch?v=..."></textarea>
+                                        :placeholder="urlDownloadPlatform === 'youtube' ? 'https://www.youtube.com/watch?v=...\nhttps://www.youtube.com/watch?v=...' : 'https://www.pexels.com/video/traffic-flow-12345/'"></textarea>
                                 </div>
                                 <button type="submit" :disabled="!urlInput.trim() || downloading"
                                     class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2">
@@ -196,6 +200,17 @@
                                 </p>
                             </div>
                             <form @submit.prevent="downloadByKeyword()">
+                                <div class="mb-4">
+                                     <label class="block text-sm font-medium text-gray-700 mb-2">
+                                        Nền tảng
+                                    </label>
+                                    <select x-model="keywordDownloadPlatform"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-800">
+                                        <option value="youtube">YouTube</option>
+                                        <option value="pexels">Pexels</option>
+                                    </select>
+                                </div>
+
                                 <div class="mb-4">
                                     <label class="block text-sm font-medium text-gray-700 mb-2">
                                         Chọn từ khóa từ danh sách *
@@ -266,6 +281,9 @@
                                         <th
                                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Thời lượng</th>
+                                        <th
+                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Type</th>
                                         <th
                                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Platform</th>
@@ -788,75 +806,6 @@
                     </div>
                 </div>
 
-                <!-- Pexels Dataset Tab -->
-                <div x-show="activeTab === 'pexels'" x-cloak>
-                    <div class="space-y-6">
-                        <!-- Download Section -->
-                        <div class="bg-white rounded-lg shadow-md p-6">
-                            <h3 class="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                                <i class="fas fa-download text-blue-600"></i>
-                                Tải Video từ Pexels
-                            </h3>
-                            <div class="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                                <p class="text-sm text-yellow-800">
-                                    <i class="fas fa-info-circle"></i>
-                                    <strong>Lưu ý:</strong> Bạn cần thêm keyword vào tab "Quản Lý Keywords" trước khi có
-                                    thể tải video.
-                                </p>
-                            </div>
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                                        Chọn từ khóa từ danh sách *
-                                    </label>
-                                    <select x-model="selectedPexelsKeywordId" @change="onPexelsKeywordSelect()" required
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                        <option value="">-- Chọn keyword --</option>
-                                        <template x-for="kw in activeKeywords" :key="kw._id || kw.id">
-                                            <option :value="kw._id || kw.id"
-                                                x-text="kw.keyword + ' (Số video: ' + kw.num_videos + ')'"></option>
-                                        </template>
-                                    </select>
-                                    <p class="text-xs text-gray-500 mt-1" x-show="activeKeywords.length === 0">
-                                        Chưa có keyword nào. Vui lòng thêm keyword trong tab "Quản Lý Keywords"
-                                    </p>
-                                </div>
-                                <div x-show="selectedPexelsKeywordId">
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                                        Số lượng video (có thể thay đổi)
-                                    </label>
-                                    <input type="number" x-model="pexelsNumVideos" min="1" max="80"
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-                                    <p class="text-xs text-gray-500 mt-1">
-                                        Số lượng mặc định từ keyword: <span
-                                            x-text="selectedPexelsKeyword ? selectedPexelsKeyword.num_videos : '-'"></span>
-                                    </p>
-                                </div>
-                                <button @click="downloadPexelsVideos()"
-                                    :disabled="!selectedPexelsKeywordId || pexelsDownloading || activeKeywords.length === 0"
-                                    class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2">
-                                    <i class="fas fa-download" x-show="!pexelsDownloading"></i>
-                                    <i class="fas fa-spinner fa-spin" x-show="pexelsDownloading"></i>
-                                    <span x-text="pexelsDownloading ? 'Đang tải...' : 'Tải Video'"></span>
-                                </button>
-                                <!-- Progress Bar -->
-                                <div x-show="pexelsDownloading" x-cloak class="mt-4">
-                                    <div class="flex items-center justify-between mb-2">
-                                        <span class="text-sm text-gray-600">Đang tải video...</span>
-                                        <span class="text-sm font-semibold text-blue-600"
-                                            x-text="pexelsDownloadProgress + '%'"></span>
-                                    </div>
-                                    <div class="w-full bg-gray-200 rounded-full h-2.5">
-                                        <div class="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out"
-                                            :style="'width: ' + pexelsDownloadProgress + '%'"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
-
                 <!-- Gallery Tab (Data Analysis & Management) -->
                 <div x-show="activeTab === 'gallery'" x-cloak>
                     <!-- Dashboard Statistics -->
@@ -923,38 +872,114 @@
                                     </div>
                                 </div>
 
-                                <button @click="loadGallery(); loadGalleryStats()"
-                                    class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-2 rounded-lg transition-colors" title="Làm mới">
-                                    <i class="fas fa-sync-alt"></i>
+                            <!-- View Mode Switcher -->
+                            <div class="flex bg-gray-100 rounded-lg p-1">
+                                <button @click="galleryMode='grouped'; galleryPage=1; loadGallery()" 
+                                    :class="galleryMode === 'grouped' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+                                    class="px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2">
+                                    <i class="fas fa-folder"></i> Groups
+                                </button>
+                                <button @click="galleryMode='flat'; galleryPage=1; loadGallery()"
+                                    :class="galleryMode === 'flat' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+                                    class="px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2">
+                                    <i class="fas fa-th"></i> Grid
                                 </button>
                             </div>
+
+                            <button @click="loadGallery(); loadGalleryStats()"
+                                class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-2 rounded-lg transition-colors" title="Làm mới">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
                         </div>
-                        
-                        <!-- Grid -->
-                        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                            <template x-for="frame in galleryFrames" :key="frame.id">
-                                <div class="relative group cursor-pointer border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
-                                    @click="openGalleryModal(frame)">
-                                    <div class="aspect-w-16 aspect-h-9 bg-gray-100 relative">
-                                        <img :src="frame.image_url" 
-                                             class="object-cover w-full h-full transform transition-transform duration-500 group-hover:scale-110" 
-                                             loading="lazy"
-                                             @error="$el.src = 'https://via.placeholder.com/320x180?text=Image+Error'" />
+                    </div>
+
+
+                    <!-- Content Area -->
+                    <div>
+                        <!-- Loading State -->
+                        <div x-show="galleryLoading" class="flex justify-center py-12">
+                            <i class="fas fa-circle-notch fa-spin text-4xl text-blue-500"></i>
+                        </div>
+
+                        <!-- GROUPED VIEW -->
+                        <div x-show="!galleryLoading && galleryMode === 'grouped'" class="space-y-4">
+                            <template x-for="group in galleryGroups" :key="group.video_id">
+                                <div class="border border-gray-200 rounded-lg scale-100 hover:scale-[1.005] transition-transform overflow-hidden font-sans">
+                                    <!-- Header -->
+                                    <div class="flex items-center p-4 bg-white cursor-pointer hover:bg-gray-50 transition-colors"
+                                        @click="toggleGroup(group)">
+                                        <!-- Preview -->
+                                        <div class="w-32 h-20 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0 mr-4 border border-gray-200 relative shadow-sm">
+                                            <img :src="group.preview_image" onerror="this.src='/static/img/no-image.png'" class="w-full h-full object-cover">
+                                            <div class="absolute bottom-1 right-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded backdrop-blur-sm">
+                                                <i class="fas fa-images mr-1"></i><span x-text="group.total_frames"></span>
+                                            </div>
+                                        </div>
                                         
-                                        <!-- Badges -->
-                                        <div class="absolute top-2 right-2 flex flex-col gap-1 items-end">
-                                            <span class="px-1.5 py-0.5 text-[10px] font-bold rounded text-white uppercase tracking-wider bg-opacity-90"
-                                                :class="{
-                                                    'bg-red-600': frame.platform === 'youtube',
-                                                    'bg-green-600': frame.platform === 'pexels',
-                                                    'bg-blue-600': frame.platform === 'camera',
-                                                    'bg-gray-600': !frame.platform
-                                                }"
-                                                x-text="frame.platform || 'UNK'">
-                                            </span>
+                                        <!-- Info -->
+                                        <div class="flex-1 min-w-0 py-1">
+                                            <h4 class="font-bold text-gray-800 text-lg truncate mb-1" x-text="group.title"></h4>
+                                            <div class="flex items-center gap-3 text-sm text-gray-500">
+                                                 <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wide border"
+                                                    :class="{
+                                                        'bg-red-50 text-red-700 border-red-100': group.platform==='youtube', 
+                                                        'bg-green-50 text-green-700 border-green-100': group.platform==='pexels',
+                                                        'bg-blue-50 text-blue-700 border-blue-100': group.platform==='camera'
+                                                    }">
+                                                    <span x-text="group.platform"></span>
+                                                 </span>
+                                                 <span class="flex items-center gap-1"><i class="fas fa-fingerprint text-gray-400 text-xs"></i> <span class="font-mono text-xs" x-text="group.video_id"></span></span>
+                                                 <span class="flex items-center gap-1"><i class="far fa-clock text-gray-400 text-xs"></i> <span class="text-xs" x-text="formatDateTime(group.last_updated)"></span></span>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Chevron -->
+                                        <div class="ml-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 text-gray-400 transition-colors">
+                                             <i class="fas transition-transform duration-300" 
+                                                :class="galleryExpandedGroups.includes(group.video_id) ? 'rotate-180 fa-chevron-up' : 'fa-chevron-down'"></i>
                                         </div>
                                     </div>
-                                    <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-3 text-white">
+                                    
+                                    <!-- Body (Frames) -->
+                                    <div x-show="galleryExpandedGroups.includes(group.video_id)" 
+                                        x-transition:enter="transition ease-out duration-200"
+                                        x-transition:enter-start="opacity-0 -translate-y-2"
+                                        x-transition:enter-end="opacity-100 translate-y-0"
+                                        class="p-4 border-t border-gray-100 bg-gray-50/50">
+                                         
+                                         <template x-if="!galleryGroupFrames[group.video_id]">
+                                              <div class="flex items-center justify-center py-8 text-gray-500 gap-2">
+                                                  <i class="fas fa-spinner fa-spin text-blue-500"></i> Đang tải frames...
+                                              </div>
+                                         </template>
+                                         
+                                         <div class="grid grid-cols-2 md:grid-cols-6 lg:grid-cols-8 gap-3" x-show="galleryGroupFrames[group.video_id]">
+                                              <template x-for="frame in galleryGroupFrames[group.video_id] || []" :key="frame.id">
+                                                   <div class="aspect-video bg-white rounded-lg shadow-sm overflow-hidden relative group cursor-pointer border border-gray-200 hover:ring-2 ring-blue-500 transition-all"
+                                                        @click.stop="selectedGalleryFrame = frame; showGalleryModal = true">
+                                                        <img :src="frame.image_url" loading="lazy" class="w-full h-full object-cover">
+                                                        <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-xs">
+                                                             <span class="font-bold" x-text="'#' + frame.frame_index"></span>
+                                                        </div>
+                                                   </div>
+                                              </template>
+                                         </div>
+                                         <div class="mt-3 flex justify-end" x-show="galleryGroupFrames[group.video_id] && galleryGroupFrames[group.video_id].length >= 100">
+                                             <span class="text-xs text-gray-500 italic bg-gray-100 px-2 py-1 rounded">Hiển thị 100 frame mới nhất.</span>
+                                         </div>
+                                    </div>
+                                </div>
+                            </template>
+                             <!-- Empty State for Groups -->
+                            <div x-show="galleryGroups.length === 0" class="text-center py-12 text-gray-500">
+                                <i class="fas fa-folder-open text-4xl mb-3 text-gray-300"></i>
+                                <p>Không có dữ liệu video nào.</p>
+                            </div>
+                        </div>
+
+                        <!-- FLAT VIEW (Original) -->
+                        <div x-show="!galleryLoading && galleryMode === 'flat'" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                            <template x-for="frame in galleryFrames" :key="frame.id">
                                         <div class="truncate text-xs font-semibold mb-0.5" x-text="frame.video_name"></div>
                                         <div class="flex justify-between items-end">
                                             <div class="text-[10px] opacity-80" x-text="'Frame: ' + frame.frame_index"></div>

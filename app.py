@@ -174,6 +174,77 @@ def get_dataset_stats():
         print(f"Error getting stats: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/dataset/groups', methods=['GET'])
+def get_dataset_groups():
+    """Get list of video groups (videos that have frames)"""
+    try:
+        db = db_service.get_db_connection()
+        if db is None:
+            return jsonify({'error': 'Database connection failed'}), 500
+        
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
+        
+        # Aggregation Pipeline
+        pipeline = [
+            # 1. Group by video_id to get counts and latest frame info
+            {
+                "$group": {
+                    "_id": "$video_id",
+                    "total_frames": {"$sum": 1},
+                    "last_frame_at": {"$max": "$created_at"},
+                    "preview_frame_id": {"$first": "$_id"}
+                }
+            },
+            # 2. Lookup video metadata
+            {
+                "$lookup": {
+                    "from": "downloaded_videos",
+                    "localField": "_id",
+                    "foreignField": "video_id",
+                    "as": "video_info"
+                }
+            },
+            # 3. Unwind video info (preserve groups even if video metadata is missing)
+            {"$unwind": {"path": "$video_info", "preserveNullAndEmptyArrays": True}},
+            # 4. Sort by most recent activity
+            {"$sort": {"last_frame_at": -1}},
+            # 5. Pagination
+            {"$skip": (page - 1) * per_page},
+            {"$limit": per_page}
+        ]
+        
+        groups_raw = list(db['video_frames'].aggregate(pipeline))
+        
+        # Count total unique videos (for pagination)
+        # Note: distinct is faster than aggregation for simple distinct counts
+        total_groups = len(db['video_frames'].distinct('video_id'))
+        total_pages = (total_groups + per_page - 1) // per_page
+        
+        groups = []
+        for g in groups_raw:
+            vid = g.get('video_info', {})
+            preview_id = str(g['preview_frame_id'])
+            
+            groups.append({
+                'video_id': g['_id'],
+                'title': vid.get('title', f"Video {g['_id']}"),
+                'platform': vid.get('platform', 'unknown'),
+                'total_frames': g['total_frames'],
+                'last_updated': g['last_frame_at'].isoformat() if g.get('last_frame_at') else None,
+                'preview_image': f"/api/image/{preview_id}"
+            })
+            
+        return jsonify({
+            'groups': groups,
+            'total_groups': total_groups,
+            'total_pages': total_pages,
+            'current_page': page
+        })
+    except Exception as e:
+        print(f"Error getting dataset groups: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/frames', methods=['GET'])
 def get_frames():
     """Get list of extracted frames with pagination and filtering"""
@@ -187,10 +258,15 @@ def get_frames():
         platform_filter = request.args.get('platform', '', type=str)
         search_query = request.args.get('search', '', type=str)
         
+        video_id_filter = request.args.get('video_id', '', type=str)
+        
         # Build Query
         query = {}
         if platform_filter and platform_filter != 'all':
             query['platform'] = platform_filter
+            
+        if video_id_filter:
+            query['video_id'] = video_id_filter
             
         if search_query:
             # Search by video_name or video_id
@@ -283,6 +359,17 @@ def get_videos():
             if 'updated_at' in video and isinstance(video['updated_at'], datetime):
                 video['updated_at'] = video['updated_at'].isoformat()
             
+            # Add Media Type (Extension)
+            video['media_type'] = 'video/mp4' # Default
+            if 'file_path' in video and video['file_path']:
+                _, ext = os.path.splitext(video['file_path'])
+                if ext:
+                    video['media_type'] = ext.lower().replace('.', '')
+            elif 'storage_refs' in video and video['storage_refs'].get('key'):
+                _, ext = os.path.splitext(video['storage_refs']['key'])
+                if ext:
+                    video['media_type'] = ext.lower().replace('.', '')
+            
             # Presigned URL from MinIO service
             if 'storage_refs' in video and video['storage_refs']:
                 try:
@@ -307,76 +394,110 @@ def get_videos():
 
 @app.route('/api/download/url', methods=['POST'])
 def download_by_url_api():
-    """API để tải video từ URL (YouTube)"""
+    """API để tải video từ URL (YouTube hoặc Pexels)"""
     data = request.json
     urls = data.get('urls', [])
+    platform = data.get('platform', 'youtube') # 'youtube' or 'pexels'
     
     if not urls:
         return jsonify({'error': 'Vui lòng cung cấp ít nhất một URL'}), 400
     
     def download_thread():
-            downloaded_videos = []
+        # Pexels Logic
+        if platform == 'pexels':
+            api_key = os.getenv('PEXELS_API_KEY')
+            if not api_key:
+                print("Error: No Pexels API Key found")
+                return
+
             for url in urls:
                 try:
-                    video = yt.download_by_url(url.strip())
-                    if video:
-                        downloaded_videos.append(video)
+                    # Extract ID from URL (e.g., https://www.pexels.com/video/traffic-flow-12345/)
+                    # Matches /video/xxxxx/ or /video/xxxxx
+                    import re
+                    match = re.search(r'video\/.*?(\d+)\/?', url)
+                    if match:
+                        video_id = match.group(1)
+                        print(f"Downloading Pexels ID: {video_id}")
+                        pexels_service.download_video_by_id(video_id, api_key)
+                    else:
+                        print(f"Could not extract Pexels ID from {url}")
                 except Exception as e:
-                    print(f"Lỗi khi tải {url}: {e}")
-            
-            if downloaded_videos:
-                downloads_folder = os.path.join(os.getcwd(), 'downloads')
-                if os.path.exists(downloads_folder):
-                    # Use new video service
-                    result = video_service.extract_frames_from_folder(downloads_folder)
-                    # Helper task to save result if needed for frontend polling (legacy behavior)
-                    # Only if we want to maintain the .json progress/result file structure
-                    # For now, let's just run it. The original code saved result to file.
-                    # We can mimic or skip if not critical. Let's reuse legacy path for safety.
-                    extract_result_file = os.path.join(FRAMES_OUTPUT_ROOT, '.youtube_extract_result.json')
-                    os.makedirs(FRAMES_OUTPUT_ROOT, exist_ok=True)
-                    with open(extract_result_file, 'w', encoding='utf-8') as f:
-                        json.dump(result, f, ensure_ascii=False, indent=2)
+                    print(f"Error downloading Pexels URL {url}: {e}")
+            return
+
+        # YouTube Logic (Default)
+        downloaded_videos = []
+        for url in urls:
+            try:
+                # Basic check to avoid passing Pexels URL to YouTube downloader if user forgot to switch toggle
+                if 'pexels.com' in url:
+                    print(f"Skipping Pexels URL in YouTube mode: {url}")
+                    continue
+                    
+                video = yt.download_by_url(url.strip())
+                if video:
+                    downloaded_videos.append(video)
+            except Exception as e:
+                print(f"Lỗi khi tải {url}: {e}")
+        
+        if downloaded_videos:
+            downloads_folder = os.path.join(os.getcwd(), 'downloads')
+            if os.path.exists(downloads_folder):
+                result = video_service.extract_frames_from_folder(downloads_folder)
+                extract_result_file = os.path.join(FRAMES_OUTPUT_ROOT, '.youtube_extract_result.json')
+                os.makedirs(FRAMES_OUTPUT_ROOT, exist_ok=True)
+                with open(extract_result_file, 'w', encoding='utf-8') as f:
+                    json.dump(result, f, ensure_ascii=False, indent=2)
 
     thread = threading.Thread(target=download_thread)
     thread.daemon = True
     thread.start()
     
     return jsonify({
-        'message': f'Đã bắt đầu tải {len(urls)} video(s)',
+        'message': f'Đã bắt đầu tải {len(urls)} video(s) từ {platform}',
         'status': 'processing'
     })
 
 @app.route('/api/download/keyword', methods=['POST'])
 def download_by_keyword_api():
-    """API để tải video từ keyword (YouTube)"""
+    """API để tải video từ keyword (YouTube hoặc Pexels)"""
     data = request.json
     keyword = data.get('keyword', '').strip()
     num_videos = data.get('num_videos', 1)
+    platform = data.get('platform', 'youtube')
     
     if not keyword:
         return jsonify({'error': 'Vui lòng cung cấp từ khóa'}), 400
     
     def download_thread():
         try:
-            videos = yt.download_by_keyword(keyword, num_videos)
-            if videos:
-                downloads_folder = os.path.join(os.getcwd(), 'downloads')
-                if os.path.exists(downloads_folder):
-                    result = video_service.extract_frames_from_folder(downloads_folder)
-                    extract_result_file = os.path.join(FRAMES_OUTPUT_ROOT, '.youtube_extract_result.json')
-                    os.makedirs(FRAMES_OUTPUT_ROOT, exist_ok=True)
-                    with open(extract_result_file, 'w', encoding='utf-8') as f:
-                        json.dump(result, f, ensure_ascii=False, indent=2)
+            if platform == 'pexels':
+                api_key = os.getenv('PEXELS_API_KEY')
+                if api_key:
+                    pexels_service.download_pexels_videos(keyword, num_videos, api_key)
+                else:
+                    print("Error: No Pexels API Key configured")
+            else:
+                # YouTube (Default)
+                videos = yt.download_by_keyword(keyword, num_videos)
+                if videos:
+                    downloads_folder = os.path.join(os.getcwd(), 'downloads')
+                    if os.path.exists(downloads_folder):
+                        result = video_service.extract_frames_from_folder(downloads_folder)
+                        extract_result_file = os.path.join(FRAMES_OUTPUT_ROOT, '.youtube_extract_result.json')
+                        os.makedirs(FRAMES_OUTPUT_ROOT, exist_ok=True)
+                        with open(extract_result_file, 'w', encoding='utf-8') as f:
+                            json.dump(result, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            print(f"Lỗi khi tải từ keyword {keyword}: {e}")
+            print(f"Lỗi khi tải từ keyword {keyword} ({platform}): {e}")
     
     thread = threading.Thread(target=download_thread)
     thread.daemon = True
     thread.start()
     
     return jsonify({
-        'message': f'Đã bắt đầu tải video cho từ khóa: {keyword}',
+        'message': f'Đã bắt đầu tải video cho từ khóa: {keyword} trên {platform}',
         'status': 'processing'
     })
 

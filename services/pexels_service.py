@@ -251,3 +251,77 @@ def download_pexels_videos(query, num_videos, api_key):
         return {"success": True, "count": count, "saved_to_db": saved_to_db, "files": downloaded_files}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+def download_video_by_id(video_id, api_key):
+    """Download a single video from Pexels by ID"""
+    try:
+        if not os.path.exists(PEXELS_OUTPUT_FOLDER):
+            os.makedirs(PEXELS_OUTPUT_FOLDER)
+
+        headers = {"Authorization": api_key}
+        logger.info(f"Fetching Pexels video {video_id} details...")
+        
+        url = f"https://api.pexels.com/videos/videos/{video_id}"
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code != 200:
+            logger.error(f"Pexels API Error: {response.status_code} - {response.text}")
+            return {"success": False, "error": f"API error: {response.status_code}"}
+
+        video = response.json()
+        video_files = video.get("video_files", [])
+        
+        if not video_files:
+             return {"success": False, "error": "No video files found"}
+
+        # Find best file ~1280px width
+        best_link = None
+        best_file = None
+        min_diff = 99999
+        for v_file in video_files:
+            diff = abs(v_file["width"] - TARGET_WIDTH)
+            if diff < min_diff:
+                min_diff = diff
+                best_link = v_file["link"]
+                best_file = v_file
+        
+        if best_link and best_file:
+            vid_content = requests.get(best_link).content
+            filename = os.path.join(PEXELS_OUTPUT_FOLDER, f"pexels_id_{video_id}.mp4")
+            file_path = os.path.abspath(filename)
+            
+            with open(filename, "wb") as f:
+                f.write(vid_content)
+            
+            video_data = {
+                "id": str(video_id),
+                "title": video.get("user", {}).get("name", "") + " - " + str(video_id),
+                "url": video.get("url"),
+                "file_path": file_path,
+                "duration": video.get("duration"),
+                "fps": best_file.get("fps"),
+                "width": best_file.get("width"),
+                "height": best_file.get("height")
+            }
+            
+            # Save to DB
+            saved = save_pexels_video_to_database(video_data, "id_download", download_method="url")
+            
+            # Cleanup local file if saved successfully (logic inside save function handles upload to minio)
+            # But we double check cleanup
+            try:
+                 if os.path.exists(filename):
+                    os.remove(filename)
+            except:
+                pass
+
+            if saved:
+                return {"success": True, "message": f"Downloaded and saved video {video_id}"}
+            else:
+                return {"success": False, "error": "Failed to save to database (duplicate?)"}
+        else:
+            return {"success": False, "error": "Could not determine best quality video link"}
+
+    except Exception as e:
+        logger.error(f"Error downloading video {video_id}: {e}")
+        return {"success": False, "error": str(e)}
