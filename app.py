@@ -200,7 +200,65 @@ def get_frames():
         search_query = request.args.get('search', '', type=str)
         
         video_id_filter = request.args.get('video_id', '', type=str)
+
+        # distinct handling for Camera platform
+        if platform_filter == 'camera':
+            query = {}
+            if search_query:
+                query['$or'] = [
+                    {'camera_name': {'$regex': search_query, '$options': 'i'}},
+                    {'camera_id': {'$regex': search_query, '$options': 'i'}}
+                ]
+            
+            # Count and Sort for Camera
+            total_frames = db['camera_images'].count_documents(query)
+            total_pages = (total_frames + per_page - 1) // per_page
+            
+            cursor = db['camera_images'].find(query).sort('timestamp', -1)
+            cursor.skip((page - 1) * per_page).limit(per_page)
+            
+            frames = []
+            for doc in cursor:
+                # Map camera_images to unified frame structure
+                frame_id = str(doc.get('_id', ''))
+                
+                # storage refs
+                storage = doc.get('storage_refs', {})
+                bucket = storage.get('bucket', 'dataset')
+                key = storage.get('key', '')
+                
+                # Construct Proxy URL
+                image_url = ""
+                if bucket and key:
+                    image_url = f"/api/image-proxy?bucket={bucket}&key={key}"
+                elif 'file_path' in doc:
+                     # Fallback for old local files (unlikely to work if not in minio, but kept for compat)
+                     image_url = f"/api/camera/images/{os.path.basename(doc['file_path'])}"
+                
+                frames.append({
+                    'id': frame_id,
+                    'video_name': doc.get('camera_name', 'Unknown Camera'),
+                    'video_id': doc.get('camera_id', ''),
+                    'platform': 'camera',
+                    'frame_index': 0, # Not applicable for single images
+                    'frame_number': 0,
+                    'video_frame_number': 0,
+                    'file_size': doc.get('file_size', 0), # Might be missing
+                    'scene_type': 'day', # TODO: Add scene detection for camera images later
+                    'image_url': image_url,
+                    'storage_bucket': bucket,
+                    'storage_key': key,
+                    'created_at': doc.get('timestamp', datetime.now()).isoformat()
+                })
+                
+            return jsonify({
+                'frames': frames,
+                'total_frames': total_frames,
+                'current_page': page,
+                'total_pages': total_pages
+            })
         
+        # Standard Video Frames Logic (Youtube/Pexels)
         # Build Query
         query = {}
         if platform_filter and platform_filter != 'all':
@@ -258,7 +316,7 @@ def get_frames():
         })
     except Exception as e:
         print(f"Error fetching frames: {e}")
-        print(f"Query was: {query}") # Debug
+        # print(f"Query was: {query}") # Debug
         return jsonify({'error': str(e)}), 500
 
 
@@ -1014,13 +1072,104 @@ def get_dataset_groups():
         
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 20, type=int)
+        platform_filter = request.args.get('platform', '', type=str)
+        search_query = request.args.get('search', '', type=str)
+
+        # --- CAMERA PLATFORM HANDLING ---
+        if platform_filter == 'camera':
+             # Aggregate camera_images to mimic groups
+            match_stage = {}
+            if search_query:
+                match_stage['$or'] = [
+                    {'camera_name': {'$regex': search_query, '$options': 'i'}},
+                    {'camera_id': {'$regex': search_query, '$options': 'i'}}
+                ]
+            
+            # Aggregation Pipeline
+            # 1. Match filters
+            # 2. Sort by timestamp desc (to get latest first)
+            # 3. Group by camera_id
+            # 4. Count frames
+            # 5. Get latest image for preview
+            
+            pipeline = []
+            if match_stage:
+                pipeline.append({'$match': match_stage})
+                
+            pipeline.extend([
+                {'$sort': {'timestamp': -1}},
+                {'$group': {
+                    '_id': '$camera_id',
+                    'camera_name': {'$first': '$camera_name'},
+                    'total_frames': {'$sum': 1},
+                    'last_updated': {'$first': '$timestamp'},
+                    'preview_doc': {'$first': '$$ROOT'}
+                }},
+                {'$sort': {'last_updated': -1}},
+                {'$skip': (page - 1) * per_page},
+                {'$limit': per_page}
+            ])
+
+            # Count total groups (cameras)
+            # Need separate count query or facet. Count distinct camera_ids matching query.
+            distinct_query = match_stage
+            total_groups = len(db['camera_images'].distinct('camera_id', distinct_query))
+            
+            cursor = db['camera_images'].aggregate(pipeline)
+            
+            groups = []
+            for doc in cursor:
+                c_id = doc['_id']
+                last_up = doc['last_updated']
+                preview = doc.get('preview_doc', {})
+                
+                # storage refs for preview
+                storage = preview.get('storage_refs', {})
+                bucket = storage.get('bucket', 'dataset')
+                key = storage.get('key', '')
+                
+                preview_url = "/static/img/no-image.png"
+                if bucket and key:
+                    preview_url = f"/api/image-proxy?bucket={bucket}&key={key}"
+                elif 'file_path' in preview:
+                     preview_url = f"/api/camera/images/{os.path.basename(preview['file_path'])}"
+
+                groups.append({
+                    'video_id': c_id, # Use camera_id as video_id
+                    'title': doc.get('camera_name', c_id),
+                    'platform': 'camera',
+                    'total_frames': doc['total_frames'],
+                    'last_updated': last_up.isoformat() if isinstance(last_up, datetime) else str(last_up),
+                    'weather': 'day', # TODO: Detect
+                    'preview_image': preview_url
+                })
+                
+            return jsonify({
+                'groups': groups,
+                'total_groups': total_groups,
+                'page': page,
+                'per_page': per_page,
+                'total_pages': (total_groups + per_page - 1) // per_page if per_page > 0 else 1
+            })
+
+        # --- STANDARD VIDEO HANDLING (Youtube/Pexels/All) ---
         
-        # 1. Paginate on VIDEOS (much faster than grouping frames)
         videos_collection = db['downloaded_videos']
         frames_collection = db['video_frames']
         
-        total_groups = videos_collection.count_documents({})
-        cursor = videos_collection.find({}).sort([('updated_at', -1), ('created_at', -1)]).skip((page - 1) * per_page).limit(per_page)
+        # Build Query
+        query = {}
+        if platform_filter and platform_filter != 'all':
+            query['platform'] = platform_filter
+            
+        if search_query:
+            query['$or'] = [
+                {'title': {'$regex': search_query, '$options': 'i'}},
+                {'video_id': {'$regex': search_query, '$options': 'i'}}
+            ]
+        
+        total_groups = videos_collection.count_documents(query)
+        cursor = videos_collection.find(query).sort([('updated_at', -1), ('created_at', -1)]).skip((page - 1) * per_page).limit(per_page)
         
         videos = list(cursor)
         groups = []
@@ -1171,7 +1320,7 @@ def image_proxy():
         return jsonify({"error": "Missing bucket or key"}), 400
         
     try:
-        # Get internal client (uses collectordata_minio:9000 inside docker)
+        # Get internal client (uses minio:9000 inside docker)
         client = minio_service.get_minio_client(internal=True)
         
         # Get object

@@ -36,7 +36,7 @@ def get_minio_client(internal=False):
     Returns:
         Minio client object
     """
-    endpoint_host = 'collectordata_minio' if internal else MINIO_ENDPOINT
+    endpoint_host = 'minio' if internal else MINIO_ENDPOINT
     # Fallback: if MINIO_ENDPOINT is not localhost, maybe it's already set correctly?
     # But safe bet for docker environment (app -> minio) is service name.
     

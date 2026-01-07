@@ -250,7 +250,9 @@ function app() {
             try {
                 const params = new URLSearchParams({
                     page: this.galleryPage,
-                    per_page: this.galleryPerPage
+                    per_page: this.galleryPerPage,
+                    platform: this.galleryFilterPlatform,
+                    search: this.gallerySearchQuery
                 });
 
                 const response = await fetch(`/api/dataset/groups?${params}`);
