@@ -57,7 +57,147 @@ function app() {
         addingKeyword: false,
         showNotification: false,
         notificationMessage: '',
+        notificationMessage: '',
         notificationType: 'success',
+
+        // Gallery State
+        galleryFrames: [],
+        galleryPage: 1,
+        galleryPerPage: 24,
+        galleryTotalPages: 0,
+        galleryTotalFrames: 0,
+        galleryLoading: false,
+        showGalleryModal: false,
+        selectedGalleryFrame: null,
+
+        // Gallery Dashboard State
+        galleryStats: {},
+        galleryFilterPlatform: 'all',
+        gallerySearchQuery: '',
+        galleryCharts: {},
+
+        formatFileSize(bytes) {
+            if (!bytes) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        },
+
+        async loadGalleryStats() {
+            try {
+                const response = await fetch('/api/dataset/stats');
+                if (response.ok) {
+                    this.galleryStats = await response.json();
+                    this.renderCharts();
+                }
+            } catch (error) {
+                console.error("Failed to load stats", error);
+            }
+        },
+
+        renderCharts() {
+            // Destroy existing charts to avoid memory leaks/glitches
+            if (this.galleryCharts.timeline) this.galleryCharts.timeline.destroy();
+            if (this.galleryCharts.platform) this.galleryCharts.platform.destroy();
+
+            // 1. Timeline Chart
+            const timelineCtx = document.getElementById('timelineChart')?.getContext('2d');
+            if (timelineCtx && this.galleryStats.timeline) {
+                this.galleryCharts.timeline = new Chart(timelineCtx, {
+                    type: 'line',
+                    data: {
+                        labels: this.galleryStats.timeline.map(x => x.date),
+                        datasets: [{
+                            label: 'Frames Collected',
+                            data: this.galleryStats.timeline.map(x => x.count),
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true, grid: { borderDash: [2, 4] } },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+            }
+
+            // 2. Platform Chart (Pie)
+            const platformCtx = document.getElementById('platformChart')?.getContext('2d');
+            if (platformCtx && this.galleryStats.platforms) {
+                const data = this.galleryStats.platforms;
+                this.galleryCharts.platform = new Chart(platformCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(data),
+                        datasets: [{
+                            data: Object.values(data),
+                            backgroundColor: ['#ef4444', '#10b981', '#3b82f6', '#f59e0b'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'right', labels: { boxWidth: 12 } }
+                        },
+                        cutout: '70%'
+                    }
+                });
+            }
+        },
+
+        async loadGallery() {
+            this.galleryLoading = true;
+            try {
+                const params = new URLSearchParams({
+                    page: this.galleryPage,
+                    per_page: this.galleryPerPage,
+                    platform: this.galleryFilterPlatform,
+                    search: this.gallerySearchQuery
+                });
+
+                const response = await fetch(`/api/frames?${params}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    this.galleryFrames = data.frames || [];
+                    this.galleryTotalPages = data.total_pages || 1;
+                    this.galleryTotalFrames = data.total_frames || 0;
+
+                    // If we just loaded the gallery, also refresh stats
+                    if (this.galleryPage === 1 && !this.galleryStats.total_frames) {
+                        this.loadGalleryStats();
+                    }
+                } else {
+                    this.showNotify(data.error || 'Lỗi khi tải gallery', 'error');
+                }
+            } catch (error) {
+                this.showNotify('Lỗi kết nối: ' + error.message, 'error');
+            } finally {
+                this.galleryLoading = false;
+            }
+        },
+
+        changeGalleryPage(page) {
+            if (page >= 1 && page <= this.galleryTotalPages) {
+                this.galleryPage = page;
+                this.loadGallery();
+            }
+        },
+
+        openGalleryModal(frame) {
+            this.selectedGalleryFrame = frame;
+            this.showGalleryModal = true;
+        },
 
         // Missing state variables fixed
         editKeywordForm: {
@@ -67,21 +207,7 @@ function app() {
         },
         updatingKeyword: false,
 
-        // Preprocessing Config State
-        savingConfig: false,
-        preprocessingConfig: {
-            apply_crop: true,
-            apply_realesrgan: false,
-            apply_resize: true,
-            apply_clahe: true,
-            apply_sharpen: true,
-            realesrgan_denoise_strength: 0.5,
-            realesrgan_scale: 4,
-            blend_with_original: false,
-            blend_alpha: 0.7,
-            clahe_clip_limit: 2.0,
-            clahe_tile_size: 8
-        },
+
 
         init() {
             console.log('App initialized');
@@ -1304,36 +1430,7 @@ function app() {
             }
         },
 
-        // --- Preprocessing Config Functions ---
-        loadPreprocessingConfig() {
-            fetch('/api/preprocessing/config')
-                .then(res => res.json())
-                .then(data => {
-                    this.preprocessingConfig = { ...this.preprocessingConfig, ...data };
-                })
-                .catch(err => console.error('Error loading config:', err));
-        },
 
-        savePreprocessingConfig() {
-            this.savingConfig = true;
-            fetch('/api/preprocessing/config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(this.preprocessingConfig)
-            })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        this.showNotify('Configuration saved successfully!', 'success');
-                    } else {
-                        this.showNotify('Failed to save: ' + data.message, 'error');
-                    }
-                })
-                .catch(err => this.showNotify('Error saving config: ' + err, 'error'))
-                .finally(() => {
-                    this.savingConfig = false;
-                });
-        },
 
         showCameraImage(img) {
             this.selectedCameraImage = img;
@@ -1438,6 +1535,9 @@ function app() {
                 this.pexelsDownloading = false;
             }
         },
+
+        // --- Gallery Functions ---
+
 
         async checkPexelsDownloadResult(progressInterval) {
             // Poll mỗi 2 giây để check kết quả

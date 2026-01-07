@@ -16,9 +16,10 @@ import services.keyword_service as keyword_service
 # MinIO service (rename helper use)
 import services.minio_service as minio_service
 import services.auto_collector_service as auto_collector_service
-from services.preprocessing_service import PreprocessingService
+
 import cv2
 import numpy as np
+from bson import ObjectId
 
 # Load environment variables
 load_dotenv()
@@ -73,6 +74,174 @@ except Exception as e:
 def index():
     """Trang chủ admin"""
     return render_template('index.html')
+
+
+# ==================== ROUTES: DATASET & GALLERY ====================
+
+@app.route('/api/image/<frame_id>')
+def serve_minio_image(frame_id):
+    """Serve image directly from MinIO via ID lookup"""
+    try:
+        db = db_service.get_db_connection()
+        if db is None:
+            return jsonify({'error': 'Database connection failed'}), 500
+            
+        # Find frame doc
+        frame = db['video_frames'].find_one({'_id': ObjectId(frame_id)})
+        if not frame:
+            return jsonify({'error': 'Frame not found'}), 404
+            
+        # Get MinIO details
+        storage_refs = frame.get('storage_refs', {})
+        bucket = storage_refs.get('bucket')
+        key = storage_refs.get('key')
+        
+        if not bucket or not key:
+            return jsonify({'error': 'Image location not valid'}), 404
+            
+        # Get object from MinIO
+        client = minio_service.get_minio_client()
+        try:
+            # Check if object exists
+            try:
+                client.stat_object(bucket, key)
+            except Exception:
+                return jsonify({'error': 'Image file missing in storage'}), 404
+                
+            # Get object
+            data = client.get_object(bucket, key)
+            
+            # Create a generator to stream the response
+            def generate():
+                for chunk in data.stream(32*1024):
+                    yield chunk
+                data.close()
+                data.release_conn()
+                
+            return app.response_class(generate(), mimetype='image/png')
+            
+        except Exception as e:
+            print(f"MinIO fetch error: {e}")
+            return jsonify({'error': 'Failed to retrieve image'}), 500
+            
+    except Exception as e:
+        print(f"Error serving image: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/dataset/stats', methods=['GET'])
+def get_dataset_stats():
+    """Get aggregated statistics for the dataset dashboard"""
+    try:
+        db = db_service.get_db_connection()
+        if db is None:
+            return jsonify({'error': 'Database connection failed'}), 500
+            
+        collection = db['video_frames']
+        
+        # 1. Total Frames
+        total_frames = collection.count_documents({})
+        
+        # 2. Platform Distribution
+        pipeline_platform = [
+            {"$group": {"_id": "$platform", "count": {"$sum": 1}}}
+        ]
+        platform_stats = list(collection.aggregate(pipeline_platform))
+        platforms = {item['_id'] or 'unknown': item['count'] for item in platform_stats}
+        
+        # 3. Collection Timeline (Last 7 days or groupings)
+        # Simplified: Group by Date (YYYY-MM-DD)
+        pipeline_timeline = [
+            {
+                "$group": {
+                    "_id": {
+                        "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
+                    },
+                    "count": {"$sum": 1}
+                }
+            },
+            {"$sort": {"_id": 1}},
+            {"$limit": 30} # Last 30 days
+        ]
+        timeline_stats = list(collection.aggregate(pipeline_timeline))
+        timeline = [{"date": item['_id'], "count": item['count']} for item in timeline_stats]
+        
+        return jsonify({
+            'total_frames': total_frames,
+            'platforms': platforms,
+            'timeline': timeline
+        })
+    except Exception as e:
+        print(f"Error getting stats: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/frames', methods=['GET'])
+def get_frames():
+    """Get list of extracted frames with pagination and filtering"""
+    try:
+        db = db_service.get_db_connection()
+        if db is None:
+            return jsonify({'error': 'Database connection failed'}), 500
+        
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 24, type=int)
+        platform_filter = request.args.get('platform', '', type=str)
+        search_query = request.args.get('search', '', type=str)
+        
+        # Build Query
+        query = {}
+        if platform_filter and platform_filter != 'all':
+            query['platform'] = platform_filter
+            
+        if search_query:
+            # Search by video_name or video_id
+            query['$or'] = [
+                {'video_name': {'$regex': search_query, '$options': 'i'}},
+                {'video_id': {'$regex': search_query, '$options': 'i'}}
+            ]
+        
+        # Sort by most recent
+        cursor = db['video_frames'].find(query).sort('created_at', -1)
+        
+        total_frames = db['video_frames'].count_documents(query)
+        total_pages = (total_frames + per_page - 1) // per_page
+        
+        cursor.skip((page - 1) * per_page).limit(per_page)
+        
+        frames = []
+        for doc in cursor:
+            frame_id = str(doc.get('_id', ''))
+            video_name = doc.get('video_name', '') or str(doc.get('video_id', 'unknown'))
+            # Fix: Retrieve platform, defaulting to 'youtube' if missing
+            platform = doc.get('platform', 'youtube') 
+            
+            image_url = f"/api/image/{frame_id}"
+            
+            # Rich Metadata for Passport View
+            frames.append({
+                'id': frame_id,
+                'video_name': video_name,
+                'video_id': doc.get('video_id', ''),
+                'platform': platform,
+                'frame_index': doc.get('frame_index', 0),
+                'frame_number': doc.get('frame_number', ''),
+                'video_frame_number': doc.get('video_frame_number', 0),
+                'file_size': doc.get('file_size', 0),
+                'image_url': image_url,
+                'storage_bucket': doc.get('storage_refs', {}).get('bucket', ''),
+                'storage_key': doc.get('storage_refs', {}).get('key', ''),
+                'created_at': doc.get('created_at', datetime.now()).isoformat()
+            })
+            
+        return jsonify({
+            'frames': frames,
+            'total_frames': total_frames,
+            'current_page': page,
+            'total_pages': total_pages
+        })
+    except Exception as e:
+        print(f"Error fetching frames: {e}")
+        print(f"Query was: {query}") # Debug
+        return jsonify({'error': str(e)}), 500
 
 
 # ==================== ROUTES: VIDEOS ====================
@@ -760,28 +929,7 @@ def create_minio_buckets():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# --- Preprocessing Configuration API ---
-@app.route('/api/preprocessing/config', methods=['GET'])
-def get_preprocessing_config():
-    """Get current preprocessing configuration."""
-    config = PreprocessingService.load_config()
-    return jsonify(config)
 
-@app.route('/api/preprocessing/config', methods=['POST'])
-def save_preprocessing_config():
-    """Save preprocessing configuration."""
-    try:
-        data = request.json
-        if not data:
-            return jsonify({'success': False, 'message': 'No data provided'}), 400
-        
-        success = PreprocessingService.save_config(data)
-        if success:
-            return jsonify({'success': True, 'message': 'Configuration saved successfully'})
-        else:
-            return jsonify({'success': False, 'message': 'Failed to save configuration'}), 500
-    except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 500
 
 
 # ==================== MAIN ====================
