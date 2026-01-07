@@ -963,44 +963,59 @@ function app() {
         },
 
         renderCharts() {
-            // Destroy existing charts
-            if (this.charts) {
-                Object.values(this.charts).forEach(chart => {
-                    if (chart && typeof chart.destroy === 'function') chart.destroy();
-                });
-            }
+            // Helper to safely destroy chart on a canvas
+            const destroyChart = (canvasId) => {
+                const canvas = document.getElementById(canvasId);
+                if (canvas) {
+                    try {
+                        const existingChart = Chart.getChart(canvas);
+                        if (existingChart) {
+                            existingChart.destroy();
+                        }
+                    } catch (e) {
+                        console.warn('Error destroying chart ' + canvasId, e);
+                    }
+                }
+            };
+
+            // Note: We no longer maintain this.charts object for destruction, 
+            // as we use Chart.getChart() to find and destroy instances attached to the DOM.
             this.charts = {};
 
             // Platform Chart
             if (this.vizData.by_platform && this.vizData.by_platform.length > 0) {
+                destroyChart('platformChart');
                 const ctx = document.getElementById('platformChart');
                 if (ctx) {
-                    this.charts.platform = new Chart(ctx, {
-                        type: 'doughnut',
-                        data: {
-                            labels: this.vizData.by_platform.map(p => p.platform),
-                            datasets: [{
-                                data: this.vizData.by_platform.map(p => p.count),
-                                backgroundColor: [
-                                    'rgba(59, 130, 246, 0.8)',
-                                    'rgba(16, 185, 129, 0.8)',
-                                    'rgba(251, 146, 60, 0.8)',
-                                    'rgba(139, 92, 246, 0.8)',
-                                ]
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            plugins: {
-                                legend: { position: 'bottom' }
+                    try {
+                        this.charts.platform = new Chart(ctx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: this.vizData.by_platform.map(p => p.platform),
+                                datasets: [{
+                                    data: this.vizData.by_platform.map(p => p.count),
+                                    backgroundColor: [
+                                        'rgba(59, 130, 246, 0.8)',
+                                        'rgba(16, 185, 129, 0.8)',
+                                        'rgba(251, 146, 60, 0.8)',
+                                        'rgba(139, 92, 246, 0.8)',
+                                    ]
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                plugins: {
+                                    legend: { position: 'bottom' }
+                                }
                             }
-                        }
-                    });
+                        });
+                    } catch (e) { console.error("Error creating platformChart", e); }
                 }
             }
 
             // Method Chart
             if (this.vizData.by_method && this.vizData.by_method.length > 0) {
+                destroyChart('methodChart');
                 const ctx = document.getElementById('methodChart');
                 if (ctx) {
                     const methodLabels = {
@@ -1035,6 +1050,7 @@ function app() {
 
             // Resolution Chart
             if (this.vizData.by_resolution && this.vizData.by_resolution.length > 0) {
+                destroyChart('resolutionChart');
                 const ctx = document.getElementById('resolutionChart');
                 if (ctx) {
                     this.charts.resolution = new Chart(ctx, {
@@ -1062,6 +1078,7 @@ function app() {
 
             // Duration Chart
             if (this.vizData.by_duration && this.vizData.by_duration.length > 0) {
+                destroyChart('durationChart');
                 const ctx = document.getElementById('durationChart');
                 if (ctx) {
                     this.charts.duration = new Chart(ctx, {
@@ -1089,6 +1106,7 @@ function app() {
 
             // Time Chart
             if (this.vizData.by_date && this.vizData.by_date.length > 0) {
+                destroyChart('timeChart');
                 const ctx = document.getElementById('timeChart');
                 if (ctx) {
                     this.charts.time = new Chart(ctx, {
@@ -1124,11 +1142,21 @@ function app() {
             }
 
             const canvas = document.getElementById('wordcloud-canvas');
-            if (!canvas || typeof Chart === 'undefined') return;
+            if (!canvas || typeof WordCloud === 'undefined') return;
 
-            // Destroy existing chart if any
-            if (this.charts.wordcloud) {
-                this.charts.wordcloud.destroy();
+            // Clear canvas manually first
+            const ctx = canvas.getContext('2d');
+            if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Also check if there was a Chart instance (just in case)
+            try {
+                const existing = Chart.getChart(canvas);
+                if (existing) existing.destroy();
+            } catch (e) { }
+
+            // Destroy existing chart reference if any
+            if (this.charts.wordcloud && typeof this.charts.wordcloud.destroy === 'function') {
+                try { this.charts.wordcloud.destroy(); } catch (e) { }
             }
 
             // Prepare word list for WordCloud.js
