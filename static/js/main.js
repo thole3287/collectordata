@@ -81,6 +81,7 @@ function app() {
         vizData: {},
         charts: {},
         keywords: [],
+        videosTableBody: '',
         keywordsTableBody: '',
         vizKeywordsTableBody: '',
         // Camera Collector state
@@ -150,7 +151,10 @@ function app() {
                 const response = await fetch('/api/dataset/stats');
                 if (response.ok) {
                     this.galleryStats = await response.json();
-                    this.renderCharts();
+                    // Delay to ensure DOM is visible/layout computed
+                    setTimeout(() => {
+                        this.renderCharts();
+                    }, 100);
                 }
             } catch (error) {
                 console.error("Failed to load stats", error);
@@ -158,61 +162,72 @@ function app() {
         },
 
         renderCharts() {
-            // Destroy existing charts to avoid memory leaks/glitches
-            if (this.galleryCharts.timeline) this.galleryCharts.timeline.destroy();
-            if (this.galleryCharts.platform) this.galleryCharts.platform.destroy();
+            console.log("Rendering Gallery Charts...");
+            try {
+                // 1. Trend Chart
+                const trendEl = document.getElementById('galleryTrendChart');
+                if (trendEl) {
+                    const existing = Chart.getChart(trendEl);
+                    if (existing) existing.destroy();
 
-            // 1. Timeline Chart
-            const timelineCtx = document.getElementById('timelineChart')?.getContext('2d');
-            if (timelineCtx && this.galleryStats.timeline) {
-                this.galleryCharts.timeline = new Chart(timelineCtx, {
-                    type: 'line',
-                    data: {
-                        labels: this.galleryStats.timeline.map(x => x.date),
-                        datasets: [{
-                            label: 'Frames Collected',
-                            data: this.galleryStats.timeline.map(x => x.count),
-                            borderColor: '#3b82f6',
-                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                            fill: true,
-                            tension: 0.4
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            y: { beginAtZero: true, grid: { borderDash: [2, 4] } },
-                            x: { grid: { display: false } }
-                        }
+                    if (this.galleryStats.timeline && this.galleryStats.timeline.length > 0) {
+                        new Chart(trendEl, {
+                            type: 'line',
+                            data: {
+                                labels: this.galleryStats.timeline.map(x => x.date),
+                                datasets: [{
+                                    label: 'Frames Collected',
+                                    data: this.galleryStats.timeline.map(x => x.count),
+                                    borderColor: '#3b82f6',
+                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                    fill: true,
+                                    tension: 0.4
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { display: false } },
+                                scales: {
+                                    y: { beginAtZero: true, grid: { borderDash: [2, 4] } },
+                                    x: { grid: { display: false } }
+                                }
+                            }
+                        });
                     }
-                });
-            }
+                }
 
-            // 2. Platform Chart (Pie)
-            const platformCtx = document.getElementById('platformChart')?.getContext('2d');
-            if (platformCtx && this.galleryStats.platforms) {
-                const data = this.galleryStats.platforms;
-                this.galleryCharts.platform = new Chart(platformCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: Object.keys(data),
-                        datasets: [{
-                            data: Object.values(data),
-                            backgroundColor: ['#ef4444', '#10b981', '#3b82f6', '#f59e0b'],
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { position: 'right', labels: { boxWidth: 12 } }
-                        },
-                        cutout: '70%'
+                // 2. Platform Chart
+                const platEl = document.getElementById('galleryPlatformChart');
+                if (platEl) {
+                    const existing = Chart.getChart(platEl);
+                    if (existing) existing.destroy();
+
+                    if (this.galleryStats.platforms) {
+                        const data = this.galleryStats.platforms;
+                        new Chart(platEl, {
+                            type: 'doughnut',
+                            data: {
+                                labels: Object.keys(data),
+                                datasets: [{
+                                    data: Object.values(data),
+                                    backgroundColor: ['#ef4444', '#10b981', '#3b82f6', '#f59e0b'],
+                                    borderWidth: 0
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: { position: 'right', labels: { boxWidth: 12 } }
+                                },
+                                cutout: '70%'
+                            }
+                        });
                     }
-                });
+                }
+            } catch (e) {
+                console.error("Error rendering charts:", e);
             }
         },
 
@@ -1042,6 +1057,35 @@ function app() {
                             responsive: true,
                             plugins: {
                                 legend: { position: 'bottom' }
+                            }
+                        }
+                    });
+                }
+            }
+
+            // Weather Chart
+            if (this.vizData.by_weather && this.vizData.by_weather.length > 0) {
+                destroyChart('weatherChart');
+                const ctx = document.getElementById('weatherChart');
+                if (ctx) {
+                    this.charts.weather = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: this.vizData.by_weather.map(w => w.weather || 'Unknown'),
+                            datasets: [{
+                                data: this.vizData.by_weather.map(w => w.count),
+                                backgroundColor: [
+                                    '#f59e0b', // Day/Sunny
+                                    '#818cf8', // Night/Cloudy
+                                    '#3b82f6', // Rain
+                                    '#6b7280'  // Other
+                                ]
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: { position: 'right' }
                             }
                         }
                     });

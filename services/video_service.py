@@ -28,7 +28,45 @@ def calculate_file_hash(file_path):
         print(f"Error calculating hash: {e}")
         return None
 
-def extract_frames_from_folder(input_folder, output_root=None, progress_file_path=None, interval_seconds=1.0):
+def analyze_scene_features(frame):
+    """
+    Analyze frame features to classify as 'day', 'night', or 'rain'.
+    Returns: scene_type (str)
+    """
+    try:
+        # 1. Convert to HSV for Brightness and Saturation
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        h, s, v = cv2.split(hsv)
+        
+        mean_brightness = np.mean(v)
+        mean_saturation = np.mean(s)
+        
+        # 2. Convert to Grayscale for Contrast
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        std_contrast = np.std(gray)
+        
+        # 3. Heuristics
+        # Night: Low brightness
+        if mean_brightness < 70: # Threshold for night
+            return 'night'
+            
+        # Rain: Low saturation (grayish), Low contrast (foggy/rainy), 
+        # distinct from just "Cloudy" but "Rain" often implies overcast/low contrast.
+        # This is a basic heuristic.
+        if mean_saturation < 50 and std_contrast < 40:
+             return 'rain'
+             
+        # Optional: Check for vertical streaks (Rain) - Advanced, maybe skip for now 
+        # to ensure performance.
+        
+        return 'day'
+        
+    except Exception as e:
+        print(f"Error analyzing scene: {e}")
+        return 'day' # Default
+
+
+def extract_frames_from_folder(input_folder, output_root=None, progress_file_path=None, interval_seconds=1.0, platform='youtube'):
     """
     Extract frames from all videos in a folder.
     """
@@ -84,8 +122,11 @@ def extract_frames_from_folder(input_folder, output_root=None, progress_file_pat
 
                 if count % frame_step == 0:
                     try:
-                        # Standard resize to 1280x720
+                        # Resize frame
                         resized_frame = cv2.resize(frame, (TARGET_WIDTH, TARGET_HEIGHT), interpolation=cv2.INTER_AREA)
+                        
+                        # --- Feature Extraction for Scene Classification ---
+                        scene_type = analyze_scene_features(resized_frame)
                         
                         # Convert to 16-bit PNG (scale up)
                         frame_16bit = resized_frame.astype(np.uint16) * 256
@@ -100,14 +141,15 @@ def extract_frames_from_folder(input_folder, output_root=None, progress_file_pat
                         # --- MinIO & MongoDB Integration ---
                         try:
                             # 1. Upload to MinIO (as PNG)
-                            object_name = f"{video_name}/{filename}"
+                            # User requested: dataset - platform - scene - video_name ...
+                            object_name = f"{platform}/{scene_type}/{video_name}/{filename}"
                             upload_result = minio_service.upload_file(save_path, minio_service.MINIO_BUCKET_FRAMES, object_name)
                             
                             minio_key = None
                             minio_url_path = None
                             
                             if upload_result['success']:
-                                minio_key = upload_result['key']
+                                minio_key = object_name
                                 minio_url_path = f"{minio_service.MINIO_BUCKET_FRAMES}/{minio_key}"
                             
                             # 2. Save Metadata to MongoDB
@@ -115,10 +157,14 @@ def extract_frames_from_folder(input_folder, output_root=None, progress_file_pat
                             if db is not None:
                                 doc = {
                                     'video_name': video_name,
+                                    'video_id': video_name, # Assuming filename is video_id for folder processing
+                                    'platform': platform,
                                     'frame_index': saved_count,
                                     'original_video_path': video_path,
                                     'timestamp': datetime.now(),
                                     'file_size': os.path.getsize(save_path),
+                                    'scene_type': scene_type,
+                                    'weather': scene_type, # Mirror scene_type
                                     'created_at': datetime.now()
                                 }
                                 
