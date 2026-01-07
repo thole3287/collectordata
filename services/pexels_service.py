@@ -8,6 +8,11 @@ from datetime import datetime
 from pymongo.errors import DuplicateKeyError
 import logging
 from services.database import get_db_connection
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Setup logger
 logger = logging.getLogger(__name__)
@@ -15,6 +20,8 @@ logger = logging.getLogger(__name__)
 PEXELS_OUTPUT_FOLDER = "pexels_traffic_dataset"
 TARGET_WIDTH = 1280
 TARGET_HEIGHT = 720
+
+from services.video_service import calculate_file_hash
 
 def save_pexels_video_to_database(video_data, query, download_method='pexels'):
     """Lưu thông tin video Pexels vào Database"""
@@ -25,10 +32,27 @@ def save_pexels_video_to_database(video_data, query, download_method='pexels'):
     
     try:
         collection = db['downloaded_videos']
-        existing = collection.find_one({'video_id': str(video_data['id'])})
-        if existing:
-            print(f"[INFO] Video {video_data['id']} already exists in DB")
-            return False
+        # User requested Hash check instead of ID check
+        # existing = collection.find_one({'video_id': str(video_data['id'])})
+        # if existing:
+        #     print(f"[INFO] Video {video_data['id']} already exists in DB")
+        #     return False
+        
+        file_path = video_data.get('file_path')
+        file_hash = None
+        
+        if file_path and os.path.exists(file_path):
+             # Calculate hash
+            file_hash = calculate_file_hash(file_path)
+            if file_hash:
+                existing_hash = collection.find_one({'file_hash': file_hash})
+                if existing_hash:
+                    logger.info(f"Video content duplicate (Hash: {file_hash}). Skipping.")
+                    try:
+                        os.remove(file_path)
+                    except:
+                        pass
+                    return False
         
         # Upload MinIO Logic
         minio_key = None
@@ -95,12 +119,17 @@ def save_pexels_video_to_database(video_data, query, download_method='pexels'):
             except Exception as e:
                 print(f"Error uploading to MinIO: {e}")
 
+        # Update file_path to MinIO Path (bucket/key) if upload succeeded
+        if minio_key and minio_bucket:
+             file_path = f"{minio_bucket}/{minio_key}"
+
         # Create Document
         document = {
             'video_id': str(video_data['id']),
             'title': video_data.get('title', f"Pexels Video {video_data['id']}"),
             'url': video_data.get('url', f"https://www.pexels.com/video/{video_data['id']}/"),
             'file_path': file_path,
+            'file_hash': file_hash,
             'media_type': 'mp4',
             'metadata': {
                 'duration': video_data.get('duration'),
@@ -167,6 +196,15 @@ def download_pexels_videos(query, num_videos, api_key):
         
         for idx, video in enumerate(videos):
             video_id = video["id"]
+            
+            # [OPTIMIZATION] Check DB before downloading (DISABLED per user request to check content hash)
+            # db = get_db_connection()
+            # if db:
+            #     existing_video = db['downloaded_videos'].find_one({'video_id': str(video_id)})
+            #     if existing_video:
+            #         logger.info(f"Video {video_id} already exists in DB. Skipping.")
+            #         continue
+
             video_files = video["video_files"]
             
             # Find best file ~1280px width
@@ -236,4 +274,78 @@ def download_pexels_videos(query, num_videos, api_key):
             
         return {"success": True, "count": count, "saved_to_db": saved_to_db, "files": downloaded_files}
     except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def download_video_by_id(video_id, api_key):
+    """Download a single video from Pexels by ID"""
+    try:
+        if not os.path.exists(PEXELS_OUTPUT_FOLDER):
+            os.makedirs(PEXELS_OUTPUT_FOLDER)
+
+        headers = {"Authorization": api_key}
+        logger.info(f"Fetching Pexels video {video_id} details...")
+        
+        url = f"https://api.pexels.com/videos/videos/{video_id}"
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code != 200:
+            logger.error(f"Pexels API Error: {response.status_code} - {response.text}")
+            return {"success": False, "error": f"API error: {response.status_code}"}
+
+        video = response.json()
+        video_files = video.get("video_files", [])
+        
+        if not video_files:
+             return {"success": False, "error": "No video files found"}
+
+        # Find best file ~1280px width
+        best_link = None
+        best_file = None
+        min_diff = 99999
+        for v_file in video_files:
+            diff = abs(v_file["width"] - TARGET_WIDTH)
+            if diff < min_diff:
+                min_diff = diff
+                best_link = v_file["link"]
+                best_file = v_file
+        
+        if best_link and best_file:
+            vid_content = requests.get(best_link).content
+            filename = os.path.join(PEXELS_OUTPUT_FOLDER, f"pexels_id_{video_id}.mp4")
+            file_path = os.path.abspath(filename)
+            
+            with open(filename, "wb") as f:
+                f.write(vid_content)
+            
+            video_data = {
+                "id": str(video_id),
+                "title": video.get("user", {}).get("name", "") + " - " + str(video_id),
+                "url": video.get("url"),
+                "file_path": file_path,
+                "duration": video.get("duration"),
+                "fps": best_file.get("fps"),
+                "width": best_file.get("width"),
+                "height": best_file.get("height")
+            }
+            
+            # Save to DB
+            saved = save_pexels_video_to_database(video_data, "id_download", download_method="url")
+            
+            # Cleanup local file if saved successfully (logic inside save function handles upload to minio)
+            # But we double check cleanup
+            try:
+                 if os.path.exists(filename):
+                    os.remove(filename)
+            except:
+                pass
+
+            if saved:
+                return {"success": True, "message": f"Downloaded and saved video {video_id}"}
+            else:
+                return {"success": False, "error": "Failed to save to database (duplicate?)"}
+        else:
+            return {"success": False, "error": "Could not determine best quality video link"}
+
+    except Exception as e:
+        logger.error(f"Error downloading video {video_id}: {e}")
         return {"success": False, "error": str(e)}

@@ -9,6 +9,7 @@ import cv2
 import services.minio_service as minio_service
 import services.database as db_service
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -135,7 +136,7 @@ class CameraCollector:
                 img = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
                 
                 if img is not None:
-                    # Resize to 1280x720
+                    # Resize to 1280x720 standard
                     img = cv2.resize(img, (1280, 720), interpolation=cv2.INTER_AREA)
 
                     # Convert to 16-bit (scale 8-bit [0-255] to 16-bit [0-65535])

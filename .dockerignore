@@ -61,10 +61,10 @@ docker-compose.yml
 *.db
 
 # Data directories (will be mounted as volumes)
-# downloads/
-# dataset_extracted/
-# pexels_traffic_dataset/
-# camera_collector_data/
+downloads/
+dataset_extracted/
+pexels_traffic_dataset/
+camera_collector_data/
 
 # Documentation
 *.md

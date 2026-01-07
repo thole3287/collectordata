@@ -5,12 +5,74 @@ function app() {
         sidebarOpen: true,
         activeTab: 'visualization',
         urlInput: '',
+        urlDownloadPlatform: 'youtube', // New
+        keywordDownloadPlatform: 'youtube', // New
         selectedKeywordId: '',
         activeKeywords: [],
         selectedKeyword: null,
         numVideos: 1,
         downloading: false,
         videos: [],
+        // ... (omitting lines for brevity, target replace will handle)
+
+        async downloadByUrl() {
+            if (!this.urlInput.trim()) return;
+
+            this.downloading = true;
+            try {
+                const urls = this.urlInput.split('\n').filter(url => url.trim());
+                const response = await fetch('/api/download/url', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        urls,
+                        platform: this.urlDownloadPlatform
+                    })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    this.showNotify(data.message, 'success');
+                    this.urlInput = '';
+                    this.loadVideos(); // Reload list
+                } else {
+                    this.showNotify(data.error || 'Có lỗi xảy ra', 'error');
+                }
+            } catch (error) {
+                this.showNotify('Lỗi kết nối: ' + error.message, 'error');
+            } finally {
+                this.downloading = false;
+            }
+        },
+
+        async downloadByKeyword() {
+            if (!this.selectedKeywordId) return;
+
+            this.downloading = true;
+            try {
+                const response = await fetch('/api/download/keyword', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        keyword: this.selectedKeyword.keyword,
+                        num_videos: this.numVideos,
+                        platform: this.keywordDownloadPlatform
+                    })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    this.showNotify(data.message, 'success');
+                    this.loadVideos(); // Reload list
+                } else {
+                    this.showNotify(data.error || 'Có lỗi xảy ra', 'error');
+                }
+            } catch (error) {
+                this.showNotify('Lỗi kết nối: ' + error.message, 'error');
+            } finally {
+                this.downloading = false;
+            }
+        },
         totalVideos: 0,
         currentPage: 1,
         perPage: 10,
@@ -38,14 +100,7 @@ function app() {
         selectedCameraImage: null,
         latestCameraImage: null,
         cameraAutoRefreshInterval: null,
-        // Pexels Dataset state
-        selectedPexelsKeywordId: '',
-        selectedPexelsKeyword: null,
-        pexelsNumVideos: 10,
-        pexelsDownloading: false,
-        pexelsExtracting: false,
-        pexelsDownloadProgress: 0,
-        pexelsExtractProgress: 0,
+
         // Edit keyword state
         editingKeyword: null,
         showEditKeywordModal: false,
@@ -57,7 +112,220 @@ function app() {
         addingKeyword: false,
         showNotification: false,
         notificationMessage: '',
+        notificationMessage: '',
         notificationType: 'success',
+
+        // Gallery State
+        galleryMode: 'grouped', // 'grouped' | 'flat'
+        galleryGroups: [],
+        galleryTotalGroups: 0,
+        galleryGroupFrames: {}, // { video_id: [frames] }
+        galleryExpandedGroups: [], // [video_id, ...]
+
+        galleryFrames: [],
+        galleryPage: 1,
+        galleryPerPage: 10, // Groups per page
+        galleryTotalPages: 0,
+        galleryTotalFrames: 0,
+        galleryLoading: false,
+        showGalleryModal: false,
+        selectedGalleryFrame: null,
+
+        // Gallery Dashboard State
+        galleryStats: {},
+        galleryFilterPlatform: 'all',
+        gallerySearchQuery: '',
+        galleryCharts: {},
+
+        formatFileSize(bytes) {
+            if (!bytes) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        },
+
+        async loadGalleryStats() {
+            try {
+                const response = await fetch('/api/dataset/stats');
+                if (response.ok) {
+                    this.galleryStats = await response.json();
+                    this.renderCharts();
+                }
+            } catch (error) {
+                console.error("Failed to load stats", error);
+            }
+        },
+
+        renderCharts() {
+            // Destroy existing charts to avoid memory leaks/glitches
+            if (this.galleryCharts.timeline) this.galleryCharts.timeline.destroy();
+            if (this.galleryCharts.platform) this.galleryCharts.platform.destroy();
+
+            // 1. Timeline Chart
+            const timelineCtx = document.getElementById('timelineChart')?.getContext('2d');
+            if (timelineCtx && this.galleryStats.timeline) {
+                this.galleryCharts.timeline = new Chart(timelineCtx, {
+                    type: 'line',
+                    data: {
+                        labels: this.galleryStats.timeline.map(x => x.date),
+                        datasets: [{
+                            label: 'Frames Collected',
+                            data: this.galleryStats.timeline.map(x => x.count),
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true, grid: { borderDash: [2, 4] } },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+            }
+
+            // 2. Platform Chart (Pie)
+            const platformCtx = document.getElementById('platformChart')?.getContext('2d');
+            if (platformCtx && this.galleryStats.platforms) {
+                const data = this.galleryStats.platforms;
+                this.galleryCharts.platform = new Chart(platformCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(data),
+                        datasets: [{
+                            data: Object.values(data),
+                            backgroundColor: ['#ef4444', '#10b981', '#3b82f6', '#f59e0b'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'right', labels: { boxWidth: 12 } }
+                        },
+                        cutout: '70%'
+                    }
+                });
+            }
+        },
+
+        async loadGallery() {
+            if (this.galleryMode === 'grouped') {
+                await this.loadGalleryGroups();
+            } else {
+                await this.loadGalleryFrames();
+            }
+        },
+
+        async loadGalleryGroups() {
+            this.galleryLoading = true;
+            try {
+                const params = new URLSearchParams({
+                    page: this.galleryPage,
+                    per_page: this.galleryPerPage
+                });
+
+                const response = await fetch(`/api/dataset/groups?${params}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    this.galleryGroups = data.groups || [];
+                    this.galleryTotalPages = data.total_pages || 1;
+                    this.galleryTotalGroups = data.total_groups || 0;
+
+                    // Refresh stats on first page load
+                    if (this.galleryPage === 1) {
+                        this.loadGalleryStats();
+                    }
+                }
+            } catch (error) {
+                this.showNotify('Lỗi tải groups: ' + error.message, 'error');
+            } finally {
+                this.galleryLoading = false;
+            }
+        },
+
+        async toggleGroup(group) {
+            // Check if already expanded
+            const idx = this.galleryExpandedGroups.indexOf(group.video_id);
+            if (idx > -1) {
+                // Collapse
+                this.galleryExpandedGroups.splice(idx, 1);
+            } else {
+                // Expand
+                this.galleryExpandedGroups.push(group.video_id);
+                // Load frames if not present
+                if (!this.galleryGroupFrames[group.video_id]) {
+                    await this.loadGroupFrames(group.video_id);
+                }
+            }
+        },
+
+        async loadGroupFrames(videoId) {
+            try {
+                // Fetch up to 100 frames for preview in the group
+                const response = await fetch(`/api/frames?video_id=${videoId}&per_page=100`);
+                const data = await response.json();
+                if (response.ok) {
+                    // Use Vue.set or re-assign object for reactivity if needed, 
+                    // but Alpine usually reacts to property assignment
+                    this.galleryGroupFrames[videoId] = data.frames || [];
+                }
+            } catch (error) {
+                console.error("Error loading group frames", error);
+            }
+        },
+
+        async loadGalleryFrames() {
+            this.galleryLoading = true;
+            try {
+                const params = new URLSearchParams({
+                    page: this.galleryPage,
+                    per_page: 24, // Flat view has more items
+                    platform: this.galleryFilterPlatform,
+                    search: this.gallerySearchQuery
+                });
+
+                const response = await fetch(`/api/frames?${params}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    this.galleryFrames = data.frames || [];
+                    this.galleryTotalPages = data.total_pages || 1;
+                    this.galleryTotalFrames = data.total_frames || 0;
+
+                    // If we just loaded the gallery, also refresh stats
+                    if (this.galleryPage === 1 && !this.galleryStats.total_frames) {
+                        this.loadGalleryStats();
+                    }
+                } else {
+                    this.showNotify(data.error || 'Lỗi khi tải gallery', 'error');
+                }
+            } catch (error) {
+                this.showNotify('Lỗi kết nối: ' + error.message, 'error');
+            } finally {
+                this.galleryLoading = false;
+            }
+        },
+
+        changeGalleryPage(page) {
+            if (page >= 1 && page <= this.galleryTotalPages) {
+                this.galleryPage = page;
+                this.loadGallery();
+            }
+        },
+
+        openGalleryModal(frame) {
+            this.selectedGalleryFrame = frame;
+            this.showGalleryModal = true;
+        },
 
         // Missing state variables fixed
         editKeywordForm: {
@@ -66,6 +334,8 @@ function app() {
             description: ''
         },
         updatingKeyword: false,
+
+
 
         init() {
             console.log('App initialized');
@@ -76,107 +346,8 @@ function app() {
             // Always load active keywords for dropdowns
             this.loadActiveKeywords();
         },
-
         // Methods
-        async downloadByUrl() {
-            if (!this.urlInput.trim()) {
-                this.showNotify('Vui lòng nhập ít nhất một URL', 'error');
-                return;
-            }
 
-            const urls = this.urlInput.trim().split('\n').filter(url => url.trim());
-            if (urls.length === 0) {
-                this.showNotify('Vui lòng nhập ít nhất một URL hợp lệ', 'error');
-                return;
-            }
-
-            this.downloading = true;
-            try {
-                const response = await fetch('/api/download/url', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ urls: urls }),
-                });
-
-                const data = await response.json();
-                if (response.ok) {
-                    this.showNotify(data.message || 'Đã bắt đầu tải video', 'success');
-                    this.urlInput = '';
-                    // Kiểm tra kết quả download và extract frames
-                    this.checkYouTubeDownloadResult();
-                    // Tự động refresh danh sách sau 5 giây
-                    setTimeout(() => {
-                        if (this.activeTab === 'videos') {
-                            this.loadVideos();
-                        }
-                    }, 5000);
-                } else {
-                    this.showNotify(data.error || 'Có lỗi xảy ra', 'error');
-                }
-            } catch (error) {
-                this.showNotify('Lỗi kết nối: ' + error.message, 'error');
-            } finally {
-                this.downloading = false;
-            }
-        },
-
-        async downloadByKeyword() {
-            if (!this.selectedKeywordId) {
-                this.showNotify('Vui lòng chọn keyword từ danh sách', 'error');
-                return;
-            }
-
-            const selectedKw = this.activeKeywords.find(kw => (kw._id || kw.id) == this.selectedKeywordId);
-            if (!selectedKw) {
-                this.showNotify('Keyword không tồn tại', 'error');
-                return;
-            }
-
-            const keyword = selectedKw.keyword;
-            const numVideos = parseInt(this.numVideos) || selectedKw.num_videos || 1;
-
-            this.downloading = true;
-            try {
-                const response = await fetch('/api/download/keyword', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        keyword: keyword,
-                        num_videos: numVideos,
-                    }),
-                });
-
-                const data = await response.json();
-                if (response.ok) {
-                    this.showNotify(data.message || 'Đã bắt đầu tải video', 'success');
-                    this.selectedKeywordId = '';
-                    this.selectedKeyword = null;
-                    this.numVideos = 1;
-                    // Kiểm tra kết quả download và extract frames
-                    this.checkYouTubeDownloadResult();
-                    // Tự động refresh danh sách sau 5 giây
-                    setTimeout(() => {
-                        if (this.activeTab === 'videos') {
-                            this.loadVideos();
-                        }
-                        if (this.activeTab === 'keywords') {
-                            this.loadKeywords();
-                        }
-                        this.loadActiveKeywords();
-                    }, 5000);
-                } else {
-                    this.showNotify(data.error || 'Có lỗi xảy ra', 'error');
-                }
-            } catch (error) {
-                this.showNotify('Lỗi kết nối: ' + error.message, 'error');
-            } finally {
-                this.downloading = false;
-            }
-        },
 
         async loadVideos() {
             try {
@@ -246,6 +417,9 @@ function app() {
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             ${duration}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                             <span class="font-mono text-xs bg-gray-100 px-2 py-1 rounded border border-gray-200">${(video.media_type || 'mp4').toUpperCase()}</span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             <span class="px-2 py-1 text-xs font-semibold rounded-full ${video.platform === 'pexels' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
@@ -789,44 +963,59 @@ function app() {
         },
 
         renderCharts() {
-            // Destroy existing charts
-            if (this.charts) {
-                Object.values(this.charts).forEach(chart => {
-                    if (chart && typeof chart.destroy === 'function') chart.destroy();
-                });
-            }
+            // Helper to safely destroy chart on a canvas
+            const destroyChart = (canvasId) => {
+                const canvas = document.getElementById(canvasId);
+                if (canvas) {
+                    try {
+                        const existingChart = Chart.getChart(canvas);
+                        if (existingChart) {
+                            existingChart.destroy();
+                        }
+                    } catch (e) {
+                        console.warn('Error destroying chart ' + canvasId, e);
+                    }
+                }
+            };
+
+            // Note: We no longer maintain this.charts object for destruction, 
+            // as we use Chart.getChart() to find and destroy instances attached to the DOM.
             this.charts = {};
 
             // Platform Chart
             if (this.vizData.by_platform && this.vizData.by_platform.length > 0) {
+                destroyChart('platformChart');
                 const ctx = document.getElementById('platformChart');
                 if (ctx) {
-                    this.charts.platform = new Chart(ctx, {
-                        type: 'doughnut',
-                        data: {
-                            labels: this.vizData.by_platform.map(p => p.platform),
-                            datasets: [{
-                                data: this.vizData.by_platform.map(p => p.count),
-                                backgroundColor: [
-                                    'rgba(59, 130, 246, 0.8)',
-                                    'rgba(16, 185, 129, 0.8)',
-                                    'rgba(251, 146, 60, 0.8)',
-                                    'rgba(139, 92, 246, 0.8)',
-                                ]
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            plugins: {
-                                legend: { position: 'bottom' }
+                    try {
+                        this.charts.platform = new Chart(ctx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: this.vizData.by_platform.map(p => p.platform),
+                                datasets: [{
+                                    data: this.vizData.by_platform.map(p => p.count),
+                                    backgroundColor: [
+                                        'rgba(59, 130, 246, 0.8)',
+                                        'rgba(16, 185, 129, 0.8)',
+                                        'rgba(251, 146, 60, 0.8)',
+                                        'rgba(139, 92, 246, 0.8)',
+                                    ]
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                plugins: {
+                                    legend: { position: 'bottom' }
+                                }
                             }
-                        }
-                    });
+                        });
+                    } catch (e) { console.error("Error creating platformChart", e); }
                 }
             }
 
             // Method Chart
             if (this.vizData.by_method && this.vizData.by_method.length > 0) {
+                destroyChart('methodChart');
                 const ctx = document.getElementById('methodChart');
                 if (ctx) {
                     const methodLabels = {
@@ -861,6 +1050,7 @@ function app() {
 
             // Resolution Chart
             if (this.vizData.by_resolution && this.vizData.by_resolution.length > 0) {
+                destroyChart('resolutionChart');
                 const ctx = document.getElementById('resolutionChart');
                 if (ctx) {
                     this.charts.resolution = new Chart(ctx, {
@@ -888,6 +1078,7 @@ function app() {
 
             // Duration Chart
             if (this.vizData.by_duration && this.vizData.by_duration.length > 0) {
+                destroyChart('durationChart');
                 const ctx = document.getElementById('durationChart');
                 if (ctx) {
                     this.charts.duration = new Chart(ctx, {
@@ -915,6 +1106,7 @@ function app() {
 
             // Time Chart
             if (this.vizData.by_date && this.vizData.by_date.length > 0) {
+                destroyChart('timeChart');
                 const ctx = document.getElementById('timeChart');
                 if (ctx) {
                     this.charts.time = new Chart(ctx, {
@@ -950,11 +1142,21 @@ function app() {
             }
 
             const canvas = document.getElementById('wordcloud-canvas');
-            if (!canvas || typeof Chart === 'undefined') return;
+            if (!canvas || typeof WordCloud === 'undefined') return;
 
-            // Destroy existing chart if any
-            if (this.charts.wordcloud) {
-                this.charts.wordcloud.destroy();
+            // Clear canvas manually first
+            const ctx = canvas.getContext('2d');
+            if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Also check if there was a Chart instance (just in case)
+            try {
+                const existing = Chart.getChart(canvas);
+                if (existing) existing.destroy();
+            } catch (e) { }
+
+            // Destroy existing chart reference if any
+            if (this.charts.wordcloud && typeof this.charts.wordcloud.destroy === 'function') {
+                try { this.charts.wordcloud.destroy(); } catch (e) { }
             }
 
             // Prepare word list for WordCloud.js
@@ -1289,6 +1491,8 @@ function app() {
             }
         },
 
+
+
         showCameraImage(img) {
             this.selectedCameraImage = img;
             this.showCameraImageModal = true;
@@ -1307,91 +1511,7 @@ function app() {
             });
         },
 
-        onPexelsKeywordSelect() {
-            if (this.selectedPexelsKeywordId) {
-                const selectedKw = this.activeKeywords.find(kw => {
-                    const kwId = String(kw._id || kw.id);
-                    const selectedId = String(this.selectedPexelsKeywordId);
-                    return kwId === selectedId;
-                });
-
-                if (selectedKw) {
-                    this.selectedPexelsKeyword = selectedKw;
-                    // Tự động set số lượng video từ keyword nếu chưa có
-                    if (!this.pexelsNumVideos || this.pexelsNumVideos === 10) {
-                        this.pexelsNumVideos = selectedKw.num_videos || 10;
-                    }
-                } else {
-                    this.selectedPexelsKeyword = null;
-                }
-            } else {
-                this.selectedPexelsKeyword = null;
-            }
-        },
-
-        async downloadPexelsVideos() {
-            if (!this.selectedPexelsKeywordId) {
-                this.showNotify('Vui lòng chọn từ khóa từ danh sách', 'error');
-                return;
-            }
-
-            if (!this.selectedPexelsKeyword) {
-                this.showNotify('Vui lòng chọn từ khóa hợp lệ', 'error');
-                return;
-            }
-
-            if (this.pexelsNumVideos < 1 || this.pexelsNumVideos > 80) {
-                this.showNotify('Số lượng video phải từ 1 đến 80', 'error');
-                return;
-            }
-
-            this.pexelsDownloading = true;
-            this.pexelsDownloadProgress = 0;
-
-            // Poll progress từ server
-            const progressInterval = setInterval(async () => {
-                try {
-                    const response = await fetch('/api/pexels/progress');
-                    const progressData = await response.json();
-                    if (progressData.progress !== undefined) {
-                        this.pexelsDownloadProgress = Math.min(progressData.progress, 95);
-                    }
-                } catch (e) {
-                    // Ignore errors
-                }
-            }, 1000);
-
-            try {
-                const response = await fetch('/api/pexels/download', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        query: this.selectedPexelsKeyword.keyword.trim(),
-                        num_videos: this.pexelsNumVideos
-                    }),
-                });
-
-                const data = await response.json();
-                if (response.ok) {
-                    this.showNotify(data.message || 'Đã bắt đầu tải video từ Pexels', 'success');
-
-                    // Poll để check kết quả sau khi tải xong
-                    this.checkPexelsDownloadResult(progressInterval);
-                } else {
-                    clearInterval(progressInterval);
-                    this.pexelsDownloadProgress = 0;
-                    this.showNotify(data.message || 'Có lỗi xảy ra', 'error');
-                    this.pexelsDownloading = false;
-                }
-            } catch (error) {
-                clearInterval(progressInterval);
-                this.pexelsDownloadProgress = 0;
-                this.showNotify('Lỗi kết nối: ' + error.message, 'error');
-                this.pexelsDownloading = false;
-            }
-        },
+        // --- Gallery Functions ---
 
         async checkPexelsDownloadResult(progressInterval) {
             // Poll mỗi 2 giây để check kết quả
