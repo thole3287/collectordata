@@ -152,12 +152,20 @@ def save_to_database(video_data, download_method='keyword'):
             else:
                 print(f"  ℹ Upload MinIO đang TẮT (UPLOAD_TO_MINIO={should_upload_minio}). Giữ file tại local.")
         
+        if minio_key:
+            # Construct MinIO URL
+            minio_endpoint = os.getenv('MINIO_ENDPOINT', 'localhost:9000')
+            # remove http/https prefix if present in endpoint to avoid duplication if user added it
+            minio_endpoint = minio_endpoint.replace('http://', '').replace('https://', '')
+            # Assuming http for internal minio
+            file_path = f"http://{minio_endpoint}/{minio_bucket}/{minio_key}"
+
         # Tạo document theo cấu trúc MongoDB
         document = {
             'video_id': video_data['id'],
             'title': video_data['title'],
             'url': video_data['url'],
-            'file_path': file_path,  # Giữ lại local path
+            'file_path': file_path,  # Now uses MinIO URL if uploaded
             'media_type': 'mp4',  # Mặc định mp4
             'metadata': {
                 'duration': video_data.get('duration'),

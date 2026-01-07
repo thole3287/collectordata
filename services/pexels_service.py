@@ -100,6 +100,12 @@ def save_pexels_video_to_database(video_data, query, download_method='pexels'):
             except Exception as e:
                 print(f"Error uploading to MinIO: {e}")
 
+        # Update file_path to MinIO URL if upload succeeded
+        if minio_key and minio_bucket:
+            minio_endpoint = os.getenv('MINIO_ENDPOINT', 'localhost:9000')
+            minio_endpoint = minio_endpoint.replace('http://', '').replace('https://', '')
+            file_path = f"http://{minio_endpoint}/{minio_bucket}/{minio_key}"
+
         # Create Document
         document = {
             'video_id': str(video_data['id']),
