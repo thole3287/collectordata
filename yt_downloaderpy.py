@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
+import services.video_service as video_service
+
 # ==================== CẤU HÌNH DATABASE ====================
 DB_CONFIG = {
     'host': os.getenv('DB_HOST', 'localhost'),
@@ -52,12 +54,34 @@ def save_to_database(video_data, download_method='keyword'):
     try:
         collection = db['downloaded_videos']
         
-        # Kiểm tra xem video đã tồn tại chưa
-        existing = collection.find_one({'video_id': video_data['id']})
+        # Kiểm tra xem video đã tồn tại chưa (THEO USER: KO DÙNG VIDEO_ID NỮA MÀ DÙNG HASH, 
+        # NHƯNG VẪN CÓ THỂ CHECK ID NHƯ LÀ "FAST PATH" NẾU MUỐN TIẾT KIỆM BĂNG THÔNG.
+        # TUY NHIÊN USER YÊU CẦU: "check mã đó chứ không dùng video id nữa")
+        # existing = collection.find_one({'video_id': video_data['id']})
+        # if existing:
+        #     print(f"  ⚠ Video {video_data['id']} đã tồn tại trong database (check ID), bỏ qua...")
+        #     return False
         
-        if existing:
-            print(f"  ⚠ Video {video_data['id']} đã tồn tại trong database, bỏ qua...")
-            return False
+        file_path = video_data.get('file_path')
+        file_hash = None
+        
+        # Calculate Hash if file exists
+        if file_path and os.path.exists(file_path):
+            print(f"  ℹ Đang tính mã SHA256 cho video...")
+            file_hash = video_service.calculate_file_hash(file_path)
+            
+            if file_hash:
+                # Check Hash Duplication
+                existing_hash = collection.find_one({'file_hash': file_hash})
+                if existing_hash:
+                    print(f"  ⚠ Video có hash {file_hash[:8]}... đã tồn tại trong database. Bỏ qua.")
+                    # Delete duplicate file
+                    try:
+                        os.remove(file_path)
+                        print(f"  🗑 Đã xóa file trùng lặp: {file_path}")
+                    except:
+                        pass
+                    return False
         
         # Parse resolution để lấy width và height
         width = video_data.get('width')
@@ -153,12 +177,9 @@ def save_to_database(video_data, download_method='keyword'):
                 print(f"  ℹ Upload MinIO đang TẮT (UPLOAD_TO_MINIO={should_upload_minio}). Giữ file tại local.")
         
         if minio_key:
-            # Construct MinIO URL
-            minio_endpoint = os.getenv('MINIO_ENDPOINT', 'localhost:9000')
-            # remove http/https prefix if present in endpoint to avoid duplication if user added it
-            minio_endpoint = minio_endpoint.replace('http://', '').replace('https://', '')
-            # Assuming http for internal minio
-            file_path = f"http://{minio_endpoint}/{minio_bucket}/{minio_key}"
+            # Construct MinIO Path (bucket/key) as requested by user
+            # Format: videos/youtube/filename.mp4
+            file_path = f"{minio_bucket}/{minio_key}"
 
         # Tạo document theo cấu trúc MongoDB
         document = {
@@ -166,6 +187,7 @@ def save_to_database(video_data, download_method='keyword'):
             'title': video_data['title'],
             'url': video_data['url'],
             'file_path': file_path,  # Now uses MinIO URL if uploaded
+            'file_hash': file_hash, # SHA256
             'media_type': 'mp4',  # Mặc định mp4
             'metadata': {
                 'duration': video_data.get('duration'),
@@ -345,11 +367,11 @@ def download_by_keyword(keyword, num_videos=1):
             if not video_id:
                 continue
             
-            # Kiểm tra video đã tồn tại chưa TRƯỚC KHI TẢI
-            if check_video_exists(video_id):
-                skipped_count += 1
-                print(f"  ⏭ Video {video_id} đã tồn tại, bỏ qua...")
-                continue
+            # Kiểm tra video đã tồn tại chưa TRƯỚC KHI TẢI -> ADMIN YÊU CẦU DÙNG HASH CHECK SAU KHI TẢI
+            # if check_video_exists(video_id):
+            #     skipped_count += 1
+            #     print(f"  ⏭ Video {video_id} đã tồn tại, bỏ qua...")
+            #     continue
             
             # Chỉ tải nếu chưa đủ số lượng video cần
             if len(downloaded_videos) >= num_videos:
@@ -399,11 +421,11 @@ def download_by_url(url):
             # Lấy thông tin video trước
             info = ydl.extract_info(url, download=False)
             
-            # Kiểm tra xem video đã tồn tại chưa
+            # Kiểm tra xem video đã tồn tại chưa -> DÙNG HASH CHECK SAU
             video_id = info.get("id")
-            if check_video_exists(video_id):
-                print(f"  ⚠ Video {video_id} đã tồn tại trong database!")
-                return None
+            # if check_video_exists(video_id):
+            #     print(f"  ⚠ Video {video_id} đã tồn tại trong database!")
+            #     return None
             
             # Tải video
             print("  --> Đang tải video...")

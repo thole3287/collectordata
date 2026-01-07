@@ -8,11 +8,25 @@ from datetime import datetime
 
 import numpy as np
 
+import hashlib
+
 FRAMES_OUTPUT_ROOT = "dataset_extracted"
 VALID_VIDEO_EXTENSIONS = ('.mp4', '.avi', '.mov', '.mkv', '.wmv')
 # Đọc từ env nếu có, nhưng ở đây cần import os/cv2 nên sẽ xử lý tham số truyền vào
 TARGET_WIDTH = 1280
 TARGET_HEIGHT = 720
+
+def calculate_file_hash(file_path):
+    """Calculate SHA256 hash of a file."""
+    sha256 = hashlib.sha256()
+    try:
+        with open(file_path, 'rb') as f:
+            while chunk := f.read(8192):
+                sha256.update(chunk)
+        return sha256.hexdigest()
+    except Exception as e:
+        print(f"Error calculating hash: {e}")
+        return None
 
 def extract_frames_from_folder(input_folder, output_root=None, progress_file_path=None, interval_seconds=1.0):
     """

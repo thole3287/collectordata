@@ -21,6 +21,8 @@ PEXELS_OUTPUT_FOLDER = "pexels_traffic_dataset"
 TARGET_WIDTH = 1280
 TARGET_HEIGHT = 720
 
+from services.video_service import calculate_file_hash
+
 def save_pexels_video_to_database(video_data, query, download_method='pexels'):
     """Lưu thông tin video Pexels vào Database"""
     db = get_db_connection()
@@ -30,10 +32,27 @@ def save_pexels_video_to_database(video_data, query, download_method='pexels'):
     
     try:
         collection = db['downloaded_videos']
-        existing = collection.find_one({'video_id': str(video_data['id'])})
-        if existing:
-            print(f"[INFO] Video {video_data['id']} already exists in DB")
-            return False
+        # User requested Hash check instead of ID check
+        # existing = collection.find_one({'video_id': str(video_data['id'])})
+        # if existing:
+        #     print(f"[INFO] Video {video_data['id']} already exists in DB")
+        #     return False
+        
+        file_path = video_data.get('file_path')
+        file_hash = None
+        
+        if file_path and os.path.exists(file_path):
+             # Calculate hash
+            file_hash = calculate_file_hash(file_path)
+            if file_hash:
+                existing_hash = collection.find_one({'file_hash': file_hash})
+                if existing_hash:
+                    logger.info(f"Video content duplicate (Hash: {file_hash}). Skipping.")
+                    try:
+                        os.remove(file_path)
+                    except:
+                        pass
+                    return False
         
         # Upload MinIO Logic
         minio_key = None
@@ -100,11 +119,9 @@ def save_pexels_video_to_database(video_data, query, download_method='pexels'):
             except Exception as e:
                 print(f"Error uploading to MinIO: {e}")
 
-        # Update file_path to MinIO URL if upload succeeded
+        # Update file_path to MinIO Path (bucket/key) if upload succeeded
         if minio_key and minio_bucket:
-            minio_endpoint = os.getenv('MINIO_ENDPOINT', 'localhost:9000')
-            minio_endpoint = minio_endpoint.replace('http://', '').replace('https://', '')
-            file_path = f"http://{minio_endpoint}/{minio_bucket}/{minio_key}"
+             file_path = f"{minio_bucket}/{minio_key}"
 
         # Create Document
         document = {
@@ -112,6 +129,7 @@ def save_pexels_video_to_database(video_data, query, download_method='pexels'):
             'title': video_data.get('title', f"Pexels Video {video_data['id']}"),
             'url': video_data.get('url', f"https://www.pexels.com/video/{video_data['id']}/"),
             'file_path': file_path,
+            'file_hash': file_hash,
             'media_type': 'mp4',
             'metadata': {
                 'duration': video_data.get('duration'),
@@ -179,13 +197,13 @@ def download_pexels_videos(query, num_videos, api_key):
         for idx, video in enumerate(videos):
             video_id = video["id"]
             
-            # [OPTIMIZATION] Check DB before downloading
-            db = get_db_connection()
-            if db:
-                existing_video = db['downloaded_videos'].find_one({'video_id': str(video_id)})
-                if existing_video:
-                    logger.info(f"Video {video_id} already exists in DB. Skipping.")
-                    continue
+            # [OPTIMIZATION] Check DB before downloading (DISABLED per user request to check content hash)
+            # db = get_db_connection()
+            # if db:
+            #     existing_video = db['downloaded_videos'].find_one({'video_id': str(video_id)})
+            #     if existing_video:
+            #         logger.info(f"Video {video_id} already exists in DB. Skipping.")
+            #         continue
 
             video_files = video["video_files"]
             
