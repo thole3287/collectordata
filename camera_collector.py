@@ -8,6 +8,7 @@ import numpy as np
 import cv2
 import services.minio_service as minio_service
 import services.database as db_service
+import services.scene_analysis as scene_analysis
 
 
 logger = logging.getLogger(__name__)
@@ -81,7 +82,7 @@ class CameraCollector:
         os.makedirs(camera_dir, exist_ok=True)
         return os.path.join(camera_dir, time_filename)
     
-    def save_metadata_to_db(self, camera_id: str, camera_name: str, file_path: str, minio_key: str = None, file_size: int = 0):
+    def save_metadata_to_db(self, camera_id: str, camera_name: str, file_path: str, minio_key: str = None, file_size: int = 0, scene_type: str = 'day'):
         """Save metadata to MongoDB."""
         try:
             db = db_service.get_db_connection()
@@ -94,6 +95,8 @@ class CameraCollector:
                 'timestamp': datetime.now(),
                 'file_path': file_path, # Local path (might be deleted later)
                 'file_size': file_size,
+                'scene_type': scene_type,
+                'weather': scene_type,
                 'created_at': datetime.now()
             }
 
@@ -139,6 +142,10 @@ class CameraCollector:
                     # Resize to 1280x720 standard
                     img = cv2.resize(img, (1280, 720), interpolation=cv2.INTER_AREA)
 
+                    # --- Feature Extraction for Scene Classification ---
+                    scene_type = scene_analysis.analyze_scene_features(img)
+                    # ---------------------------------------------------
+
                     # Convert to 16-bit (scale 8-bit [0-255] to 16-bit [0-65535])
                     img_16bit = img.astype(np.uint16) * 256
                     
@@ -156,8 +163,8 @@ class CameraCollector:
                     
                     if should_upload_minio:
                         now = datetime.now()
-                        # Key format: camera/YYYY/MM/DD/{camera_id}/HH-MM-SS.png
-                        object_key = f"camera/{now.strftime('%Y/%m/%d')}/{camera_id}/{os.path.basename(file_path)}"
+                        # Key format: camera/YYYY/MM/DD/{camera_id}/{scene_type}/HH-MM-SS.png
+                        object_key = f"camera/{now.strftime('%Y/%m/%d')}/{camera_id}/{scene_type}/{os.path.basename(file_path)}"
                         
                         result = minio_service.upload_and_get_key(
                             file_path=file_path,
@@ -178,7 +185,7 @@ class CameraCollector:
 
                     # 4. Save Metadata
                     camera_name = next((c.get('name', camera_id) for c in self.cameras if c['id'] == camera_id), camera_id)
-                    self.save_metadata_to_db(camera_id, camera_name, file_path, minio_key, file_size)
+                    self.save_metadata_to_db(camera_id, camera_name, file_path, minio_key, file_size, scene_type)
                     return True
                 else:
                     logger.error(f"Failed to decode image for {camera_id}")

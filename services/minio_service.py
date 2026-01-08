@@ -26,14 +26,25 @@ MINIO_BUCKET_CAMERA = os.getenv('MINIO_BUCKET_CAMERA', 'camera-images')
 MINIO_BUCKET_VEHICLE_DETECTION = os.getenv('MINIO_BUCKET_VEHICLE_DETECTION', 'vehicle-detection')
 
 
-def get_minio_client():
+def get_minio_client(internal=False):
     """
     Tạo MinIO client connection
+    
+    Args:
+        internal: Nếu True, sử dụng internal endpoint (cho Docker container)
     
     Returns:
         Minio client object
     """
-    endpoint = f"{MINIO_ENDPOINT}:{MINIO_PORT}"
+    endpoint_host = 'minio' if internal else MINIO_ENDPOINT
+    # Fallback: if MINIO_ENDPOINT is not localhost, maybe it's already set correctly?
+    # But safe bet for docker environment (app -> minio) is service name.
+    
+    # However, if we are running locally (not docker), collectordata_minio won't resolve.
+    # We should only force collectordata_minio if we suspect we are in docker.
+    # But app.py calling this with internal=True implies it knows what it's doing.
+    
+    endpoint = f"{endpoint_host}:{MINIO_PORT}"
     return Minio(
         endpoint,
         access_key=MINIO_ACCESS_KEY,
@@ -447,7 +458,7 @@ def get_presigned_urls_for_detection(db, event_id, expires=3600):
 
 
 def save_frame_to_mongodb(db, video_id, platform, frame_index, minio_key, bucket_name, 
-                          frame_number, video_frame_number, timestamp=None):
+                          frame_number, video_frame_number, timestamp=None, scene_type='day'):
     """
     Lưu metadata của một frame vào MongoDB
     
@@ -461,6 +472,7 @@ def save_frame_to_mongodb(db, video_id, platform, frame_index, minio_key, bucket
         frame_number: Số thứ tự frame trong file (fr00000, fr00001, ...)
         video_frame_number: Số frame trong video gốc (frame thứ bao nhiêu trong video)
         timestamp: Thời gian extract (mặc định = now)
+        scene_type: Loại cảnh (day, night, rain)
     
     Returns:
         ObjectId của document đã tạo hoặc None nếu lỗi
@@ -477,6 +489,8 @@ def save_frame_to_mongodb(db, video_id, platform, frame_index, minio_key, bucket
             'frame_index': frame_index,  # Thứ tự trong danh sách frames đã extract
             'frame_number': frame_number,  # Số thứ tự trong tên file (fr00000)
             'video_frame_number': video_frame_number,  # Số frame trong video gốc
+            'scene_type': scene_type, # Detected scene
+            'weather': scene_type, # Mirror scene_type for chart aggregation
             'storage_refs': {
                 'bucket': bucket_name,
                 'key': minio_key
@@ -588,6 +602,10 @@ def extract_and_upload_frames(video_path, video_id, platform='youtube',
                             interpolation=cv2.INTER_AREA
                         )
                         
+                        # --- Feature Extraction for Scene Classification ---
+                        from services.video_service import analyze_scene_features
+                        scene_type = analyze_scene_features(resized_frame) # Or original frame? Resized is smaller/faster.
+                        
                         # Convert to 16-bit PNG (scale up)
                         frame_16bit = resized_frame.astype(np.uint16) * 256
                         
@@ -596,8 +614,9 @@ def extract_and_upload_frames(video_path, video_id, platform='youtube',
                         temp_frame_path = os.path.join(temp_dir, frame_filename)
                         cv2.imwrite(temp_frame_path, frame_16bit)
                         
-                        # Tạo object key: platform/video_id/frame_xxx.png
-                        object_key = f"{platform}/{video_id}/{frame_filename}"
+                        # Tạo object key: platform/scene/video_id/frame_xxx.png
+                        # User requested: dataset - youtube - day - ...
+                        object_key = f"{platform}/{scene_type}/{video_id}/{frame_filename}"
                         
                         # Upload lên MinIO
                         client.fput_object(
@@ -621,7 +640,8 @@ def extract_and_upload_frames(video_path, video_id, platform='youtube',
                                 bucket_name=bucket_name,
                                 frame_number=f"fr{saved_count:05d}",
                                 video_frame_number=count,  # Số frame trong video gốc
-                                timestamp=extract_timestamp
+                                timestamp=extract_timestamp,
+                                scene_type=scene_type
                             )
                             if frame_id:
                                 frame_ids.append(str(frame_id))

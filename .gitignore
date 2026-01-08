@@ -52,4 +52,6 @@ downloads/
 *.jpeg
 *.png
 
+docker-compose.override.yml
+
 

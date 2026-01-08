@@ -137,9 +137,12 @@ def get_dataset_stats():
             return jsonify({'error': 'Database connection failed'}), 500
             
         collection = db['video_frames']
+        camera_collection = db['camera_images']
         
-        # 1. Total Frames
-        total_frames = collection.count_documents({})
+        # 1. Total Frames (Video + Camera)
+        video_count = collection.count_documents({})
+        camera_count = camera_collection.count_documents({})
+        total_frames = video_count + camera_count
         
         # 2. Platform Distribution
         pipeline_platform = [
@@ -147,23 +150,52 @@ def get_dataset_stats():
         ]
         platform_stats = list(collection.aggregate(pipeline_platform))
         platforms = {item['_id'] or 'unknown': item['count'] for item in platform_stats}
+        # Add Camera platform
+        if camera_count > 0:
+            platforms['camera'] = camera_count
         
         # 3. Collection Timeline (Last 7 days or groupings)
-        # Simplified: Group by Date (YYYY-MM-DD)
-        pipeline_timeline = [
-            {
-                "$group": {
-                    "_id": {
-                        "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
-                    },
-                    "count": {"$sum": 1}
-                }
-            },
-            {"$sort": {"_id": 1}},
-            {"$limit": 30} # Last 30 days
-        ]
-        timeline_stats = list(collection.aggregate(pipeline_timeline))
-        timeline = [{"date": item['_id'], "count": item['count']} for item in timeline_stats]
+        # Helper to get timeline from a collection
+        def get_timeline(coll, date_field):
+            pipeline = [
+                {
+                    "$group": {
+                        "_id": {
+                            "$dateToString": {
+                                "format": "%Y-%m-%d", 
+                                "date": { 
+                                    "$convert": { 
+                                        "input": f"${date_field}", 
+                                        "to": "date", 
+                                        "onError": None, 
+                                        "onNull": None 
+                                    }
+                                }
+                            }
+                        },
+                        "count": {"$sum": 1}
+                    }
+                },
+                {"$sort": {"_id": 1}},
+                {"$limit": 30}
+            ]
+            return list(coll.aggregate(pipeline))
+
+        video_timeline = get_timeline(collection, 'created_at')
+        camera_timeline = get_timeline(camera_collection, 'timestamp')
+        
+        # Merge Timelines
+        timeline_map = {}
+        for item in video_timeline:
+            date = item['_id']
+            if date: timeline_map[date] = timeline_map.get(date, 0) + item['count']
+            
+        for item in camera_timeline:
+            date = item['_id']
+            if date: timeline_map[date] = timeline_map.get(date, 0) + item['count']
+            
+        # Convert back to list and sort
+        timeline = [{"date": k, "count": v} for k, v in sorted(timeline_map.items())]
         
         return jsonify({
             'total_frames': total_frames,
@@ -174,76 +206,7 @@ def get_dataset_stats():
         print(f"Error getting stats: {e}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/dataset/groups', methods=['GET'])
-def get_dataset_groups():
-    """Get list of video groups (videos that have frames)"""
-    try:
-        db = db_service.get_db_connection()
-        if db is None:
-            return jsonify({'error': 'Database connection failed'}), 500
-        
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 10, type=int)
-        
-        # Aggregation Pipeline
-        pipeline = [
-            # 1. Group by video_id to get counts and latest frame info
-            {
-                "$group": {
-                    "_id": "$video_id",
-                    "total_frames": {"$sum": 1},
-                    "last_frame_at": {"$max": "$created_at"},
-                    "preview_frame_id": {"$first": "$_id"}
-                }
-            },
-            # 2. Lookup video metadata
-            {
-                "$lookup": {
-                    "from": "downloaded_videos",
-                    "localField": "_id",
-                    "foreignField": "video_id",
-                    "as": "video_info"
-                }
-            },
-            # 3. Unwind video info (preserve groups even if video metadata is missing)
-            {"$unwind": {"path": "$video_info", "preserveNullAndEmptyArrays": True}},
-            # 4. Sort by most recent activity
-            {"$sort": {"last_frame_at": -1}},
-            # 5. Pagination
-            {"$skip": (page - 1) * per_page},
-            {"$limit": per_page}
-        ]
-        
-        groups_raw = list(db['video_frames'].aggregate(pipeline))
-        
-        # Count total unique videos (for pagination)
-        # Note: distinct is faster than aggregation for simple distinct counts
-        total_groups = len(db['video_frames'].distinct('video_id'))
-        total_pages = (total_groups + per_page - 1) // per_page
-        
-        groups = []
-        for g in groups_raw:
-            vid = g.get('video_info', {})
-            preview_id = str(g['preview_frame_id'])
-            
-            groups.append({
-                'video_id': g['_id'],
-                'title': vid.get('title', f"Video {g['_id']}"),
-                'platform': vid.get('platform', 'unknown'),
-                'total_frames': g['total_frames'],
-                'last_updated': g['last_frame_at'].isoformat() if g.get('last_frame_at') else None,
-                'preview_image': f"/api/image/{preview_id}"
-            })
-            
-        return jsonify({
-            'groups': groups,
-            'total_groups': total_groups,
-            'total_pages': total_pages,
-            'current_page': page
-        })
-    except Exception as e:
-        print(f"Error getting dataset groups: {e}")
-        return jsonify({'error': str(e)}), 500
+
 
 @app.route('/api/frames', methods=['GET'])
 def get_frames():
@@ -259,7 +222,69 @@ def get_frames():
         search_query = request.args.get('search', '', type=str)
         
         video_id_filter = request.args.get('video_id', '', type=str)
+
+        # distinct handling for Camera platform
+        if platform_filter == 'camera':
+            query = {}
+            if search_query:
+                query['$or'] = [
+                    {'camera_name': {'$regex': search_query, '$options': 'i'}},
+                    {'camera_id': {'$regex': search_query, '$options': 'i'}}
+                ]
+            
+            # Filter by specific camera (video_id context)
+            if video_id_filter:
+                query['camera_id'] = video_id_filter
+            
+            # Count and Sort for Camera
+            total_frames = db['camera_images'].count_documents(query)
+            total_pages = (total_frames + per_page - 1) // per_page
+            
+            cursor = db['camera_images'].find(query).sort('timestamp', -1)
+            cursor.skip((page - 1) * per_page).limit(per_page)
+            
+            frames = []
+            for doc in cursor:
+                # Map camera_images to unified frame structure
+                frame_id = str(doc.get('_id', ''))
+                
+                # storage refs
+                storage = doc.get('storage_refs', {})
+                bucket = storage.get('bucket', 'dataset')
+                key = storage.get('key', '')
+                
+                # Construct Proxy URL
+                image_url = ""
+                if bucket and key:
+                    image_url = f"/api/image-proxy?bucket={bucket}&key={key}"
+                elif 'file_path' in doc:
+                     # Fallback for old local files (unlikely to work if not in minio, but kept for compat)
+                     image_url = f"/api/camera/images/{os.path.basename(doc['file_path'])}"
+                
+                frames.append({
+                    'id': frame_id,
+                    'video_name': doc.get('camera_name', 'Unknown Camera'),
+                    'video_id': doc.get('camera_id', ''),
+                    'platform': 'camera',
+                    'frame_index': 0, # Not applicable for single images
+                    'frame_number': 0,
+                    'video_frame_number': 0,
+                    'file_size': doc.get('file_size', 0), # Might be missing
+                    'scene_type': 'day', # TODO: Add scene detection for camera images later
+                    'image_url': image_url,
+                    'storage_bucket': bucket,
+                    'storage_key': key,
+                    'created_at': doc.get('timestamp', datetime.now()).isoformat()
+                })
+                
+            return jsonify({
+                'frames': frames,
+                'total_frames': total_frames,
+                'current_page': page,
+                'total_pages': total_pages
+            })
         
+        # Standard Video Frames Logic (Youtube/Pexels)
         # Build Query
         query = {}
         if platform_filter and platform_filter != 'all':
@@ -302,6 +327,7 @@ def get_frames():
                 'frame_number': doc.get('frame_number', ''),
                 'video_frame_number': doc.get('video_frame_number', 0),
                 'file_size': doc.get('file_size', 0),
+                'scene_type': doc.get('scene_type', 'day'), # Detected scene
                 'image_url': image_url,
                 'storage_bucket': doc.get('storage_refs', {}).get('bucket', ''),
                 'storage_key': doc.get('storage_refs', {}).get('key', ''),
@@ -316,7 +342,7 @@ def get_frames():
         })
     except Exception as e:
         print(f"Error fetching frames: {e}")
-        print(f"Query was: {query}") # Debug
+        # print(f"Query was: {query}") # Debug
         return jsonify({'error': str(e)}), 500
 
 
@@ -590,7 +616,14 @@ def get_visualization_data():
         ]
         by_date = [{'date': r['_id'], 'count': r['count']} for r in collection.aggregate(pipeline_date)]
         
-        # 6. Duration
+        # 6. Weather
+        pipeline_weather = [
+            {'$group': {'_id': {'$ifNull': ['$weather', '$scene_type']}, 'count': {'$sum': 1}}},
+            {'$match': {'_id': {'$ne': None}}}
+        ]
+        by_weather = [{'weather': r['_id'], 'count': r['count']} for r in db['video_frames'].aggregate(pipeline_weather)]
+
+        # 7. Duration
         pipeline_dur = [
             {'$match': {'metadata.duration': {'$ne': None}}},
             {'$addFields': {'duration_range': {'$switch': {'branches': [
@@ -634,6 +667,7 @@ def get_visualization_data():
             'by_method': by_method,
             'by_date': by_date,
             'by_duration': by_duration,
+            'by_weather': by_weather,
             'quality': quality
         })
     except Exception as e:
@@ -1053,10 +1087,250 @@ def create_minio_buckets():
 
 
 
+# ==================== ROUTES: DATASET ====================
+
+@app.route('/api/dataset/groups', methods=['GET'])
+def get_dataset_groups():
+    """Lấy danh sách nhóm video (đã extract frames) với thông tin weather dominant - Optimized"""
+    try:
+        db = db_service.get_db_connection()
+        if db is None: return jsonify({'error': 'Kết nối DB thất bại'}), 500
+        
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        platform_filter = request.args.get('platform', '', type=str)
+        search_query = request.args.get('search', '', type=str)
+
+        # --- CAMERA PLATFORM HANDLING ---
+        if platform_filter == 'camera':
+             # Aggregate camera_images to mimic groups
+            match_stage = {}
+            if search_query:
+                match_stage['$or'] = [
+                    {'camera_name': {'$regex': search_query, '$options': 'i'}},
+                    {'camera_id': {'$regex': search_query, '$options': 'i'}}
+                ]
+            
+            # Aggregation Pipeline
+            # 1. Match filters
+            # 2. Sort by timestamp desc (to get latest first)
+            # 3. Group by camera_id
+            # 4. Count frames
+            # 5. Get latest image for preview
+            
+            pipeline = []
+            if match_stage:
+                pipeline.append({'$match': match_stage})
+                
+            pipeline.extend([
+                {'$sort': {'timestamp': -1}},
+                {'$group': {
+                    '_id': '$camera_id',
+                    'camera_name': {'$first': '$camera_name'},
+                    'total_frames': {'$sum': 1},
+                    'last_updated': {'$first': '$timestamp'},
+                    'preview_doc': {'$first': '$$ROOT'}
+                }},
+                {'$sort': {'last_updated': -1}},
+                {'$skip': (page - 1) * per_page},
+                {'$limit': per_page}
+            ])
+
+            # Count total groups (cameras)
+            # Need separate count query or facet. Count distinct camera_ids matching query.
+            distinct_query = match_stage
+            total_groups = len(db['camera_images'].distinct('camera_id', distinct_query))
+            
+            cursor = db['camera_images'].aggregate(pipeline)
+            
+            groups = []
+            for doc in cursor:
+                c_id = doc['_id']
+                last_up = doc['last_updated']
+                preview = doc.get('preview_doc', {})
+                
+                # storage refs for preview
+                storage = preview.get('storage_refs', {})
+                bucket = storage.get('bucket', 'dataset')
+                key = storage.get('key', '')
+                
+                preview_url = "/static/img/no-image.png"
+                if bucket and key:
+                    preview_url = f"/api/image-proxy?bucket={bucket}&key={key}"
+                elif 'file_path' in preview:
+                     preview_url = f"/api/camera/images/{os.path.basename(preview['file_path'])}"
+
+                groups.append({
+                    'video_id': c_id, # Use camera_id as video_id
+                    'title': doc.get('camera_name', c_id),
+                    'platform': 'camera',
+                    'total_frames': doc['total_frames'],
+                    'last_updated': last_up.isoformat() if isinstance(last_up, datetime) else str(last_up),
+                    'weather': 'day', # TODO: Detect
+                    'preview_image': preview_url
+                })
+                
+            return jsonify({
+                'groups': groups,
+                'total_groups': total_groups,
+                'page': page,
+                'per_page': per_page,
+                'total_pages': (total_groups + per_page - 1) // per_page if per_page > 0 else 1
+            })
+
+        # --- STANDARD VIDEO HANDLING (Youtube/Pexels/All) ---
+        
+        videos_collection = db['downloaded_videos']
+        frames_collection = db['video_frames']
+        
+        # Build Query
+        query = {}
+        if platform_filter and platform_filter != 'all':
+            query['platform'] = platform_filter
+            
+        if search_query:
+            query['$or'] = [
+                {'title': {'$regex': search_query, '$options': 'i'}},
+                {'video_id': {'$regex': search_query, '$options': 'i'}}
+            ]
+        
+        total_groups = videos_collection.count_documents(query)
+        cursor = videos_collection.find(query).sort([('updated_at', -1), ('created_at', -1)]).skip((page - 1) * per_page).limit(per_page)
+        
+        videos = list(cursor)
+        groups = []
+        
+        for v in videos:
+            video_id = v.get('video_id', str(v.get('_id')))
+            
+            # 2. Get Frame Stats for this video
+            total_frames = frames_collection.count_documents({'video_id': video_id})
+            
+            dominant_weather = 'unknown'
+            preview_image = "/static/img/no-image.png"
+            last_updated = v.get('updated_at') or v.get('created_at') or datetime.now()
+            
+            if total_frames > 0:
+                # Get latest frame for preview and info
+                latest_frame = frames_collection.find_one(
+                    {'video_id': video_id},
+                    sort=[('created_at', -1)]
+                )
+                
+                if latest_frame:
+                    if 'created_at' in latest_frame:
+                         last_updated = latest_frame['created_at']
+                    
+                    if latest_frame.get('_id'):
+                        preview_image = f"/api/image/{str(latest_frame['_id'])}"
+                    
+                    try:
+                        pipeline = [
+                            {'$match': {'video_id': video_id}},
+                            {'$group': {'_id': {'$ifNull': ['$weather', '$scene_type']}, 'count': {'$sum': 1}}},
+                            {'$sort': {'count': -1}},
+                            {'$limit': 1}
+                        ]
+                        w_res = list(frames_collection.aggregate(pipeline))
+                        if w_res:
+                            dominant_weather = w_res[0]['_id']
+                    except Exception:
+                        dominant_weather = latest_frame.get('weather') or latest_frame.get('scene_type', 'unknown')
+
+            groups.append({
+                'video_id': video_id,
+                'title': v.get('title', video_id),
+                'platform': v.get('platform', 'unknown'),
+                'total_frames': total_frames,
+                'last_updated': last_updated.isoformat() if isinstance(last_updated, datetime) else str(last_updated),
+                'weather': dominant_weather,
+                'preview_image': preview_image
+            })
+
+        return jsonify({
+            'groups': groups,
+            'total_groups': total_groups,
+            'page': page,
+            'per_page': per_page,
+            'total_pages': (total_groups + per_page - 1) // per_page
+        })
+    except Exception as e:
+        print(f"Error getting dataset groups: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 # ==================== MAIN ====================
 
 
 # ==================== PROXY ROUTE ====================
+
+@app.route('/api/image/<frame_id>')
+def get_frame_image(frame_id):
+    """
+    Get image content by Frame ID (Proxy from MinIO)
+    """
+    try:
+        from bson import ObjectId
+        db = db_service.get_db_connection()
+        if db is None: return jsonify({'error': 'Database connection failed'}), 500
+        
+        try:
+             frame = db['video_frames'].find_one({'_id': ObjectId(frame_id)})
+        except: return jsonify({'error': 'Invalid frame ID'}), 400
+        
+        if not frame: return jsonify({'error': 'Frame not found'}), 404
+        
+        bucket = None
+        key = None
+        
+        # 1. Try storage_refs (New format)
+        if 'storage_refs' in frame and frame['storage_refs']:
+            bucket = frame['storage_refs'].get('bucket')
+            key = frame['storage_refs'].get('key')
+            
+        # 2. Try legacy fields (Old format fallback)
+        if not bucket or not key:
+             # Try reconstructing from Platform/VideoID
+             # This is a best-effort fallback for old data without storage_refs
+             if frame.get('platform') == 'youtube' and frame.get('frame_number'):
+                  bucket = minio_service.MINIO_BUCKET_VIDEOS
+                  # Assumption: videos/youtube/{video_id}/{frame_number}.jpg ?? No, structure wasn't this clean.
+                  # It was videos/youtube/{filename}.
+                  # Frames are in MINIO_BUCKET_FRAMES (dataset)
+                  bucket = minio_service.MINIO_BUCKET_FRAMES
+                  # dataset/youtube/{video_id}/{frame_number}.jpg
+                  key = f"youtube/{frame.get('video_id')}/{frame.get('frame_number')}.jpg"
+
+             elif frame.get('platform') == 'pexels':
+                  bucket = minio_service.MINIO_BUCKET_FRAMES
+                  key = f"pexels/{frame.get('video_id')}/{frame.get('frame_number')}.jpg"
+
+        if not bucket or not key:
+            return jsonify({'error': 'Image storage info not found'}), 404
+
+        # Proxy from MinIO
+        try:
+            client = minio_service.get_minio_client(internal=True)
+            response = client.get_object(bucket, key)
+            
+            from flask import Response, stream_with_context
+            return Response(
+                stream_with_context(response.stream(32*1024)),
+                headers={
+                    "Content-Type": response.headers.get("Content-Type", "image/jpeg"),
+                    "Content-Length": response.headers.get("Content-Length"),
+                    "Cache-Control": "public, max-age=3600"
+                }
+            )
+        except Exception as minio_e:
+            print(f"MinIO Proxy Error for {frame_id}: {minio_e}")
+            return jsonify({'error': 'Image not found in storage'}), 404
+            
+    except Exception as e:
+        print(f"Error serving image {frame_id}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/image-proxy')
 def image_proxy():
     """
@@ -1066,13 +1340,14 @@ def image_proxy():
     bucket = request.args.get('bucket')
     key = request.args.get('key')
     
+    # print(f"DEBUG PROXY REQUEST: bucket={bucket}, key={key}")
+
     if not bucket or not key:
         return jsonify({"error": "Missing bucket or key"}), 400
         
     try:
         # Get internal client (uses minio:9000 inside docker)
-        # We don't use the public one here because we are inside the container
-        client = minio_service.get_minio_client()
+        client = minio_service.get_minio_client(internal=True)
         
         # Get object
         response = client.get_object(bucket, key)
@@ -1089,7 +1364,7 @@ def image_proxy():
             }
         )
     except Exception as e:
-        print(f"Proxy error: {e}")
+        print(f"Proxy error for {bucket}/{key}: {e}")
         return jsonify({"error": str(e)}), 404
 
 if __name__ == '__main__':

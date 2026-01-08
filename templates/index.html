@@ -473,25 +473,41 @@
                         <!-- Platform Distribution -->
                         <div class="bg-white rounded-lg shadow-md p-6">
                             <h3 class="text-lg font-semibold text-gray-800 mb-4">Phân Bố Theo Nền Tảng</h3>
-                            <canvas id="platformChart"></canvas>
+                            <div class="h-80 relative">
+                                <canvas id="platformChart"></canvas>
+                            </div>
                         </div>
 
                         <!-- Download Method -->
                         <div class="bg-white rounded-lg shadow-md p-6">
                             <h3 class="text-lg font-semibold text-gray-800 mb-4">Phương Thức Tải</h3>
-                            <canvas id="methodChart"></canvas>
+                            <div class="h-80 relative">
+                                <canvas id="methodChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- Weather Distribution -->
+                        <div class="bg-white rounded-lg shadow-md p-6">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Phân Bố Thời Tiết (Scene)</h3>
+                            <div class="h-80 relative">
+                                <canvas id="weatherChart"></canvas>
+                            </div>
                         </div>
 
                         <!-- Resolution Distribution -->
                         <div class="bg-white rounded-lg shadow-md p-6">
                             <h3 class="text-lg font-semibold text-gray-800 mb-4">Phân Bố Độ Phân Giải</h3>
-                            <canvas id="resolutionChart"></canvas>
+                            <div class="h-80 relative">
+                                <canvas id="resolutionChart"></canvas>
+                            </div>
                         </div>
 
                         <!-- Duration Distribution -->
                         <div class="bg-white rounded-lg shadow-md p-6">
                             <h3 class="text-lg font-semibold text-gray-800 mb-4">Phân Bố Độ Dài Video</h3>
-                            <canvas id="durationChart"></canvas>
+                            <div class="h-80 relative">
+                                <canvas id="durationChart"></canvas>
+                            </div>
                         </div>
                     </div>
 
@@ -826,16 +842,16 @@
                         <!-- Charts -->
                         <div class="bg-white rounded-lg shadow-sm p-4 md:col-span-2">
                              <h4 class="text-sm font-semibold text-gray-700 mb-3 border-b pb-2">Xu hướng thu thập (7 ngày qua)</h4>
-                             <div class="h-32">
-                                <canvas id="timelineChart"></canvas>
+                             <div class="h-64">
+                                <canvas id="galleryTrendChart"></canvas>
                              </div>
                         </div>
 
                         <!-- Pie Chart -->
                         <div class="bg-white rounded-lg shadow-sm p-4">
                              <h4 class="text-sm font-semibold text-gray-700 mb-3 border-b pb-2">Nguồn Dữ Liệu</h4>
-                             <div class="h-32 flex justify-center">
-                                <canvas id="platformChart"></canvas>
+                             <div class="h-64 relative">
+                                <canvas id="galleryPlatformChart"></canvas>
                              </div>
                         </div>
                     </div>
@@ -845,7 +861,8 @@
                         <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
                             <h3 class="text-xl font-semibold text-gray-800 flex items-center gap-2">
                                 <i class="fas fa-database text-purple-600"></i>
-                                Quản Lý Dữ Liệu <span class="text-sm font-normal text-gray-500" x-text="'(' + galleryTotalFrames + ' items)'"></span>
+                                Quản Lý Dữ Liệu <span class="text-sm font-normal text-gray-500" x-text="'(' + (galleryMode === 'grouped' ? (galleryTotalGroups || 0) : (galleryTotalFrames || 0)) + ' items)'"></span>
+                                <button @click="drawGalleryInterface()" class="ml-4 px-2 py-1 bg-gray-200 text-xs rounded hover:bg-gray-300" title="Force Redraw Charts"><i class="fas fa-sync-alt"></i> Redraw</button>
                             </h3>
                             
                             <!-- Filter Bars -->
@@ -930,6 +947,19 @@
                                                  </span>
                                                  <span class="flex items-center gap-1"><i class="fas fa-fingerprint text-gray-400 text-xs"></i> <span class="font-mono text-xs" x-text="group.video_id"></span></span>
                                                  <span class="flex items-center gap-1"><i class="far fa-clock text-gray-400 text-xs"></i> <span class="text-xs" x-text="formatDateTime(group.last_updated)"></span></span>
+                                                 
+                                                 <!-- Overall Weather Badge -->
+                                                 <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ml-2"
+                                                    :class="{
+                                                        'bg-yellow-100 text-yellow-800 border-yellow-200': group.weather === 'day',
+                                                        'bg-indigo-100 text-indigo-800 border-indigo-200': group.weather === 'night',
+                                                        'bg-gray-100 text-gray-800 border-gray-200': group.weather === 'rain'
+                                                    }" x-show="group.weather && group.weather !== 'unknown'">
+                                                    <span x-show="group.weather === 'day'" class="mr-1">☀️</span>
+                                                    <span x-show="group.weather === 'night'" class="mr-1">🌙</span>
+                                                    <span x-show="group.weather === 'rain'" class="mr-1">🌧️</span>
+                                                    <span x-text="(group.weather || '').toUpperCase()"></span>
+                                                 </span>
                                             </div>
                                         </div>
                                         
@@ -958,6 +988,19 @@
                                                    <div class="aspect-video bg-white rounded-lg shadow-sm overflow-hidden relative group cursor-pointer border border-gray-200 hover:ring-2 ring-blue-500 transition-all"
                                                         @click.stop="selectedGalleryFrame = frame; showGalleryModal = true">
                                                         <img :src="frame.image_url" loading="lazy" class="w-full h-full object-cover">
+                                                         
+                                                         <!-- Scene Badge -->
+                                                         <div class="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[10px] font-bold backdrop-blur-sm z-10"
+                                                            :class="{
+                                                                'bg-yellow-400/80 text-yellow-900': frame.scene_type === 'day',
+                                                                'bg-indigo-900/80 text-white': frame.scene_type === 'night',
+                                                                'bg-gray-600/80 text-white': frame.scene_type === 'rain'
+                                                            }">
+                                                            <template x-if="frame.scene_type === 'day'"><span title="Day">☀️</span></template>
+                                                            <template x-if="frame.scene_type === 'night'"><span title="Night">🌙</span></template>
+                                                            <template x-if="frame.scene_type === 'rain'"><span title="Rain">🌧️</span></template>
+                                                         </div>
+
                                                         <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-xs">
                                                              <span class="font-bold" x-text="'#' + frame.frame_index"></span>
                                                         </div>
@@ -980,7 +1023,31 @@
                         <!-- FLAT VIEW (Original) -->
                         <div x-show="!galleryLoading && galleryMode === 'flat'" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                             <template x-for="frame in galleryFrames" :key="frame.id">
+                                <div class="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200 hover:shadow-md transition-shadow cursor-pointer relative group"
+                                     @click="selectedGalleryFrame = frame; showGalleryModal = true">
+                                    <div class="aspect-video bg-gray-100 relative">
+                                        <img :src="frame.image_url" loading="lazy" class="w-full h-full object-cover">
+                                        
+                                        <!-- Scene Badge -->
+                                        <div class="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[10px] font-bold backdrop-blur-sm z-10"
+                                           :class="{
+                                               'bg-yellow-400/80 text-yellow-900': frame.scene_type === 'day',
+                                               'bg-indigo-900/80 text-white': frame.scene_type === 'night',
+                                               'bg-gray-600/80 text-white': frame.scene_type === 'rain'
+                                           }">
+                                           <template x-if="frame.scene_type === 'day'"><span title="Day">☀️</span></template>
+                                           <template x-if="frame.scene_type === 'night'"><span title="Night">🌙</span></template>
+                                           <template x-if="frame.scene_type === 'rain'"><span title="Rain">🌧️</span></template>
+                                        </div>
+
+                                        <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-xs">
+                                             <span class="font-bold" x-text="'#' + frame.frame_index"></span>
+                                        </div>
+                                    </div>
+                                    <div class="p-2">
                                         <div class="truncate text-xs font-semibold mb-0.5" x-text="frame.video_name"></div>
+                                        <!-- Added Camera ID/Video ID display -->
+                                        <div class="truncate text-[10px] text-gray-500 mb-0.5" x-show="frame.video_id !== frame.video_name" x-text="frame.video_id"></div>
                                         <div class="flex justify-between items-end">
                                             <div class="text-[10px] opacity-80" x-text="'Frame: ' + frame.frame_index"></div>
                                             <div class="text-[10px] opacity-60" x-text="formatDateShort(frame.created_at)"></div>
@@ -1054,6 +1121,18 @@
                                     }">
                                     <i class="fas fa-circle text-[8px] mr-1.5 opacity-60"></i>
                                     <span x-text="(selectedGalleryFrame?.platform || 'unknown').toUpperCase()"></span>
+                                </span>
+                                
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-2 ml-2"
+                                    :class="{
+                                        'bg-yellow-100 text-yellow-800': selectedGalleryFrame?.scene_type === 'day',
+                                        'bg-indigo-100 text-indigo-800': selectedGalleryFrame?.scene_type === 'night',
+                                        'bg-gray-100 text-gray-800': selectedGalleryFrame?.scene_type === 'rain'
+                                    }">
+                                    <span x-show="selectedGalleryFrame?.scene_type === 'day'">☀️ DAY</span>
+                                    <span x-show="selectedGalleryFrame?.scene_type === 'night'">🌙 NIGHT</span>
+                                    <span x-show="selectedGalleryFrame?.scene_type === 'rain'">🌧️ RAIN</span>
+                                    <span x-show="!selectedGalleryFrame?.scene_type">Unknown</span>
                                 </span>
                             </div>
 
