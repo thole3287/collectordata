@@ -473,31 +473,41 @@
                         <!-- Platform Distribution -->
                         <div class="bg-white rounded-lg shadow-md p-6">
                             <h3 class="text-lg font-semibold text-gray-800 mb-4">Phân Bố Theo Nền Tảng</h3>
-                            <canvas id="platformChart"></canvas>
+                            <div class="h-80 relative">
+                                <canvas id="platformChart"></canvas>
+                            </div>
                         </div>
 
                         <!-- Download Method -->
                         <div class="bg-white rounded-lg shadow-md p-6">
                             <h3 class="text-lg font-semibold text-gray-800 mb-4">Phương Thức Tải</h3>
-                            <canvas id="methodChart"></canvas>
+                            <div class="h-80 relative">
+                                <canvas id="methodChart"></canvas>
+                            </div>
                         </div>
                         
                         <!-- Weather Distribution -->
                         <div class="bg-white rounded-lg shadow-md p-6">
                             <h3 class="text-lg font-semibold text-gray-800 mb-4">Phân Bố Thời Tiết (Scene)</h3>
-                            <canvas id="weatherChart"></canvas>
+                            <div class="h-80 relative">
+                                <canvas id="weatherChart"></canvas>
+                            </div>
                         </div>
 
                         <!-- Resolution Distribution -->
                         <div class="bg-white rounded-lg shadow-md p-6">
                             <h3 class="text-lg font-semibold text-gray-800 mb-4">Phân Bố Độ Phân Giải</h3>
-                            <canvas id="resolutionChart"></canvas>
+                            <div class="h-80 relative">
+                                <canvas id="resolutionChart"></canvas>
+                            </div>
                         </div>
 
                         <!-- Duration Distribution -->
                         <div class="bg-white rounded-lg shadow-md p-6">
                             <h3 class="text-lg font-semibold text-gray-800 mb-4">Phân Bố Độ Dài Video</h3>
-                            <canvas id="durationChart"></canvas>
+                            <div class="h-80 relative">
+                                <canvas id="durationChart"></canvas>
+                            </div>
                         </div>
                     </div>
 
@@ -840,7 +850,7 @@
                         <!-- Pie Chart -->
                         <div class="bg-white rounded-lg shadow-sm p-4">
                              <h4 class="text-sm font-semibold text-gray-700 mb-3 border-b pb-2">Nguồn Dữ Liệu</h4>
-                             <div class="h-32 flex justify-center">
+                             <div class="h-64 relative">
                                 <canvas id="galleryPlatformChart"></canvas>
                              </div>
                         </div>
@@ -1036,6 +1046,8 @@
                                     </div>
                                     <div class="p-2">
                                         <div class="truncate text-xs font-semibold mb-0.5" x-text="frame.video_name"></div>
+                                        <!-- Added Camera ID/Video ID display -->
+                                        <div class="truncate text-[10px] text-gray-500 mb-0.5" x-show="frame.video_id !== frame.video_name" x-text="frame.video_id"></div>
                                         <div class="flex justify-between items-end">
                                             <div class="text-[10px] opacity-80" x-text="'Frame: ' + frame.frame_index"></div>
                                             <div class="text-[10px] opacity-60" x-text="formatDateShort(frame.created_at)"></div>

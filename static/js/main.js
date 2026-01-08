@@ -286,15 +286,17 @@ function app() {
                 this.galleryExpandedGroups.push(group.video_id);
                 // Load frames if not present
                 if (!this.galleryGroupFrames[group.video_id]) {
-                    await this.loadGroupFrames(group.video_id);
+                    // Fix: Pass platform to ensure correct DB collection is queried (Camera vs Video)
+                    await this.loadGroupFrames(group.video_id, group.platform);
                 }
             }
         },
 
-        async loadGroupFrames(videoId) {
+        async loadGroupFrames(videoId, platform = '') {
             try {
                 // Fetch up to 100 frames for preview in the group
-                const response = await fetch(`/api/frames?video_id=${videoId}&per_page=100`);
+                const url = `/api/frames?video_id=${videoId}&per_page=100&platform=${platform || this.galleryFilterPlatform}`;
+                const response = await fetch(url);
                 const data = await response.json();
                 if (response.ok) {
                     // Use Vue.set or re-assign object for reactivity if needed, 
@@ -1027,6 +1029,7 @@ function app() {
                             },
                             options: {
                                 responsive: true,
+                                maintainAspectRatio: false,
                                 plugins: {
                                     legend: { position: 'bottom' }
                                 }
@@ -1063,6 +1066,7 @@ function app() {
                         },
                         options: {
                             responsive: true,
+                            maintainAspectRatio: false,
                             plugins: {
                                 legend: { position: 'bottom' }
                             }
@@ -1092,6 +1096,7 @@ function app() {
                         },
                         options: {
                             responsive: true,
+                            maintainAspectRatio: false,
                             plugins: {
                                 legend: { position: 'right' }
                             }

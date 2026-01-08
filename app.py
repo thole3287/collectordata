@@ -137,9 +137,12 @@ def get_dataset_stats():
             return jsonify({'error': 'Database connection failed'}), 500
             
         collection = db['video_frames']
+        camera_collection = db['camera_images']
         
-        # 1. Total Frames
-        total_frames = collection.count_documents({})
+        # 1. Total Frames (Video + Camera)
+        video_count = collection.count_documents({})
+        camera_count = camera_collection.count_documents({})
+        total_frames = video_count + camera_count
         
         # 2. Platform Distribution
         pipeline_platform = [
@@ -147,33 +150,52 @@ def get_dataset_stats():
         ]
         platform_stats = list(collection.aggregate(pipeline_platform))
         platforms = {item['_id'] or 'unknown': item['count'] for item in platform_stats}
+        # Add Camera platform
+        if camera_count > 0:
+            platforms['camera'] = camera_count
         
         # 3. Collection Timeline (Last 7 days or groupings)
-        # Simplified: Group by Date (YYYY-MM-DD)
-        pipeline_timeline = [
-            {
-                "$group": {
-                    "_id": {
-                        "$dateToString": {
-                            "format": "%Y-%m-%d", 
-                            "date": { 
-                                "$convert": { 
-                                    "input": "$created_at", 
-                                    "to": "date", 
-                                    "onError": None, 
-                                    "onNull": None 
+        # Helper to get timeline from a collection
+        def get_timeline(coll, date_field):
+            pipeline = [
+                {
+                    "$group": {
+                        "_id": {
+                            "$dateToString": {
+                                "format": "%Y-%m-%d", 
+                                "date": { 
+                                    "$convert": { 
+                                        "input": f"${date_field}", 
+                                        "to": "date", 
+                                        "onError": None, 
+                                        "onNull": None 
+                                    }
                                 }
                             }
-                        }
-                    },
-                    "count": {"$sum": 1}
-                }
-            },
-            {"$sort": {"_id": 1}},
-            {"$limit": 30} # Last 30 days
-        ]
-        timeline_stats = list(collection.aggregate(pipeline_timeline))
-        timeline = [{"date": item['_id'], "count": item['count']} for item in timeline_stats]
+                        },
+                        "count": {"$sum": 1}
+                    }
+                },
+                {"$sort": {"_id": 1}},
+                {"$limit": 30}
+            ]
+            return list(coll.aggregate(pipeline))
+
+        video_timeline = get_timeline(collection, 'created_at')
+        camera_timeline = get_timeline(camera_collection, 'timestamp')
+        
+        # Merge Timelines
+        timeline_map = {}
+        for item in video_timeline:
+            date = item['_id']
+            if date: timeline_map[date] = timeline_map.get(date, 0) + item['count']
+            
+        for item in camera_timeline:
+            date = item['_id']
+            if date: timeline_map[date] = timeline_map.get(date, 0) + item['count']
+            
+        # Convert back to list and sort
+        timeline = [{"date": k, "count": v} for k, v in sorted(timeline_map.items())]
         
         return jsonify({
             'total_frames': total_frames,
@@ -209,6 +231,10 @@ def get_frames():
                     {'camera_name': {'$regex': search_query, '$options': 'i'}},
                     {'camera_id': {'$regex': search_query, '$options': 'i'}}
                 ]
+            
+            # Filter by specific camera (video_id context)
+            if video_id_filter:
+                query['camera_id'] = video_id_filter
             
             # Count and Sort for Camera
             total_frames = db['camera_images'].count_documents(query)
