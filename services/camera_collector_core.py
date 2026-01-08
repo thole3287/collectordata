@@ -180,6 +180,13 @@ class CameraCollector:
                                 os.remove(file_path)
                             except Exception as e:
                                 logger.warning(f"Failed to delete local file {file_path} after MinIO upload: {e}")
+                            
+                            # Also delete the original raw file (jpg) if it exists and is different
+                            if original_file_path != file_path and os.path.exists(original_file_path):
+                                try:
+                                    os.remove(original_file_path)
+                                except Exception as e:
+                                    logger.warning(f"Failed to delete local original file {original_file_path}: {e}")
                         else:
                             logger.warning(f"MinIO Upload Failed for {camera_id}")
 
