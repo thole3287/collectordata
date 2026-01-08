@@ -6,6 +6,7 @@ from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure, DuplicateKeyError
 from bson import ObjectId
 from dotenv import load_dotenv
+import extensions
 
 # Load environment variables from .env file
 load_dotenv()
@@ -291,9 +292,9 @@ def get_download_directory():
     """
     Tạo và trả về thư mục để lưu video
     """
-    download_dir = os.path.join(os.getcwd(), 'downloads')
-    os.makedirs(download_dir, exist_ok=True)
-    return download_dir
+    downloads_folder = extensions.DOWNLOADS_FOLDER
+    os.makedirs(downloads_folder, exist_ok=True)
+    return downloads_folder
 
 def get_ydl_options():
     """Trả về cấu hình mặc định cho yt-dlp"""

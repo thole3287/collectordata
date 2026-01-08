@@ -80,15 +80,13 @@ services:
     restart: unless-stopped
     command: python worker.py
     volumes:
-      - ./downloads:/app/downloads
-      - ./dataset_extracted:/app/dataset_extracted
-      - ./pexels_traffic_dataset:/app/pexels_traffic_dataset
-      - ./camera_collector_data:/app/camera_collector_data
-      - ./camera_collector_config:/app/camera_collector_config
+      - ./storage:/app/storage
+      - ./config:/app/config
       - ./.env:/app/.env
-      - ./worker.py:/app/worker.py # Mount worker code
-      - ./services:/app/services # Mount services
-      - ./yt_downloaderpy.py:/app/yt_downloaderpy.py # Mount downloader
+      - ./worker.py:/app/worker.py
+      - ./services:/app/services
+      - ./extensions.py:/app/extensions.py
+
     environment:
       - DB_HOST=mongodb
       - DB_PORT=27017
@@ -119,17 +117,15 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - ./downloads:/app/downloads
-      - ./dataset_extracted:/app/dataset_extracted
-      - ./pexels_traffic_dataset:/app/pexels_traffic_dataset
-      - ./camera_collector_data:/app/camera_collector_data
-      - ./camera_collector_config:/app/camera_collector_config
+      - ./storage:/app/storage
+      - ./config:/app/config
       - ./.env:/app/.env
-      - ./templates:/app/templates
-      - ./static:/app/static
-      - ./app.py:/app/app.py # Mount app code
-      - ./services:/app/services # Mount services
-      - ./yt_downloaderpy.py:/app/yt_downloaderpy.py # Mount downloader
+      - ./resources:/app/resources
+      - ./app.py:/app/app.py
+      - ./controllers:/app/controllers
+      - ./routes:/app/routes
+      - ./services:/app/services
+      - ./extensions.py:/app/extensions.py
     environment:
       - DB_HOST=mongodb
       - DB_PORT=27017

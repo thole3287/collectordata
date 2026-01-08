@@ -7,10 +7,11 @@ from datetime import datetime
 import services.keyword_service as keyword_service
 import services.pexels_service as pexels_service
 import services.video_service as video_service
-import yt_downloaderpy as yt
+import services.yt_service as yt
 import os
 import services.minio_service as minio_service
 from services.kafka_producer import kafka_queue
+import extensions
 
 # Logging setup
 logging.basicConfig(level=logging.INFO)
@@ -113,7 +114,7 @@ class AutoCollectorService:
     def _process_downloaded_folder(self):
         """Helper to process 'downloads' folder for YouTube videos"""
         try:
-            downloads_folder = os.path.join(os.getcwd(), 'downloads')
+            downloads_folder = extensions.DOWNLOADS_FOLDER
             if os.path.exists(downloads_folder):
                 # Use video service to extract frames, convert, upload, etc.
                 video_service.extract_frames_from_folder(downloads_folder)

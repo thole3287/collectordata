@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 # Services
 import services.video_service as video_service
 import services.pexels_service as pexels_service
-import yt_downloaderpy as yt
+import services.yt_service as yt
 
 # Setup logging
 logging.basicConfig(

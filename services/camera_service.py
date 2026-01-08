@@ -1,9 +1,15 @@
 import json
 from pathlib import Path
 from apscheduler.schedulers.background import BackgroundScheduler
-import camera_collector
-import camera_config_loader
+import services.camera_collector_core as camera_collector
+# Adjust import for moved file if necessary or ensure it's importable
+try:
+    from config import camera_config_loader
+except ImportError:
+    import camera_config_loader
+
 import os
+import extensions
 
 # Camera Collector setup
 camera_scheduler = None
@@ -14,8 +20,12 @@ def init_camera_collector():
     global camera_collector_instance
     try:
         cameras = camera_config_loader.load_cameras()
-        # Fix: Ensure storage path is relative to root or absolute
-        storage_path = os.path.join(os.getcwd(), "camera_collector_data")
+        # Use centralized storage path
+        storage_path = extensions.CAMERA_DATA_FOLDER
+        
+        # Ensure directory exists
+        os.makedirs(storage_path, exist_ok=True)
+        
         camera_collector_instance = camera_collector.CameraCollector(
             cameras, 
             storage_path=storage_path
@@ -103,20 +113,10 @@ def get_camera_status():
 def get_cameras_list():
     """Get list of available cameras from config file."""
     try:
-        # Try multiple possible paths to be safe
-        possible_paths = [
-            Path('camera.json'),
-            Path('camera-collector/camera-collector/camera.json'),
-            Path('camera-collector/camera.json')
-        ]
+        # Use path from extensions
+        camera_file = Path(extensions.CAMERA_CONFIG_FILE)
         
-        camera_file = None
-        for path in possible_paths:
-            if path.exists():
-                camera_file = path
-                break
-        
-        if not camera_file:
+        if not camera_file.exists():
             return []
         
         with open(camera_file, 'r', encoding='utf-8') as f:
@@ -141,23 +141,9 @@ def add_camera_to_collection(camera_id):
     """Add camera to active collection list."""
     try:
         # Find camera in master list
-        all_cameras = get_cameras_list()
-        # This is a simplified lookup since get_cameras_list returns processed dicts
-        # Detailed lookup might need re-reading file or passing full object
-        
-        # Re-read raw file for full details
-        possible_paths = [
-            Path('camera.json'),
-            Path('camera-collector/camera-collector/camera.json'),
-            Path('camera-collector/camera.json')
-        ]
-        camera_file = None
-        for path in possible_paths:
-            if path.exists():
-                camera_file = path
-                break
+        camera_file = Path(extensions.CAMERA_CONFIG_FILE)
                 
-        if not camera_file:
+        if not camera_file.exists():
             return False, "Master camera file not found"
 
         with open(camera_file, 'r', encoding='utf-8') as f:
@@ -173,7 +159,7 @@ def add_camera_to_collection(camera_id):
             return False, f"Camera with ID {camera_id} not found"
 
         # Load current config
-        config_file = Path('camera_collector_config/cameras.json')
+        config_file = Path(extensions.CAMERA_COLLECTOR_CONFIG_FILE)
         if config_file.exists():
             with open(config_file, 'r', encoding='utf-8') as f:
                 config_cameras = json.load(f)
@@ -199,7 +185,7 @@ def add_camera_to_collection(camera_id):
 def remove_camera_from_collection(camera_id):
     """Remove camera from active collection list."""
     try:
-        config_file = Path('camera_collector_config/cameras.json')
+        config_file = Path(extensions.CAMERA_COLLECTOR_CONFIG_FILE)
         if not config_file.exists():
             return False, "Config file not found"
         

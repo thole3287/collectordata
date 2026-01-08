@@ -11,7 +11,7 @@ def migrate_videos():
     """Migrate videos từ local lên MinIO"""
     try:
         import services.minio_service as minio_helper
-        from yt_downloaderpy import get_db_connection
+        from services.yt_service import get_db_connection
         from pymongo import MongoClient
         
         db = get_db_connection()

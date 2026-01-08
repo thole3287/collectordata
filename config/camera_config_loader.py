@@ -2,11 +2,19 @@
 import json
 import os
 import logging
+import sys
+
+# Perform absolute import hack or ensure path is in sys.path if needed, 
+# but usually Flask adds root. 
+# Since this moved to config/, we might need to adjust imports if run standalone,
+# but for App execution it should be fine if root is in path.
+# However, to be safe and clean:
+import extensions
 
 logger = logging.getLogger(__name__)
 
 
-def load_cameras(config_path='camera_collector_config/cameras.json'):
+def load_cameras(config_path=extensions.CAMERA_COLLECTOR_CONFIG_FILE):
     """
     Load camera configuration from JSON file.
     
