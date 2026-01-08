@@ -123,6 +123,19 @@
                         <div class="flex items-center gap-2">
                             <div class="text-xs text-right hidden sm:block">
                                 <span class="block font-bold" :class="autoStatus ? 'text-green-600' : 'text-gray-500'">
+                                    VISIT MINIO
+                                </span>
+                                <span class="block text-gray-400" x-text="autoMessage"
+                                    style="max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></span>
+                            </div>
+                           
+                            <a :href="window.location.protocol + '//' + window.location.hostname + ':9001/browser/camera-images'" target="_blank" class="text-blue-600 hover:text-blue-800">
+                                <i class="fas fa-external-link-alt"></i>
+                            </a>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="text-xs text-right hidden sm:block">
+                                <span class="block font-bold" :class="autoStatus ? 'text-green-600' : 'text-gray-500'">
                                     AUTO RUN
                                 </span>
                                 <span class="block text-gray-400" x-text="autoMessage"
