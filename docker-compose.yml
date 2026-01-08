@@ -101,6 +101,7 @@ services:
       - MINIO_USE_SSL=False
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - PEXELS_API_KEY=${PEXELS_API_KEY} 
+      - TZ=Asia/Ho_Chi_Minh 
     depends_on:
       mongodb:
         condition: service_healthy
@@ -143,7 +144,9 @@ services:
       - MINIO_ACCESS_KEY=minioadmin
       - MINIO_SECRET_KEY=minioadmin123
       - MINIO_USE_SSL=False
+      - MINIO_USE_SSL=False
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - TZ=Asia/Ho_Chi_Minh
     depends_on:
       mongodb:
         condition: service_healthy
