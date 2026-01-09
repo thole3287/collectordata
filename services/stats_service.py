@@ -47,7 +47,18 @@ def get_visualization_data():
             {'$sort': {'count': -1}},
             {'$limit': 20}
         ]
-        by_keyword = [{'keyword': r['_id'], 'count': r['count'], 'platforms': r['platforms']} for r in collection.aggregate(pipeline_keyword)]
+        by_keyword = []
+        for r in collection.aggregate(pipeline_keyword):
+            kw_display = r['_id']
+            # Nếu keyword có dạng "Search || Filter", chỉ lấy phần Search
+            if '||' in kw_display:
+                kw_display = kw_display.split('||')[0].strip()
+            
+            by_keyword.append({
+                'keyword': kw_display, 
+                'count': r['count'], 
+                'platforms': r['platforms']
+            })
         
         # 3. Resolution
         pipeline_res = [
