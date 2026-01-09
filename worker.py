@@ -37,7 +37,8 @@ def get_kafka_consumer():
                 auto_offset_reset='earliest',
                 enable_auto_commit=True,
                 group_id='collector_workers',
-                value_deserializer=lambda x: json.loads(x.decode('utf-8'))
+                value_deserializer=lambda x: json.loads(x.decode('utf-8')),
+                max_poll_interval_ms=7200000  # 2 hours
             )
             logger.info(f"Connected to Kafka Consumer at {bootstrap_servers}")
             return consumer
@@ -50,13 +51,7 @@ def process_youtube_task(keyword):
     try:
         # 1. Download video
         videos = yt.download_by_keyword(keyword, num_videos=1)
-        if videos:
-            # 2. Extract frames (assuming downloads folder)
-            downloads_folder = os.path.join(os.getcwd(), 'downloads')
-            if os.path.exists(downloads_folder):
-                video_service.extract_frames_from_folder(downloads_folder)
-                logger.info("YouTube frames extracted successfully")
-        else:
+        if not videos:
             logger.warning(f"No YouTube videos found for {keyword}")
     except Exception as e:
         logger.error(f"Error processing YouTube task: {e}")

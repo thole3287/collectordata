@@ -23,6 +23,34 @@ TARGET_HEIGHT = 720
 
 from services.video_service import calculate_file_hash
 
+def extract_title_from_url(url, video_id):
+    """
+    Extracts a title from the Pexels video URL.
+    Example: https://www.pexels.com/video/stunning-4k-aerial-view-of-jonkoping-cityscape-35124638/
+    Returns: "Stunning 4k Aerial View Of Jonkoping Cityscape"
+    """
+    if not url:
+        return f"Pexels Video {video_id}"
+    
+    try:
+        # Url usually ends with '...-video_id/' or '...-video_id'
+        parts = url.strip('/').split('/')
+        slug = parts[-1] 
+        
+        # Remove video_id from end of slug if present
+        if slug.endswith(str(video_id)):
+            slug = slug.replace(f"-{video_id}", "")
+            
+        # Replace hyphens with spaces and title case
+        title = slug.replace('-', ' ').title()
+        
+        if not title.strip():
+             return f"Pexels Video {video_id}"
+             
+        return title
+    except Exception:
+        return f"Pexels Video {video_id}"
+
 def save_pexels_video_to_database(video_data, query, download_method='pexels'):
     """Lưu thông tin video Pexels vào Database"""
     db = get_db_connection()
@@ -230,7 +258,7 @@ def download_pexels_videos(query, num_videos, api_key):
                 
                 video_data = {
                     "id": str(video_id),
-                    "title": video.get("user", {}).get("name", "") + " - " + str(video_id),
+                    "title": extract_title_from_url(video.get("url"), video_id),
                     "url": video.get("url"),
                     "file_path": file_path,
                     "duration": video.get("duration"),
@@ -319,7 +347,7 @@ def download_video_by_id(video_id, api_key):
             
             video_data = {
                 "id": str(video_id),
-                "title": video.get("user", {}).get("name", "") + " - " + str(video_id),
+                "title": extract_title_from_url(video.get("url"), video_id),
                 "url": video.get("url"),
                 "file_path": file_path,
                 "duration": video.get("duration"),

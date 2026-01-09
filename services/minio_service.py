@@ -651,6 +651,9 @@ def extract_and_upload_frames(video_path, video_id, platform='youtube',
                     except Exception as e:
                         print(f"Error processing frame {count}: {e}")
                 
+                if count % (frame_step * 50) == 0:
+                     print(f"  [INFO] Processed {count} frames ({saved_count} saved)...")
+
                 count += 1
             
             cap.release()
