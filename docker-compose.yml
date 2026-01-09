@@ -18,13 +18,27 @@ services:
       timeout: 5s
       retries: 5
 
+  mongo-express:
+    image: mongo-express
+    container_name: detectbike-mongo-express
+    restart: always
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_SERVER: mongodb
+      ME_CONFIG_BASICAUTH: "false"
+    depends_on:
+      - mongodb
+    networks:
+      - collectordata_network
+
   minio:
     image: minio/minio:latest
     container_name: collectordata_minio
     restart: unless-stopped
     ports:
-      - "9000:9000"  # API port
-      - "9001:9001"  # Console port
+      - "9000:9000" # API port
+      - "9001:9001" # Console port
     volumes:
       - minio_data:/data
     environment:
@@ -43,8 +57,6 @@ services:
     image: confluentinc/cp-zookeeper:7.4.0
     container_name: collectordata_zookeeper
     restart: unless-stopped
-    ports:
-      - "2181:2181"
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -62,12 +74,16 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     networks:
       - collectordata_network
+
     healthcheck:
       test: nc -z localhost 9092 || exit 1
       interval: 30s
@@ -80,26 +96,22 @@ services:
     restart: unless-stopped
     command: python worker.py
     volumes:
-      - ./storage:/app/storage
-      - ./config:/app/config
+      - ./downloads:/app/downloads
+      - ./dataset_extracted:/app/dataset_extracted
+      - ./pexels_traffic_dataset:/app/pexels_traffic_dataset
+      - ./camera_collector_data:/app/camera_collector_data
+      - ./camera_collector_config:/app/camera_collector_config
       - ./.env:/app/.env
-      - ./worker.py:/app/worker.py
-      - ./services:/app/services
-      - ./extensions.py:/app/extensions.py
-
     environment:
       - DB_HOST=mongodb
       - DB_PORT=27017
       - DB_NAME=data_collection
-      - FLASK_DEBUG=True
       - MINIO_ENDPOINT=minio
       - MINIO_PORT=9000
       - MINIO_ACCESS_KEY=minioadmin
       - MINIO_SECRET_KEY=minioadmin123
-      - MINIO_USE_SSL=False
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - PEXELS_API_KEY=${PEXELS_API_KEY} 
-      - TZ=Asia/Ho_Chi_Minh 
+      - PEXEL_API_KEY=${PEXELS_API_KEY}
     depends_on:
       mongodb:
         condition: service_healthy
@@ -115,17 +127,16 @@ services:
     container_name: collectordata_app
     restart: unless-stopped
     ports:
-      - "5000:5000"
+      - "5001:5000"
     volumes:
-      - ./storage:/app/storage
-      - ./config:/app/config
+      - ./downloads:/app/downloads
+      - ./dataset_extracted:/app/dataset_extracted
+      - ./pexels_traffic_dataset:/app/pexels_traffic_dataset
+      - ./camera_collector_data:/app/camera_collector_data
+      - ./camera_collector_config:/app/camera_collector_config
       - ./.env:/app/.env
-      - ./resources:/app/resources
-      - ./app.py:/app/app.py
-      - ./controllers:/app/controllers
-      - ./routes:/app/routes
-      - ./services:/app/services
-      - ./extensions.py:/app/extensions.py
+      - ./templates:/app/templates
+      - ./static:/app/static
     environment:
       - DB_HOST=mongodb
       - DB_PORT=27017
@@ -140,9 +151,7 @@ services:
       - MINIO_ACCESS_KEY=minioadmin
       - MINIO_SECRET_KEY=minioadmin123
       - MINIO_USE_SSL=False
-      - MINIO_USE_SSL=False
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - TZ=Asia/Ho_Chi_Minh
     depends_on:
       mongodb:
         condition: service_healthy
@@ -159,5 +168,3 @@ volumes:
 networks:
   collectordata_network:
     driver: bridge
-
-

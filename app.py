@@ -12,7 +12,9 @@ import extensions
 load_dotenv()
 
 # App configuration
-app = Flask(__name__, template_folder='resources/templates', static_folder='resources/static')
+app = Flask(
+    __name__, template_folder="resources/templates", static_folder="resources/static"
+)
 CORS(app)
 
 # Import Blueprints
@@ -26,6 +28,7 @@ from routes.camera_routes import camera_bp
 from routes.pexels_routes import pexels_bp
 from routes.vehicle_detection_routes import vehicle_detection_bp
 from routes.minio_routes import minio_bp
+from routes.boxplot_routes import boxplot_bp
 
 # Register Blueprints
 app.register_blueprint(main_bp)
@@ -38,9 +41,11 @@ app.register_blueprint(camera_bp)
 app.register_blueprint(pexels_bp)
 app.register_blueprint(vehicle_detection_bp)
 app.register_blueprint(minio_bp)
+app.register_blueprint(boxplot_bp)
 
 
 # ==================== INITIALIZATION ====================
+
 
 def initialize_app():
     # Initialize camera collector on startup
@@ -66,21 +71,23 @@ def initialize_app():
         db = db_service.get_db_connection()
         if db is not None:
             # Create index for downloaded_videos sorting
-            db['downloaded_videos'].create_index([('downloaded_at', -1)])
+            db["downloaded_videos"].create_index([("downloaded_at", -1)])
             print("✓ Database indexes created")
     except Exception as e:
         print(f"⚠️ Database index creation skipped: {e}")
+
 
 # Call init within context (optional but good practice)
 with app.app_context():
     initialize_app()
 
-if __name__ == '__main__':
-    flask_host = os.getenv('FLASK_HOST', '127.0.0.1')
-    flask_port = int(os.getenv('FLASK_PORT', 5000))
-    flask_debug = os.getenv('FLASK_DEBUG', 'True').lower() == 'true'
-    
+if __name__ == "__main__":
+    flask_host = os.getenv("FLASK_HOST", "127.0.0.1")
+    flask_port = int(os.getenv("FLASK_PORT", 5000))
+    flask_debug = os.getenv("FLASK_DEBUG", "True").lower() == "true"
+
     import socket
+
     ports_to_try = [flask_port, 5001, 8080, 3000, 8000]
     port = None
     for p in ports_to_try:
@@ -90,11 +97,12 @@ if __name__ == '__main__':
             sock.close()
             port = p
             break
-        except OSError: continue
-    
+        except OSError:
+            continue
+
     if port is None:
         print("❌ Không tìm thấy port trống.")
         exit(1)
-        
+
     print(f"🚀 Server đang chạy tại: http://{flask_host}:{port}")
     app.run(debug=flask_debug, host=flask_host, port=port)

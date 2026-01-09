@@ -77,6 +77,12 @@
                     <span>Dataset Gallery</span>
                 </a>
 
+                <a @click="activeTab = 'boxplot'; stopCameraAutoRefresh(); sidebarOpen = false"
+                    :class="activeTab === 'boxplot' ? 'bg-blue-700 text-white' : 'text-blue-100 hover:bg-blue-700 hover:text-white'"
+                    class="flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors cursor-pointer">
+                    <i class="fas fa-chart-bar w-5"></i>
+                    <span>Boxplot</span>
+                </a>
             </nav>
         </aside>
 
@@ -93,7 +99,7 @@
                         <i class="fas fa-bars text-xl"></i>
                     </button>
                     <h2 class="text-2xl font-semibold text-gray-800"
-                        x-text="activeTab === 'visualization' ? 'Visualize Data' : activeTab === 'download' ? 'Thu thập Video' : activeTab === 'videos' ? 'Danh Sách Video' : activeTab === 'keywords' ? 'Quản Lý Keywords' : activeTab === 'camera' ? 'Camera Collector' : activeTab === 'pexels' ? 'Pexels Dataset' : activeTab === 'gallery' ? 'Dataset Gallery' : ''">
+                        x-text="activeTab === 'visualization' ? 'Visualize Data' : activeTab === 'download' ? 'Thu thập Video' : activeTab === 'videos' ? 'Danh Sách Video' : activeTab === 'keywords' ? 'Quản Lý Keywords' : activeTab === 'camera' ? 'Camera Collector' : activeTab === 'pexels' ? 'Pexels Dataset' : activeTab === 'gallery' ? 'Dataset Gallery' : activeTab === 'boxplot' ? 'Boxplot Chart' :''">
                     </h2>
 
                     <!-- Auto Run Toggle -->
@@ -201,7 +207,7 @@
                             </div>
                             <form @submit.prevent="downloadByKeyword()">
                                 <div class="mb-4">
-                                     <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">
                                         Nền tảng
                                     </label>
                                     <select x-model="keywordDownloadPlatform"
@@ -485,7 +491,7 @@
                                 <canvas id="methodChart"></canvas>
                             </div>
                         </div>
-                        
+
                         <!-- Weather Distribution -->
                         <div class="bg-white rounded-lg shadow-md p-6">
                             <h3 class="text-lg font-semibold text-gray-800 mb-4">Phân Bố Thời Tiết (Scene)</h3>
@@ -831,28 +837,30 @@
                             <div class="flex items-center justify-between">
                                 <div>
                                     <p class="text-sm text-gray-500 mb-1">Tổng Số Frame</p>
-                                    <h3 class="text-2xl font-bold text-gray-800" x-text="galleryStats.total_frames || 0">0</h3>
+                                    <h3 class="text-2xl font-bold text-gray-800"
+                                        x-text="galleryStats.total_frames || 0">0</h3>
                                 </div>
                                 <div class="p-3 bg-blue-100 rounded-full text-blue-600">
                                     <i class="fas fa-images text-xl"></i>
                                 </div>
                             </div>
                         </div>
-                        
+
                         <!-- Charts -->
                         <div class="bg-white rounded-lg shadow-sm p-4 md:col-span-2">
-                             <h4 class="text-sm font-semibold text-gray-700 mb-3 border-b pb-2">Xu hướng thu thập (7 ngày qua)</h4>
-                             <div class="h-64">
+                            <h4 class="text-sm font-semibold text-gray-700 mb-3 border-b pb-2">Xu hướng thu thập (7 ngày
+                                qua)</h4>
+                            <div class="h-64">
                                 <canvas id="galleryTrendChart"></canvas>
-                             </div>
+                            </div>
                         </div>
 
                         <!-- Pie Chart -->
                         <div class="bg-white rounded-lg shadow-sm p-4">
-                             <h4 class="text-sm font-semibold text-gray-700 mb-3 border-b pb-2">Nguồn Dữ Liệu</h4>
-                             <div class="h-64 relative">
+                            <h4 class="text-sm font-semibold text-gray-700 mb-3 border-b pb-2">Nguồn Dữ Liệu</h4>
+                            <div class="h-64 relative">
                                 <canvas id="galleryPlatformChart"></canvas>
-                             </div>
+                            </div>
                         </div>
                     </div>
 
@@ -861,354 +869,506 @@
                         <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
                             <h3 class="text-xl font-semibold text-gray-800 flex items-center gap-2">
                                 <i class="fas fa-database text-purple-600"></i>
-                                Quản Lý Dữ Liệu <span class="text-sm font-normal text-gray-500" x-text="'(' + (galleryMode === 'grouped' ? (galleryTotalGroups || 0) : (galleryTotalFrames || 0)) + ' items)'"></span>
-                                <button @click="drawGalleryInterface()" class="ml-4 px-2 py-1 bg-gray-200 text-xs rounded hover:bg-gray-300" title="Force Redraw Charts"><i class="fas fa-sync-alt"></i> Redraw</button>
+                                Quản Lý Dữ Liệu <span class="text-sm font-normal text-gray-500"
+                                    x-text="'(' + (galleryMode === 'grouped' ? (galleryTotalGroups || 0) : (galleryTotalFrames || 0)) + ' items)'"></span>
+                                <button @click="drawGalleryInterface()"
+                                    class="ml-4 px-2 py-1 bg-gray-200 text-xs rounded hover:bg-gray-300"
+                                    title="Force Redraw Charts"><i class="fas fa-sync-alt"></i> Redraw</button>
                             </h3>
-                            
+
                             <!-- Filter Bars -->
                             <div class="flex flex-wrap items-center gap-3">
                                 <div class="relative">
-                                     <select x-model="galleryFilterPlatform" @change="galleryPage=1; loadGallery()" 
+                                    <select x-model="galleryFilterPlatform" @change="galleryPage=1; loadGallery()"
                                         class="appearance-none bg-gray-50 border border-gray-300 text-gray-700 py-2 px-4 pr-8 rounded-lg leading-tight focus:outline-none focus:bg-white focus:border-blue-500 text-sm">
                                         <option value="all">Tất cả nguồn</option>
                                         <option value="youtube">YouTube</option>
                                         <option value="pexels">Pexels</option>
                                         <option value="camera">Camera</option>
-                                     </select>
-                                     <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                                    </select>
+                                    <div
+                                        class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
                                         <i class="fas fa-chevron-down text-xs"></i>
-                                     </div>
+                                    </div>
                                 </div>
-                                
+
                                 <div class="relative">
-                                    <input type="text" x-model.debounce.500ms="gallerySearchQuery" @input="galleryPage=1; loadGallery()"
-                                        placeholder="Tìm theo tên video..." 
+                                    <input type="text" x-model.debounce.500ms="gallerySearchQuery"
+                                        @input="galleryPage=1; loadGallery()" placeholder="Tìm theo tên video..."
                                         class="bg-gray-50 border border-gray-300 text-gray-700 py-2 px-4 pl-10 rounded-lg focus:outline-none focus:bg-white focus:border-blue-500 text-sm w-64" />
                                     <div class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
                                         <i class="fas fa-search"></i>
                                     </div>
                                 </div>
 
-                            <!-- View Mode Switcher -->
-                            <div class="flex bg-gray-100 rounded-lg p-1">
-                                <button @click="galleryMode='grouped'; galleryPage=1; loadGallery()" 
-                                    :class="galleryMode === 'grouped' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
-                                    class="px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2">
-                                    <i class="fas fa-folder"></i> Groups
-                                </button>
-                                <button @click="galleryMode='flat'; galleryPage=1; loadGallery()"
-                                    :class="galleryMode === 'flat' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
-                                    class="px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2">
-                                    <i class="fas fa-th"></i> Grid
+                                <!-- View Mode Switcher -->
+                                <div class="flex bg-gray-100 rounded-lg p-1">
+                                    <button @click="galleryMode='grouped'; galleryPage=1; loadGallery()"
+                                        :class="galleryMode === 'grouped' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+                                        class="px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2">
+                                        <i class="fas fa-folder"></i> Groups
+                                    </button>
+                                    <button @click="galleryMode='flat'; galleryPage=1; loadGallery()"
+                                        :class="galleryMode === 'flat' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+                                        class="px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2">
+                                        <i class="fas fa-th"></i> Grid
+                                    </button>
+                                </div>
+
+                                <button @click="loadGallery(); loadGalleryStats()"
+                                    class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-2 rounded-lg transition-colors"
+                                    title="Làm mới">
+                                    <i class="fas fa-sync-alt"></i>
                                 </button>
                             </div>
-
-                            <button @click="loadGallery(); loadGalleryStats()"
-                                class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-2 rounded-lg transition-colors" title="Làm mới">
-                                <i class="fas fa-sync-alt"></i>
-                            </button>
-                        </div>
-                    </div>
-
-
-                    <!-- Content Area -->
-                    <div>
-                        <!-- Loading State -->
-                        <div x-show="galleryLoading" class="flex justify-center py-12">
-                            <i class="fas fa-circle-notch fa-spin text-4xl text-blue-500"></i>
                         </div>
 
-                        <!-- GROUPED VIEW -->
-                        <div x-show="!galleryLoading && galleryMode === 'grouped'" class="space-y-4">
-                            <template x-for="group in galleryGroups" :key="group.video_id">
-                                <div class="border border-gray-200 rounded-lg scale-100 hover:scale-[1.005] transition-transform overflow-hidden font-sans">
-                                    <!-- Header -->
-                                    <div class="flex items-center p-4 bg-white cursor-pointer hover:bg-gray-50 transition-colors"
-                                        @click="toggleGroup(group)">
-                                        <!-- Preview -->
-                                        <div class="w-32 h-20 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0 mr-4 border border-gray-200 relative shadow-sm">
-                                            <img :src="group.preview_image" onerror="this.src='/static/img/no-image.png'" class="w-full h-full object-cover">
-                                            <div class="absolute bottom-1 right-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded backdrop-blur-sm">
-                                                <i class="fas fa-images mr-1"></i><span x-text="group.total_frames"></span>
+
+                        <!-- Content Area -->
+                        <div>
+                            <!-- Loading State -->
+                            <div x-show="galleryLoading" class="flex justify-center py-12">
+                                <i class="fas fa-circle-notch fa-spin text-4xl text-blue-500"></i>
+                            </div>
+
+                            <!-- GROUPED VIEW -->
+                            <div x-show="!galleryLoading && galleryMode === 'grouped'" class="space-y-4">
+                                <template x-for="group in galleryGroups" :key="group.video_id">
+                                    <div
+                                        class="border border-gray-200 rounded-lg scale-100 hover:scale-[1.005] transition-transform overflow-hidden font-sans">
+                                        <!-- Header -->
+                                        <div class="flex items-center p-4 bg-white cursor-pointer hover:bg-gray-50 transition-colors"
+                                            @click="toggleGroup(group)">
+                                            <!-- Preview -->
+                                            <div
+                                                class="w-32 h-20 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0 mr-4 border border-gray-200 relative shadow-sm">
+                                                <img :src="group.preview_image"
+                                                    onerror="this.src='https://via.placeholder.com/400x300/cccccc/666666?text=No+Image'"
+                                                    class="w-full h-full object-cover">
+                                                <div
+                                                    class="absolute bottom-1 right-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded backdrop-blur-sm">
+                                                    <i class="fas fa-images mr-1"></i><span
+                                                        x-text="group.total_frames"></span>
+                                                </div>
                                             </div>
-                                        </div>
-                                        
-                                        <!-- Info -->
-                                        <div class="flex-1 min-w-0 py-1">
-                                            <h4 class="font-bold text-gray-800 text-lg truncate mb-1" x-text="group.title"></h4>
-                                            <div class="flex items-center gap-3 text-sm text-gray-500">
-                                                 <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wide border"
-                                                    :class="{
+
+                                            <!-- Info -->
+                                            <div class="flex-1 min-w-0 py-1">
+                                                <h4 class="font-bold text-gray-800 text-lg truncate mb-1"
+                                                    x-text="group.title"></h4>
+                                                <div class="flex items-center gap-3 text-sm text-gray-500">
+                                                    <span
+                                                        class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wide border"
+                                                        :class="{
                                                         'bg-red-50 text-red-700 border-red-100': group.platform==='youtube', 
                                                         'bg-green-50 text-green-700 border-green-100': group.platform==='pexels',
                                                         'bg-blue-50 text-blue-700 border-blue-100': group.platform==='camera'
                                                     }">
-                                                    <span x-text="group.platform"></span>
-                                                 </span>
-                                                 <span class="flex items-center gap-1"><i class="fas fa-fingerprint text-gray-400 text-xs"></i> <span class="font-mono text-xs" x-text="group.video_id"></span></span>
-                                                 <span class="flex items-center gap-1"><i class="far fa-clock text-gray-400 text-xs"></i> <span class="text-xs" x-text="formatDateTime(group.last_updated)"></span></span>
-                                                 
-                                                 <!-- Overall Weather Badge -->
-                                                 <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ml-2"
-                                                    :class="{
+                                                        <span x-text="group.platform"></span>
+                                                    </span>
+                                                    <span class="flex items-center gap-1"><i
+                                                            class="fas fa-fingerprint text-gray-400 text-xs"></i> <span
+                                                            class="font-mono text-xs"
+                                                            x-text="group.video_id"></span></span>
+                                                    <span class="flex items-center gap-1"><i
+                                                            class="far fa-clock text-gray-400 text-xs"></i> <span
+                                                            class="text-xs"
+                                                            x-text="formatDateTime(group.last_updated)"></span></span>
+
+                                                    <!-- Overall Weather Badge -->
+                                                    <span
+                                                        class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ml-2"
+                                                        :class="{
                                                         'bg-yellow-100 text-yellow-800 border-yellow-200': group.weather === 'day',
                                                         'bg-indigo-100 text-indigo-800 border-indigo-200': group.weather === 'night',
                                                         'bg-gray-100 text-gray-800 border-gray-200': group.weather === 'rain'
                                                     }" x-show="group.weather && group.weather !== 'unknown'">
-                                                    <span x-show="group.weather === 'day'" class="mr-1">☀️</span>
-                                                    <span x-show="group.weather === 'night'" class="mr-1">🌙</span>
-                                                    <span x-show="group.weather === 'rain'" class="mr-1">🌧️</span>
-                                                    <span x-text="(group.weather || '').toUpperCase()"></span>
-                                                 </span>
+                                                        <span x-show="group.weather === 'day'" class="mr-1">☀️</span>
+                                                        <span x-show="group.weather === 'night'" class="mr-1">🌙</span>
+                                                        <span x-show="group.weather === 'rain'" class="mr-1">🌧️</span>
+                                                        <span x-text="(group.weather || '').toUpperCase()"></span>
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <!-- Chevron -->
+                                            <div
+                                                class="ml-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 text-gray-400 transition-colors">
+                                                <i class="fas transition-transform duration-300"
+                                                    :class="galleryExpandedGroups.includes(group.video_id) ? 'rotate-180 fa-chevron-up' : 'fa-chevron-down'"></i>
                                             </div>
                                         </div>
-                                        
-                                        <!-- Chevron -->
-                                        <div class="ml-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 text-gray-400 transition-colors">
-                                             <i class="fas transition-transform duration-300" 
-                                                :class="galleryExpandedGroups.includes(group.video_id) ? 'rotate-180 fa-chevron-up' : 'fa-chevron-down'"></i>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Body (Frames) -->
-                                    <div x-show="galleryExpandedGroups.includes(group.video_id)" 
-                                        x-transition:enter="transition ease-out duration-200"
-                                        x-transition:enter-start="opacity-0 -translate-y-2"
-                                        x-transition:enter-end="opacity-100 translate-y-0"
-                                        class="p-4 border-t border-gray-100 bg-gray-50/50">
-                                         
-                                         <template x-if="!galleryGroupFrames[group.video_id]">
-                                              <div class="flex items-center justify-center py-8 text-gray-500 gap-2">
-                                                  <i class="fas fa-spinner fa-spin text-blue-500"></i> Đang tải frames...
-                                              </div>
-                                         </template>
-                                         
-                                         <div class="grid grid-cols-2 md:grid-cols-6 lg:grid-cols-8 gap-3" x-show="galleryGroupFrames[group.video_id]">
-                                              <template x-for="frame in galleryGroupFrames[group.video_id] || []" :key="frame.id">
-                                                   <div class="aspect-video bg-white rounded-lg shadow-sm overflow-hidden relative group cursor-pointer border border-gray-200 hover:ring-2 ring-blue-500 transition-all"
+
+                                        <!-- Body (Frames) -->
+                                        <div x-show="galleryExpandedGroups.includes(group.video_id)"
+                                            x-transition:enter="transition ease-out duration-200"
+                                            x-transition:enter-start="opacity-0 -translate-y-2"
+                                            x-transition:enter-end="opacity-100 translate-y-0"
+                                            class="p-4 border-t border-gray-100 bg-gray-50/50">
+
+                                            <template x-if="!galleryGroupFrames[group.video_id]">
+                                                <div class="flex items-center justify-center py-8 text-gray-500 gap-2">
+                                                    <i class="fas fa-spinner fa-spin text-blue-500"></i> Đang tải
+                                                    frames...
+                                                </div>
+                                            </template>
+
+                                            <div class="grid grid-cols-2 md:grid-cols-6 lg:grid-cols-8 gap-3"
+                                                x-show="galleryGroupFrames[group.video_id]">
+                                                <template x-for="frame in galleryGroupFrames[group.video_id] || []"
+                                                    :key="frame.id">
+                                                    <div class="aspect-video bg-white rounded-lg shadow-sm overflow-hidden relative group cursor-pointer border border-gray-200 hover:ring-2 ring-blue-500 transition-all"
                                                         @click.stop="selectedGalleryFrame = frame; showGalleryModal = true">
-                                                        <img :src="frame.image_url" loading="lazy" class="w-full h-full object-cover">
-                                                         
-                                                         <!-- Scene Badge -->
-                                                         <div class="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[10px] font-bold backdrop-blur-sm z-10"
+                                                        <img :src="frame.image_url" loading="lazy"
+                                                            class="w-full h-full object-cover">
+
+                                                        <!-- Scene Badge -->
+                                                        <div class="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[10px] font-bold backdrop-blur-sm z-10"
                                                             :class="{
                                                                 'bg-yellow-400/80 text-yellow-900': frame.scene_type === 'day',
                                                                 'bg-indigo-900/80 text-white': frame.scene_type === 'night',
                                                                 'bg-gray-600/80 text-white': frame.scene_type === 'rain'
                                                             }">
-                                                            <template x-if="frame.scene_type === 'day'"><span title="Day">☀️</span></template>
-                                                            <template x-if="frame.scene_type === 'night'"><span title="Night">🌙</span></template>
-                                                            <template x-if="frame.scene_type === 'rain'"><span title="Rain">🌧️</span></template>
-                                                         </div>
-
-                                                        <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-xs">
-                                                             <span class="font-bold" x-text="'#' + frame.frame_index"></span>
+                                                            <template x-if="frame.scene_type === 'day'"><span
+                                                                    title="Day">☀️</span></template>
+                                                            <template x-if="frame.scene_type === 'night'"><span
+                                                                    title="Night">🌙</span></template>
+                                                            <template x-if="frame.scene_type === 'rain'"><span
+                                                                    title="Rain">🌧️</span></template>
                                                         </div>
-                                                   </div>
-                                              </template>
-                                         </div>
-                                         <div class="mt-3 flex justify-end" x-show="galleryGroupFrames[group.video_id] && galleryGroupFrames[group.video_id].length >= 100">
-                                             <span class="text-xs text-gray-500 italic bg-gray-100 px-2 py-1 rounded">Hiển thị 100 frame mới nhất.</span>
-                                         </div>
-                                    </div>
-                                </div>
-                            </template>
-                             <!-- Empty State for Groups -->
-                            <div x-show="galleryGroups.length === 0" class="text-center py-12 text-gray-500">
-                                <i class="fas fa-folder-open text-4xl mb-3 text-gray-300"></i>
-                                <p>Không có dữ liệu video nào.</p>
-                            </div>
-                        </div>
 
-                        <!-- FLAT VIEW (Original) -->
-                        <div x-show="!galleryLoading && galleryMode === 'flat'" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                            <template x-for="frame in galleryFrames" :key="frame.id">
-                                <div class="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200 hover:shadow-md transition-shadow cursor-pointer relative group"
-                                     @click="selectedGalleryFrame = frame; showGalleryModal = true">
-                                    <div class="aspect-video bg-gray-100 relative">
-                                        <img :src="frame.image_url" loading="lazy" class="w-full h-full object-cover">
-                                        
-                                        <!-- Scene Badge -->
-                                        <div class="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[10px] font-bold backdrop-blur-sm z-10"
-                                           :class="{
+                                                        <div
+                                                            class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-xs">
+                                                            <span class="font-bold"
+                                                                x-text="'#' + frame.frame_index"></span>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                            <div class="mt-3 flex justify-end"
+                                                x-show="galleryGroupFrames[group.video_id] && galleryGroupFrames[group.video_id].length >= 100">
+                                                <span
+                                                    class="text-xs text-gray-500 italic bg-gray-100 px-2 py-1 rounded">Hiển
+                                                    thị 100 frame mới nhất.</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                                <!-- Empty State for Groups -->
+                                <div x-show="galleryGroups.length === 0" class="text-center py-12 text-gray-500">
+                                    <i class="fas fa-folder-open text-4xl mb-3 text-gray-300"></i>
+                                    <p>Không có dữ liệu video nào.</p>
+                                </div>
+                            </div>
+
+                            <!-- FLAT VIEW (Original) -->
+                            <div x-show="!galleryLoading && galleryMode === 'flat'"
+                                class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                                <template x-for="frame in galleryFrames" :key="frame.id">
+                                    <div class="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200 hover:shadow-md transition-shadow cursor-pointer relative group"
+                                        @click="selectedGalleryFrame = frame; showGalleryModal = true">
+                                        <div class="aspect-video bg-gray-100 relative">
+                                            <img :src="frame.image_url" loading="lazy"
+                                                class="w-full h-full object-cover">
+
+                                            <!-- Scene Badge -->
+                                            <div class="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[10px] font-bold backdrop-blur-sm z-10"
+                                                :class="{
                                                'bg-yellow-400/80 text-yellow-900': frame.scene_type === 'day',
                                                'bg-indigo-900/80 text-white': frame.scene_type === 'night',
                                                'bg-gray-600/80 text-white': frame.scene_type === 'rain'
                                            }">
-                                           <template x-if="frame.scene_type === 'day'"><span title="Day">☀️</span></template>
-                                           <template x-if="frame.scene_type === 'night'"><span title="Night">🌙</span></template>
-                                           <template x-if="frame.scene_type === 'rain'"><span title="Rain">🌧️</span></template>
-                                        </div>
+                                                <template x-if="frame.scene_type === 'day'"><span
+                                                        title="Day">☀️</span></template>
+                                                <template x-if="frame.scene_type === 'night'"><span
+                                                        title="Night">🌙</span></template>
+                                                <template x-if="frame.scene_type === 'rain'"><span
+                                                        title="Rain">🌧️</span></template>
+                                            </div>
 
-                                        <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-xs">
-                                             <span class="font-bold" x-text="'#' + frame.frame_index"></span>
+                                            <div
+                                                class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-xs">
+                                                <span class="font-bold" x-text="'#' + frame.frame_index"></span>
+                                            </div>
+                                        </div>
+                                        <div class="p-2">
+                                            <div class="truncate text-xs font-semibold mb-0.5"
+                                                x-text="frame.video_name"></div>
+                                            <!-- Added Camera ID/Video ID display -->
+                                            <div class="truncate text-[10px] text-gray-500 mb-0.5"
+                                                x-show="frame.video_id !== frame.video_name" x-text="frame.video_id">
+                                            </div>
+                                            <div class="flex justify-between items-end">
+                                                <div class="text-[10px] opacity-80"
+                                                    x-text="'Frame: ' + frame.frame_index"></div>
+                                                <div class="text-[10px] opacity-60"
+                                                    x-text="formatDateShort(frame.created_at)"></div>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div class="p-2">
-                                        <div class="truncate text-xs font-semibold mb-0.5" x-text="frame.video_name"></div>
-                                        <!-- Added Camera ID/Video ID display -->
-                                        <div class="truncate text-[10px] text-gray-500 mb-0.5" x-show="frame.video_id !== frame.video_name" x-text="frame.video_id"></div>
-                                        <div class="flex justify-between items-end">
-                                            <div class="text-[10px] opacity-80" x-text="'Frame: ' + frame.frame_index"></div>
-                                            <div class="text-[10px] opacity-60" x-text="formatDateShort(frame.created_at)"></div>
-                                        </div>
-                                    </div>
+                                </template>
+
+                                <!-- Empty State -->
+                                <div x-show="galleryFrames.length === 0 && !galleryLoading"
+                                    class="col-span-full text-center py-12 text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                                    <i class="fas fa-search text-4xl mb-3 text-gray-300"></i>
+                                    <p class="text-gray-600 font-medium">Không tìm thấy dữ liệu phù hợp.</p>
+                                    <p class="text-sm mt-1">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.</p>
                                 </div>
-                            </template>
-                            
-                            <!-- Empty State -->
-                            <div x-show="galleryFrames.length === 0 && !galleryLoading" class="col-span-full text-center py-12 text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-                                <i class="fas fa-search text-4xl mb-3 text-gray-300"></i>
-                                <p class="text-gray-600 font-medium">Không tìm thấy dữ liệu phù hợp.</p>
-                                <p class="text-sm mt-1">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.</p>
+
+                                <!-- Loading State -->
+                                <div x-show="galleryLoading"
+                                    class="col-span-full py-12 flex justify-center items-center flex-col gap-3">
+                                    <i class="fas fa-circle-notch fa-spin text-3xl text-blue-600"></i>
+                                    <span class="text-sm text-gray-500">Đang tải dữ liệu...</span>
+                                </div>
                             </div>
-                            
-                            <!-- Loading State -->
-                            <div x-show="galleryLoading" class="col-span-full py-12 flex justify-center items-center flex-col gap-3">
-                                <i class="fas fa-circle-notch fa-spin text-3xl text-blue-600"></i>
-                                <span class="text-sm text-gray-500">Đang tải dữ liệu...</span>
-                            </div>
-                        </div>
-                        
-                        <!-- Pagination -->
-                        <div class="mt-6 flex items-center justify-between border-t pt-4" x-show="galleryTotalPages > 1">
-                            <div class="text-sm text-gray-700">
-                                Hiển thị trang <span class="font-bold" x-text="galleryPage"></span> / <span x-text="galleryTotalPages"></span> 
-                            </div>
-                            <div class="flex gap-2">
-                                <button @click="changeGalleryPage(galleryPage - 1)" :disabled="galleryPage === 1"
-                                    class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium text-gray-700">
-                                    <i class="fas fa-chevron-left mr-1"></i> Trước
-                                </button>
-                                <button @click="changeGalleryPage(galleryPage + 1)" :disabled="galleryPage === galleryTotalPages"
-                                    class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium text-gray-700">
-                                    Sau <i class="fas fa-chevron-right ml-1"></i>
-                                </button>
+
+                            <!-- Pagination -->
+                            <div class="mt-6 flex items-center justify-between border-t pt-4"
+                                x-show="galleryTotalPages > 1">
+                                <div class="text-sm text-gray-700">
+                                    Hiển thị trang <span class="font-bold" x-text="galleryPage"></span> / <span
+                                        x-text="galleryTotalPages"></span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button @click="changeGalleryPage(galleryPage - 1)" :disabled="galleryPage === 1"
+                                        class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium text-gray-700">
+                                        <i class="fas fa-chevron-left mr-1"></i> Trước
+                                    </button>
+                                    <button @click="changeGalleryPage(galleryPage + 1)"
+                                        :disabled="galleryPage === galleryTotalPages"
+                                        class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium text-gray-700">
+                                        Sau <i class="fas fa-chevron-right ml-1"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Data Passport Modal -->
-                <div x-show="showGalleryModal" @click="showGalleryModal = false" x-cloak
-                    class="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div class="relative max-w-6xl w-full bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]" @click.stop>
-                        
-                        <!-- Close Button -->
-                        <button @click="showGalleryModal = false" 
-                            class="absolute top-4 right-4 z-10 bg-white/10 hover:bg-black/20 text-gray-800 md:text-white rounded-full p-2 transition-colors">
-                            <i class="fas fa-times text-xl"></i>
-                        </button>
+                    <!-- Data Passport Modal -->
+                    <div x-show="showGalleryModal" @click="showGalleryModal = false" x-cloak
+                        class="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                        <div class="relative max-w-6xl w-full bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]"
+                            @click.stop>
 
-                        <!-- Left: Image Preview -->
-                        <div class="w-full md:w-2/3 bg-black flex items-center justify-center relative group">
-                            <img :src="selectedGalleryFrame?.image_url" 
-                                class="max-w-full max-h-[50vh] md:max-h-[90vh] object-contain" />
-                                
-                            <!-- Zoom hints could go here -->
-                        </div>
+                            <!-- Close Button -->
+                            <button @click="showGalleryModal = false"
+                                class="absolute top-4 right-4 z-10 bg-white/10 hover:bg-black/20 text-gray-800 md:text-white rounded-full p-2 transition-colors">
+                                <i class="fas fa-times text-xl"></i>
+                            </button>
 
-                        <!-- Right: Data Passport -->
-                        <div class="w-full md:w-1/3 bg-white p-6 overflow-y-auto border-l border-gray-100 flex flex-col">
-                            <div class="mb-6 pb-4 border-b border-gray-100">
-                                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">DATA PASSPORT</h3>
-                                <h2 class="text-xl font-bold text-gray-900 break-words" x-text="selectedGalleryFrame?.video_name"></h2>
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-2"
-                                    :class="{
+                            <!-- Left: Image Preview -->
+                            <div class="w-full md:w-2/3 bg-black flex items-center justify-center relative group">
+                                <img :src="selectedGalleryFrame?.image_url"
+                                    class="max-w-full max-h-[50vh] md:max-h-[90vh] object-contain" />
+
+                                <!-- Zoom hints could go here -->
+                            </div>
+
+                            <!-- Right: Data Passport -->
+                            <div
+                                class="w-full md:w-1/3 bg-white p-6 overflow-y-auto border-l border-gray-100 flex flex-col">
+                                <div class="mb-6 pb-4 border-b border-gray-100">
+                                    <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">DATA
+                                        PASSPORT</h3>
+                                    <h2 class="text-xl font-bold text-gray-900 break-words"
+                                        x-text="selectedGalleryFrame?.video_name"></h2>
+                                    <span
+                                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-2"
+                                        :class="{
                                         'bg-red-100 text-red-800': selectedGalleryFrame?.platform === 'youtube',
                                         'bg-green-100 text-green-800': selectedGalleryFrame?.platform === 'pexels',
                                         'bg-blue-100 text-blue-800': selectedGalleryFrame?.platform === 'camera'
                                     }">
-                                    <i class="fas fa-circle text-[8px] mr-1.5 opacity-60"></i>
-                                    <span x-text="(selectedGalleryFrame?.platform || 'unknown').toUpperCase()"></span>
-                                </span>
-                                
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-2 ml-2"
-                                    :class="{
+                                        <i class="fas fa-circle text-[8px] mr-1.5 opacity-60"></i>
+                                        <span
+                                            x-text="(selectedGalleryFrame?.platform || 'unknown').toUpperCase()"></span>
+                                    </span>
+
+                                    <span
+                                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-2 ml-2"
+                                        :class="{
                                         'bg-yellow-100 text-yellow-800': selectedGalleryFrame?.scene_type === 'day',
                                         'bg-indigo-100 text-indigo-800': selectedGalleryFrame?.scene_type === 'night',
                                         'bg-gray-100 text-gray-800': selectedGalleryFrame?.scene_type === 'rain'
                                     }">
-                                    <span x-show="selectedGalleryFrame?.scene_type === 'day'">☀️ DAY</span>
-                                    <span x-show="selectedGalleryFrame?.scene_type === 'night'">🌙 NIGHT</span>
-                                    <span x-show="selectedGalleryFrame?.scene_type === 'rain'">🌧️ RAIN</span>
-                                    <span x-show="!selectedGalleryFrame?.scene_type">Unknown</span>
-                                </span>
-                            </div>
+                                        <span x-show="selectedGalleryFrame?.scene_type === 'day'">☀️ DAY</span>
+                                        <span x-show="selectedGalleryFrame?.scene_type === 'night'">🌙 NIGHT</span>
+                                        <span x-show="selectedGalleryFrame?.scene_type === 'rain'">🌧️ RAIN</span>
+                                        <span x-show="!selectedGalleryFrame?.scene_type">Unknown</span>
+                                    </span>
+                                </div>
 
-                            <div class="space-y-4 flex-1">
-                                <!-- Technical Specs -->
-                                <div>
-                                    <h4 class="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                                        <i class="fas fa-microchip text-blue-500"></i> Technical Specs
-                                    </h4>
-                                    <div class="bg-gray-50 rounded-lg p-3 text-sm space-y-2">
-                                        <div class="flex justify-between">
-                                            <span class="text-gray-500">Resource ID</span>
-                                            <span class="font-mono text-gray-700 text-xs" x-text="selectedGalleryFrame?.id"></span>
+                                <div class="space-y-4 flex-1">
+                                    <!-- Technical Specs -->
+                                    <div>
+                                        <h4 class="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                                            <i class="fas fa-microchip text-blue-500"></i> Technical Specs
+                                        </h4>
+                                        <div class="bg-gray-50 rounded-lg p-3 text-sm space-y-2">
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-500">Resource ID</span>
+                                                <span class="font-mono text-gray-700 text-xs"
+                                                    x-text="selectedGalleryFrame?.id"></span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-500">File Size</span>
+                                                <span class="font-medium text-gray-900"
+                                                    x-text="formatFileSize(selectedGalleryFrame?.file_size)"></span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-500">Video ID</span>
+                                                <span class="font-mono text-gray-700 text-xs"
+                                                    x-text="selectedGalleryFrame?.video_id || '-'"></span>
+                                            </div>
                                         </div>
-                                        <div class="flex justify-between">
-                                            <span class="text-gray-500">File Size</span>
-                                            <span class="font-medium text-gray-900" x-text="formatFileSize(selectedGalleryFrame?.file_size)"></span>
+                                    </div>
+
+                                    <!-- Temporal Data -->
+                                    <div>
+                                        <h4 class="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                                            <i class="fas fa-clock text-green-500"></i> Temporal Data
+                                        </h4>
+                                        <div class="bg-gray-50 rounded-lg p-3 text-sm space-y-2">
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-500">Extracted At</span>
+                                                <span class="font-medium text-gray-900"
+                                                    x-text="formatDateTime(selectedGalleryFrame?.created_at)"></span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-500">Frame Index</span>
+                                                <span class="font-bold text-blue-600"
+                                                    x-text="selectedGalleryFrame?.frame_index"></span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-500">Original Frame No.</span>
+                                                <span class="text-gray-900"
+                                                    x-text="selectedGalleryFrame?.video_frame_number || '-'"></span>
+                                            </div>
                                         </div>
-                                        <div class="flex justify-between">
-                                            <span class="text-gray-500">Video ID</span>
-                                            <span class="font-mono text-gray-700 text-xs" x-text="selectedGalleryFrame?.video_id || '-'"></span>
+                                    </div>
+
+                                    <!-- Storage Info -->
+                                    <div>
+                                        <h4 class="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                                            <i class="fas fa-hdd text-purple-500"></i> Storage Reference
+                                        </h4>
+                                        <div
+                                            class="bg-gray-50 rounded-lg p-3 text-xs space-y-2 break-all font-mono text-gray-600">
+                                            <div>
+                                                <span class="block text-gray-400 mb-0.5">Bucket</span>
+                                                <span x-text="selectedGalleryFrame?.storage_bucket || '-'"></span>
+                                            </div>
+                                            <div>
+                                                <span class="block text-gray-400 mb-0.5">Key</span>
+                                                <span x-text="selectedGalleryFrame?.storage_key || '-'"></span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <!-- Temporal Data -->
-                                <div>
-                                    <h4 class="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                                        <i class="fas fa-clock text-green-500"></i> Temporal Data
-                                    </h4>
-                                    <div class="bg-gray-50 rounded-lg p-3 text-sm space-y-2">
-                                        <div class="flex justify-between">
-                                            <span class="text-gray-500">Extracted At</span>
-                                            <span class="font-medium text-gray-900" x-text="formatDateTime(selectedGalleryFrame?.created_at)"></span>
-                                        </div>
-                                        <div class="flex justify-between">
-                                            <span class="text-gray-500">Frame Index</span>
-                                            <span class="font-bold text-blue-600" x-text="selectedGalleryFrame?.frame_index"></span>
-                                        </div>
-                                        <div class="flex justify-between">
-                                            <span class="text-gray-500">Original Frame No.</span>
-                                            <span class="text-gray-900" x-text="selectedGalleryFrame?.video_frame_number || '-'"></span>
-                                        </div>
-                                    </div>
+                                <!-- Actions -->
+                                <div class="mt-6 pt-4 border-t border-gray-100">
+                                    <a :href="selectedGalleryFrame?.image_url" target="_blank" download
+                                        class="flex items-center justify-center w-full bg-gray-900 hover:bg-black text-white py-3 rounded-lg font-medium transition-colors gap-2">
+                                        <i class="fas fa-download"></i> Download Master File
+                                    </a>
                                 </div>
-
-                                <!-- Storage Info -->
-                                <div>
-                                    <h4 class="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                                        <i class="fas fa-hdd text-purple-500"></i> Storage Reference
-                                    </h4>
-                                    <div class="bg-gray-50 rounded-lg p-3 text-xs space-y-2 break-all font-mono text-gray-600">
-                                        <div>
-                                            <span class="block text-gray-400 mb-0.5">Bucket</span>
-                                            <span x-text="selectedGalleryFrame?.storage_bucket || '-'"></span>
-                                        </div>
-                                        <div>
-                                            <span class="block text-gray-400 mb-0.5">Key</span>
-                                            <span x-text="selectedGalleryFrame?.storage_key || '-'"></span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Actions -->
-                            <div class="mt-6 pt-4 border-t border-gray-100">
-                                <a :href="selectedGalleryFrame?.image_url" target="_blank" download
-                                   class="flex items-center justify-center w-full bg-gray-900 hover:bg-black text-white py-3 rounded-lg font-medium transition-colors gap-2">
-                                    <i class="fas fa-download"></i> Download Master File
-                                </a>
                             </div>
                         </div>
                     </div>
                 </div>
+                <!-- Boxplot Tab -->
+                <div x-show="activeTab === 'boxplot'" x-data="boxplotTab()" x-cloak>
+                    <div class="bg-white rounded-lg shadow-md p-6">
+                        <h3 class="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                            <i class="fas fa-map text-red-600"></i>
+                            Boxplot with Outliers
+                        </h3>
+                        <div class="text-center">
+                            <!-- Select Bucket (mới) -->
+                            <div class="max-w-md mx-auto mb-6">
+                                <label class="text-left block text-sm font-medium text-gray-700 mb-2">
+                                    Chọn Bucket
+                                </label>
+                                <select x-model="selectedBucket" @change="loadSubPrefixes(); selectedSubPrefix = ''"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-xl text-lg focus:ring-4 focus:ring-blue-300 focus:border-blue-500">
+                                    <template x-for="bucket in buckets" :key="bucket">
+                                        <option :value="bucket" x-text="bucket"></option>
+                                    </template>
+                                </select>
+                            </div>
 
+                            <!-- Select Prefix con (cấp 1) -->
+                            <!-- Trong phần chọn prefix -->
+                            <div class="max-w-md mx-auto mb-8" x-show="subPrefixes.length > 0">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Chọn nguồn dữ liệu (prefix cấp 1)
+                                </label>
+                                <select x-model="selectedSubPrefix" @change="updatePrefix(); generateBoxplot()"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-xl text-lg focus:ring-4 focus:ring-blue-300 focus:border-blue-500">
+                                    <template x-for="sub in subPrefixes" :key="sub">
+                                        <option :value="sub" x-text="sub"></option>
+                                    </template>
+                                </select>
+                            </div>
 
+                            <!-- Nếu không có subprefix -->
+                            <div x-show="subPrefixes.length === 0 && selectedBucket">
+                                <p class="text-sm text-gray-600 bg-gray-50 p-4 rounded-lg">
+                                    Sẽ tạo boxplot cho <strong>toàn bộ bucket</strong>: <span
+                                        x-text="selectedBucket"></span>
+                                </p>
+                            </div>
+
+                            <button @click="generateBoxplot()"
+                                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-10 rounded-xl text-lg shadow-lg transition-all transform hover:scale-105 flex items-center gap-3 mx-auto"
+                                :disabled="loading || !selectedBucket">
+                                <i class="fas fa-chart-bar" x-show="!loading"></i>
+                                <i class="fas fa-spinner fa-spin" x-show="loading"></i>
+                                <span x-text="loading ? 'Đang xử lý...' : 'Tạo Boxplot'"></span>
+                            </button>
+                        </div>
+
+                        <div x-show="loading" class="text-center py-12">
+                            <i class="fas fa-circle-notch fa-spin text-5xl text-blue-600 mb-6"></i>
+                            <p class="text-xl text-gray-700">Loading frame <strong x-text="selectedSource"></strong>...
+                            </p>
+                        </div>
+
+                        <div x-show="!loading && success" class="animate-fade-in text-center">
+                            <div class="bg-green-50 border border-green-300 rounded-xl p-6 mb-10 inline-block mt-6">
+                                <p class="text-green-800 font-semibold text-lg">
+                                    <i class="fas fa-check-circle mr-2"></i>
+                                    <span x-text="message"></span>
+                                    <span class="block text-sm mt-2 text-green-700" x-show="resultType">
+                                        Loại dữ liệu: <strong
+                                            x-text="resultType === 'video' ? 'VIDEO' : 'FRAME ẢNH'"></strong>
+                                    </span>
+                                </p>
+                            </div>
+
+                            <img :src="imageUrl + '?t=' + Date.now()" alt="Boxplot"
+                                class="max-w-full rounded-xl shadow-2xl border-4 border-blue-200 inline-block"
+                                style="max-height: 85vh;" />
+
+                            <div class="mt-10">
+                                <button @click="generateBoxplot()"
+                                    class="bg-gray-700 hover:bg-gray-800 text-white px-8 py-3 rounded-lg flex items-center gap-2 mx-auto">
+                                    <i class="fas fa-sync-alt"></i>
+                                    Create again <span x-text="selectedSource.toUpperCase()"></span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div x-show="!loading && !success && generatedOnce" class="text-center py-16">
+                            <i class="fas fa-times-circle text-6xl text-red-500 mb-6"></i>
+                            <p class="text-2xl text-red-600 font-bold" x-text="message"></p>
+                        </div>
+                    </div>
+                </div>
+            </main>
         </div>
     </div>
 
@@ -1234,7 +1394,8 @@
             </div>
         </div>
     </div>
-
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-box-and-violin-plot/build/Chart.BoxPlot.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script src="/static/js/main.js"></script>
     <script>
@@ -1262,6 +1423,124 @@
             }
             originalError.apply(console, args);
         };
+    </script>
+
+    <script>
+        function boxplotTab() {
+            return {
+                loading: false,
+                success: false,
+                generatedOnce: false,
+                message: '',
+                imageUrl: '',
+                resultType: 'image',
+                buckets: [],
+                selectedBucket: '',
+                selectedBucketPrefix: '',
+                subPrefixes: [],
+                selectedSubPrefix: '',
+                selectedPrefix: '',
+                selectedSource: '', // để hiển thị tên nguồn đang xử lý
+
+                async init() {
+                    await this.loadBuckets();
+                },
+
+                async loadBuckets() {
+                    try {
+                        const res = await fetch("/api/boxplots/buckets");
+                        const json = await res.json();
+                        console.log("Response từ /buckets:", json); // Debug quan trọng
+
+                        if (json.success && json.buckets && json.buckets.length > 0) {
+                            this.buckets = json.buckets;
+                            this.selectedBucket = this.buckets[0]; // chọn cái đầu tiên (thường là frames)
+                            await this.loadSubPrefixes();
+                        } else {
+                            // Fallback nếu server lỗi
+                            this.buckets = ["frames"];
+                            this.selectedBucket = "frames";
+                        }
+                    } catch (err) {
+                        console.error("Lỗi tải buckets:", err);
+                        this.buckets = ["frames"];
+                        this.selectedBucket = "frames";
+                    }
+                },
+
+                async loadSubPrefixes() {
+                    if (!this.selectedBucket) return;
+
+                    this.subPrefixes = [];
+                    this.selectedSubPrefix = '';
+                    this.selectedBucketPrefix = this.selectedBucket + "/";
+                    this.selectedPrefix = this.selectedBucketPrefix; // mặc định toàn bucket
+
+                    try {
+                        const res = await fetch(`/api/boxplots/subprefixes?bucket=${encodeURIComponent(this.selectedBucket)}`);
+                        const json = await res.json();
+                        console.log("Response subprefixes:", json);
+
+                        if (json.success && json.subprefixes && json.subprefixes.length > 0) {
+                            this.subPrefixes = json.subprefixes;
+                            this.selectedSubPrefix = this.subPrefixes[0];
+                            this.selectedPrefix = this.selectedBucketPrefix + this.selectedSubPrefix;
+                        }
+                        // Nếu không có subprefix → vẫn dùng toàn bucket (hợp lệ với bucket videos)
+                    } catch (err) {
+                        console.error("Lỗi tải sub-prefixes:", err);
+                        // Không sao, vẫn có thể generate cho toàn bucket
+                    }
+                },
+
+                updatePrefix() {
+                    if (this.selectedSubPrefix) {
+                        this.selectedPrefix = this.selectedBucket + "/" + this.selectedSubPrefix;
+                        this.selectedSource = this.selectedSubPrefix.replace("/", "");
+                    } else {
+                        this.selectedPrefix = this.selectedBucket + "/";
+                        this.selectedSource = this.selectedBucket;
+                    }
+                },
+
+                async generateBoxplot() {
+                    if (this.loading || !this.selectedBucket) return;
+
+                    this.updatePrefix();  // Cập nhật prefix và source hiển thị
+
+                    this.loading = true;
+                    this.generatedOnce = true;
+                    this.success = false;
+
+                    try {
+                        const res = await fetch("/api/boxplots/generate", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                bucket: this.selectedBucket,
+                                prefix: this.selectedSubPrefix || ""  // gửi subprefix (không có "/" cuối)
+                            })
+                        });
+                        const json = await res.json();
+
+                        if (json.success) {
+                            this.success = true;
+                            this.message = json.message;
+                            this.imageUrl = json.image_url + '?t=' + new Date().getTime();
+                            this.resultType = json.type || 'image';  // backend trả về 'video' hoặc 'frame'
+                        } else {
+                            this.success = false;
+                            this.message = json.message || "Lỗi không xác định";
+                        }
+                    } catch (err) {
+                        this.success = false;
+                        this.message = "Lỗi kết nối server";
+                    } finally {
+                        this.loading = false;
+                    }
+                }
+            }
+        }
     </script>
 </body>
 
