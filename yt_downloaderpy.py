@@ -1,4 +1,5 @@
 import yt_dlp
+import re
 import json
 import os
 from datetime import datetime
@@ -343,19 +344,36 @@ def download_by_keyword(keyword, num_videos=1):
     """
     print(f"\n--> Đang tìm kiếm và chuẩn bị tải {num_videos} video cho từ khóa: '{keyword}'...")
     
-    # Tăng số lượng tìm kiếm để bù cho video đã tồn tại
-    search_multiplier = 2  # Tìm nhiều hơn để có đủ video mới
+    # Xử lý Keyword: Hỗ trợ format "Search Query || Regex Filter"
+    # Ví dụ: "Vietnam traffic || (camera|cctv|drone)"
+    real_search_query = keyword
+    regex_filter = keyword
+
+    if '||' in keyword:
+        parts = keyword.split('||')
+        if len(parts) >= 2:
+            real_search_query = parts[0].strip()
+            regex_filter = parts[1].strip()
+            print(f"  ℹ Phát hiện chế độ nâng cao:")
+            print(f"    - Search YouTube: {real_search_query}")
+            print(f"    - Filter Regex:   {regex_filter}")
+
+    # Tăng số lượng tìm kiếm để bù cho video đã tồn tại và video bị lọc bởi regex
+    search_multiplier = 3  # Tăng lên 3 để bù cho regex filter
     search_count = num_videos * search_multiplier
     
     ydl_opts = get_ydl_options()
-    search_query = f"ytsearch{search_count}:{keyword}"
+    # Sử dụng real_search_query để gửi lên YouTube
+    dlp_search_str = f"ytsearch{search_count}:{real_search_query}"
+    
     downloaded_videos = []
     skipped_count = 0
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             # Lấy thông tin video trước (không tải ngay)
-            info = ydl.extract_info(search_query, download=False)
+            # Lưu ý: search query ở đây phải dùng biến clean
+            info = ydl.extract_info(dlp_search_str, download=False)
         
         entries = info.get("entries", []) if isinstance(info, dict) else []
         
@@ -367,11 +385,23 @@ def download_by_keyword(keyword, num_videos=1):
             if not video_id:
                 continue
             
-            # Kiểm tra video đã tồn tại chưa TRƯỚC KHI TẢI -> ADMIN YÊU CẦU DÙNG HASH CHECK SAU KHI TẢI
+            # Kiểm tra video đã tồn tại chưa
             # if check_video_exists(video_id):
             #     skipped_count += 1
             #     print(f"  ⏭ Video {video_id} đã tồn tại, bỏ qua...")
             #     continue
+
+            # --- REGEX CHECK TITLE ---
+            # Chỉ tải nếu tiêu đề khớp với regex_filter
+            video_title = entry.get("title", "")
+            if regex_filter:
+                try:
+                    if not re.search(regex_filter, video_title, re.IGNORECASE):
+                        print(f"  ⏭ Video '{video_title}' không khớp Regex Filter '{regex_filter}'. Bỏ qua.")
+                        continue
+                except Exception as e:
+                    print(f"  ⚠ Lỗi Regex '{regex_filter}': {e}. Vẫn tiếp tục kiểm tra...")
+                    pass
             
             # Chỉ tải nếu chưa đủ số lượng video cần
             if len(downloaded_videos) >= num_videos:

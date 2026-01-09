@@ -89,6 +89,7 @@ services:
       - ./worker.py:/app/worker.py # Mount worker code
       - ./services:/app/services # Mount services
       - ./yt_downloaderpy.py:/app/yt_downloaderpy.py # Mount downloader
+      - ./routes:/app/routes # Mount routes
     environment:
       - DB_HOST=mongodb
       - DB_PORT=27017
@@ -130,6 +131,7 @@ services:
       - ./app.py:/app/app.py # Mount app code
       - ./services:/app/services # Mount services
       - ./yt_downloaderpy.py:/app/yt_downloaderpy.py # Mount downloader
+      - ./routes:/app/routes # Mount routes
     environment:
       - DB_HOST=mongodb
       - DB_PORT=27017

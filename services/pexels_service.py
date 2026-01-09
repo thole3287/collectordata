@@ -1,4 +1,5 @@
 import os
+import re
 import requests
 import json
 import time
@@ -200,12 +201,23 @@ def download_pexels_videos(query, num_videos, api_key):
         if not os.path.exists(PEXELS_OUTPUT_FOLDER):
             os.makedirs(PEXELS_OUTPUT_FOLDER)
 
+        # Xử lý Keyword: Hỗ trợ format "Search Query || Regex Filter"
+        search_query = query
+        regex_filter = query
+
+        if '||' in query:
+            parts = query.split('||')
+            if len(parts) >= 2:
+                search_query = parts[0].strip()
+                regex_filter = parts[1].strip()
+                logger.info(f"Processing Advanced Pexels Query: Search='{search_query}', Filter='{regex_filter}'")
+
         headers = {"Authorization": api_key}
         # Random page to get different videos each time
         random_page = random.randint(1, 100) 
-        logger.info(f"Checking Pexels page {random_page} for query '{query}'")
+        logger.info(f"Checking Pexels page {random_page} for query '{search_query}'")
         
-        url = f"https://api.pexels.com/videos/search?query={query}&per_page={num_videos}&orientation=landscape&page={random_page}"
+        url = f"https://api.pexels.com/videos/search?query={search_query}&per_page={num_videos}&orientation=landscape&page={random_page}"
         response = requests.get(url, headers=headers)
         
         if response.status_code != 200:
@@ -215,7 +227,7 @@ def download_pexels_videos(query, num_videos, api_key):
         data = response.json()
         videos = data.get("videos", [])[:num_videos]
         total = len(videos)
-        logger.info(f"Pexels API found {len(data.get('videos', []))} videos for query '{query}', downloading {total}")
+        logger.info(f"Pexels API found {len(data.get('videos', []))} videos for query '{search_query}', filtering with '{regex_filter}'")
         
         count = 0
         saved_to_db = 0
@@ -232,6 +244,17 @@ def download_pexels_videos(query, num_videos, api_key):
             #     if existing_video:
             #         logger.info(f"Video {video_id} already exists in DB. Skipping.")
             #         continue
+
+            # --- REGEX CHECK TITLE ---
+            video_title = extract_title_from_url(video.get("url"), video_id)
+            if regex_filter:
+                try:
+                    if not re.search(regex_filter, video_title, re.IGNORECASE):
+                        logger.info(f"Skipping video '{video_title}' - does not match regex '{regex_filter}'")
+                        continue
+                except Exception as e:
+                    logger.warning(f"Regex error for '{regex_filter}': {e}. Skipping check.")
+                    pass
 
             video_files = video["video_files"]
             
