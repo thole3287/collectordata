@@ -14,8 +14,9 @@ import hashlib
 FRAMES_OUTPUT_ROOT = "dataset_extracted"
 VALID_VIDEO_EXTENSIONS = ('.mp4', '.avi', '.mov', '.mkv', '.wmv')
 # Đọc từ env nếu có, nhưng ở đây cần import os/cv2 nên sẽ xử lý tham số truyền vào
-TARGET_WIDTH = 1280
-TARGET_HEIGHT = 720
+# TARGET_WIDTH = 1280
+# TARGET_HEIGHT = 720
+
 
 def calculate_file_hash(file_path):
     """Calculate SHA256 hash of a file."""
@@ -91,8 +92,11 @@ def extract_frames_from_folder(input_folder, output_root=None, progress_file_pat
 
                 if count % frame_step == 0:
                     try:
-                        # Resize frame
-                        resized_frame = cv2.resize(frame, (TARGET_WIDTH, TARGET_HEIGHT), interpolation=cv2.INTER_AREA)
+                        # Resize frame REMOVED - Use original size
+                        # resized_frame = cv2.resize(frame, (TARGET_WIDTH, TARGET_HEIGHT), interpolation=cv2.INTER_AREA)
+                        
+                        # Use Original Frame for Scene Analysis & Saving
+                        resized_frame = frame
                         
                         # --- Feature Extraction for Scene Classification ---
                         scene_type = analyze_scene_features(resized_frame)

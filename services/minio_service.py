@@ -508,7 +508,7 @@ def save_frame_to_mongodb(db, video_id, platform, frame_index, minio_key, bucket
 
 
 def extract_and_upload_frames(video_path, video_id, platform='youtube', 
-                               fps=None, interval_seconds=None, target_width=1280, target_height=720, db=None):
+                               fps=None, interval_seconds=None, target_width=None, target_height=None, db=None):
     """
     Extract frames từ video và upload lên MinIO, đồng thời lưu metadata vào MongoDB
     
@@ -595,12 +595,15 @@ def extract_and_upload_frames(video_path, video_id, platform='youtube',
                 # Extract frame theo step (tính từ FPS)
                 if count % frame_step == 0:
                     try:
-                        # Resize frame
-                        resized_frame = cv2.resize(
-                            frame, 
-                            (target_width, target_height), 
-                            interpolation=cv2.INTER_AREA
-                        )
+                        # Resize frame ONLY if target_width and target_height are provided
+                        if target_width and target_height:
+                            resized_frame = cv2.resize(
+                                frame, 
+                                (target_width, target_height), 
+                                interpolation=cv2.INTER_AREA
+                            )
+                        else:
+                            resized_frame = frame
                         
                         # --- Feature Extraction for Scene Classification ---
                         from services.video_service import analyze_scene_features

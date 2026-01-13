@@ -139,8 +139,9 @@ class CameraCollector:
                 img = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
                 
                 if img is not None:
-                    # Resize to 1280x720 standard
-                    img = cv2.resize(img, (1280, 720), interpolation=cv2.INTER_AREA)
+                    # Resize to 1280x720 standard - REMOVED per user request
+                    # img = cv2.resize(img, (1280, 720), interpolation=cv2.INTER_AREA)
+
 
                     # --- Feature Extraction for Scene Classification ---
                     scene_type = scene_analysis.analyze_scene_features(img)
