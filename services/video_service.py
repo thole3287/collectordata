@@ -5,7 +5,9 @@ import threading
 import services.database as db_service
 import services.minio_service as minio_service
 import services.scene_analysis
+import shutil
 from datetime import datetime
+from services.image_enhancement import process_image, load_settings
 
 import numpy as np
 
@@ -63,6 +65,11 @@ def extract_frames_from_folder(input_folder, output_root=None, progress_file_pat
         
         os.makedirs(output_root, exist_ok=True)
 
+        # Load Image Enhancement Settings once for all videos
+        enhancement_settings = load_settings()
+        should_enhance = enhancement_settings.get('enabled_video', False)
+        enhance_params = enhancement_settings.get('params', {})
+
         for idx, video_file in enumerate(video_files):
             video_path = os.path.join(input_folder, video_file)
             video_name = os.path.splitext(video_file)[0]
@@ -84,7 +91,6 @@ def extract_frames_from_folder(input_folder, output_root=None, progress_file_pat
                 frame_step = 1
 
             count = 0
-            count = 0
             saved_count = 0
             last_saved_hist = None
 
@@ -97,9 +103,6 @@ def extract_frames_from_folder(input_folder, output_root=None, progress_file_pat
                     try:
                         # Resize frame REMOVED - Use original size
                         # resized_frame = cv2.resize(frame, (TARGET_WIDTH, TARGET_HEIGHT), interpolation=cv2.INTER_AREA)
-                        
-                        # Use Original Frame for Scene Analysis & Saving
-                        resized_frame = frame
                         
                         # Use Original Frame for Scene Analysis & Saving
                         resized_frame = frame
@@ -133,6 +136,14 @@ def extract_frames_from_folder(input_folder, output_root=None, progress_file_pat
                         # Apply current histogram as last saved (will be saved below)
                         last_saved_hist = curr_hist
                         
+                        # --- Image Enhancement Integration ---
+                        if should_enhance:
+                            try:
+                                resized_frame = process_image(resized_frame, enhance_params)
+                            except Exception as e:
+                                print(f"Error enhancing frame: {e}")
+                        # -------------------------------------
+
                         # --- Feature Extraction for Scene Classification ---
                         scene_type = analyze_scene_features(resized_frame)
                         

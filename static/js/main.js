@@ -138,6 +138,28 @@ function app() {
         gallerySearchQuery: '',
         galleryCharts: {},
 
+        // Settings State
+        settings: {
+            enabled_camera: false,
+            enabled_video: false,
+            params: {
+                mean_intensity: "",
+                clahe_clip_limit: 1.0,
+                gamma: 1.0,
+                denoise_strength: 0,
+                hue_shift: 0,
+                saturation_scale: 1.0,
+                contrast_scale: 1.0
+            }
+        },
+        settingsSaving: false,
+        settingsPreviewFile: null,
+        previewLoading: false,
+        originalPreviewImage: null,
+        processedPreviewImage: null,
+        previewMetrics: { before: {}, after: {} },
+        previewDebounceTimer: null,
+
         formatFileSize(bytes) {
             if (!bytes) return '0 B';
             const k = 1024;
@@ -368,8 +390,106 @@ function app() {
             if (this.activeTab === 'visualization') {
                 this.loadVisualization();
             }
+            if (this.activeTab === 'settings') {
+                this.loadSettings();
+            }
             // Always load active keywords for dropdowns
             this.loadActiveKeywords();
+        },
+
+        // Settings Methods
+        async loadSettings() {
+            console.log("Loading Settings..."); // Debug log
+            this.showNotify('Debug: Loading Settings...', 'info');
+            try {
+                const response = await fetch('/api/settings/');
+                const data = await response.json();
+                if (data) {
+                    this.settings = {
+                        enabled_camera: data.enabled_camera || false,
+                        enabled_video: data.enabled_video || false,
+                        params: { ...this.settings.params, ...(data.params || {}) }
+                    };
+                }
+            } catch (e) {
+                console.error("Error loading settings", e);
+                this.showNotify('Lỗi tải cấu hình', 'error');
+            }
+        },
+
+        async saveSettings() {
+            this.settingsSaving = true;
+            try {
+                const response = await fetch('/api/settings/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(this.settings)
+                });
+                const data = await response.json();
+                if (data.success) {
+                    this.showNotify('Lưu cấu hình thành công', 'success');
+                } else {
+                    this.showNotify('Lỗi khi lưu: ' + data.error, 'error');
+                }
+            } catch (e) {
+                this.showNotify('Lỗi kết nối', 'error');
+            } finally {
+                this.settingsSaving = false;
+            }
+        },
+
+        handlePreviewImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            this.settingsPreviewFile = file;
+
+            // Show original locally
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                this.originalPreviewImage = e.target.result;
+                // Trigger initial preview
+                this.previewSettings();
+            };
+            reader.readAsDataURL(file);
+        },
+
+        debouncePreview() {
+            if (this.previewDebounceTimer) clearTimeout(this.previewDebounceTimer);
+            this.previewDebounceTimer = setTimeout(() => {
+                this.previewSettings();
+            }, 500); // 500ms delay
+        },
+
+        async previewSettings() {
+            if (!this.settingsPreviewFile) return;
+
+            this.previewLoading = true;
+            try {
+                const formData = new FormData();
+                formData.append('image', this.settingsPreviewFile);
+                formData.append('settings', JSON.stringify(this.settings.params));
+
+                const response = await fetch('/api/settings/preview', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    this.processedPreviewImage = data.image; // Base64
+                    this.previewMetrics = {
+                        before: data.metrics_before,
+                        after: data.metrics_after
+                    };
+                } else {
+                    this.showNotify(data.error || 'Preview failed', 'error');
+                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                this.previewLoading = false;
+            }
         },
         // Methods
 

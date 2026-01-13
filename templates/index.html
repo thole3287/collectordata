@@ -77,6 +77,13 @@
                     <span>Dataset Gallery</span>
                 </a>
 
+                <a @click="activeTab = 'settings'; loadSettings(); sidebarOpen = false"
+                    :class="activeTab === 'settings' ? 'bg-blue-700 text-white' : 'text-blue-100 hover:bg-blue-700 hover:text-white'"
+                    class="flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors cursor-pointer">
+                    <i class="fas fa-sliders-h w-5"></i>
+                    <span>Cài Đặt Xử Lý Ảnh</span>
+                </a>
+
             </nav>
         </aside>
 
@@ -93,7 +100,7 @@
                         <i class="fas fa-bars text-xl"></i>
                     </button>
                     <h2 class="text-2xl font-semibold text-gray-800"
-                        x-text="activeTab === 'visualization' ? 'Visualize Data' : activeTab === 'download' ? 'Thu thập Video' : activeTab === 'videos' ? 'Danh Sách Video' : activeTab === 'keywords' ? 'Quản Lý Keywords' : activeTab === 'camera' ? 'Camera Collector' : activeTab === 'pexels' ? 'Pexels Dataset' : activeTab === 'gallery' ? 'Dataset Gallery' : ''">
+                        x-text="activeTab === 'visualization' ? 'Visualize Data' : activeTab === 'download' ? 'Thu thập Video' : activeTab === 'videos' ? 'Danh Sách Video' : activeTab === 'keywords' ? 'Quản Lý Keywords' : activeTab === 'camera' ? 'Camera Collector' : activeTab === 'pexels' ? 'Pexels Dataset' : activeTab === 'gallery' ? 'Dataset Gallery' : activeTab === 'settings' ? 'Cài Đặt Xử Lý Ảnh' : ''">
                     </h2>
 
                     <!-- Auto Run Toggle -->
@@ -160,6 +167,173 @@
             <!-- Content Area -->
             <main class="flex-1 overflow-y-auto p-6">
                 <!-- Download Tab -->
+                
+                 <!-- Settings Tab (Moved to top for visibility check) -->
+                <div x-show="activeTab === 'settings'">
+                    <!-- <h1 class="text-red-500 text-2xl font-bold p-4">DEBUG MODE: SETTINGS TAB VISIBLE</h1> -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Control Panel -->
+                        <div class="bg-white rounded-lg shadow-md p-6">
+                            <h3 class="text-xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
+                                <i class="fas fa-sliders-h text-blue-600"></i>
+                                Cấu hình Xử Lý Ảnh
+                            </h3>
+
+                            <!-- Toggles -->
+                            <div class="mb-6 p-4 bg-gray-50 rounded-lg space-y-3">
+                                <h4 class="font-medium text-gray-700">Áp dụng cho:</h4>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-700">Camera Collector</span>
+                                    <button @click="settings.enabled_camera = !settings.enabled_camera" 
+                                        :class="settings.enabled_camera ? 'bg-blue-600' : 'bg-gray-200'"
+                                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none">
+                                        <span aria-hidden="true" :class="settings.enabled_camera ? 'translate-x-5' : 'translate-x-0'"
+                                            class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+                                    </button>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-700">Video Youtube & Pexels</span>
+                                    <button @click="settings.enabled_video = !settings.enabled_video" 
+                                        :class="settings.enabled_video ? 'bg-blue-600' : 'bg-gray-200'"
+                                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none">
+                                        <span aria-hidden="true" :class="settings.enabled_video ? 'translate-x-5' : 'translate-x-0'"
+                                            class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Sliders -->
+                            <div class="space-y-6">
+                                <!-- CLAHE -->
+                                <div>
+                                    <label class="flex justify-between text-sm font-medium text-gray-700 mb-2">
+                                        <span>Tương phản cục bộ (CLAHE Limit)</span>
+                                        <span class="text-blue-600" x-text="settings.params.clahe_clip_limit"></span>
+                                    </label>
+                                    <input type="range" min="0" max="8.0" step="0.1" x-model.number="settings.params.clahe_clip_limit" 
+                                        @input="debouncePreview()"
+                                        class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                                    <div class="flex justify-between text-xs text-gray-400 mt-1">
+                                        <span>Off (0)</span><span>8.0</span>
+                                    </div>
+                                </div>
+
+                                <!-- Gamma -->
+                                <div>
+                                    <label class="flex justify-between text-sm font-medium text-gray-700 mb-2">
+                                        <span>Gamma (Sáng/Tối)</span>
+                                        <span class="text-blue-600" x-text="settings.params.gamma"></span>
+                                    </label>
+                                    <input type="range" min="0.5" max="2.0" step="0.01" x-model.number="settings.params.gamma"
+                                        @input="debouncePreview()"
+                                        class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                                    <div class="flex justify-between text-xs text-gray-400 mt-1">
+                                        <span>0.5</span><span>2.0</span>
+                                    </div>
+                                </div>
+
+                                <!-- Contrast -->
+                                <div>
+                                    <label class="flex justify-between text-sm font-medium text-gray-700 mb-2">
+                                        <span>Độ Tương Phản (Contrast)</span>
+                                        <span class="text-blue-600" x-text="settings.params.contrast_scale"></span>
+                                    </label>
+                                    <input type="range" min="0.5" max="2.0" step="0.01" x-model.number="settings.params.contrast_scale"
+                                        @input="debouncePreview()"
+                                        class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                                </div>
+
+                                <!-- Saturation -->
+                                <div>
+                                    <label class="flex justify-between text-sm font-medium text-gray-700 mb-2">
+                                        <span>Độ Bão Hòa (Saturation)</span>
+                                        <span class="text-blue-600" x-text="settings.params.saturation_scale"></span>
+                                    </label>
+                                    <input type="range" min="0" max="2.0" step="0.01" x-model.number="settings.params.saturation_scale"
+                                        @input="debouncePreview()"
+                                        class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                                </div>
+
+                                <!-- Denoise -->
+                                <div>
+                                    <label class="flex justify-between text-sm font-medium text-gray-700 mb-2">
+                                        <span>Khử Nhiễu (Denoise Strength)</span>
+                                        <span class="text-blue-600" x-text="settings.params.denoise_strength"></span>
+                                    </label>
+                                    <input type="range" min="0" max="10" step="0.1" x-model.number="settings.params.denoise_strength"
+                                        @input="debouncePreview()"
+                                        class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                                </div>
+
+                                <!-- Target Brightness -->
+                                <div>
+                                     <label class="block text-sm font-medium text-gray-700 mb-2">Độ Sáng Mục Tiêu (Optional)</label>
+                                     <input type="number" x-model.number="settings.params.mean_intensity" placeholder="e.g. 128"
+                                        @input="debouncePreview()"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                     <p class="text-xs text-gray-500 mt-1">Để trống nếu không muốn ép độ sáng về giá trị cố định.</p>
+                                </div>
+                            </div>
+
+                            <div class="mt-8 pt-6 border-t border-gray-100 flex gap-4">
+                                <button @click="saveSettings()" :disabled="settingsSaving"
+                                    class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
+                                    <i class="fas fa-save" x-show="!settingsSaving"></i>
+                                    <i class="fas fa-spinner fa-spin" x-show="settingsSaving"></i>
+                                    <span x-text="settingsSaving ? 'Đang lưu...' : 'Lưu Cấu Hình'"></span>
+                                </button>
+                                <button @click="loadSettings()" 
+                                    class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors">
+                                    Mặc định
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Preview Panel -->
+                        <div class="bg-white rounded-lg shadow-md p-6">
+                            <h3 class="text-xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
+                                <i class="fas fa-eye text-purple-600"></i>
+                                Xem Trước (Live Preview)
+                            </h3>
+
+                            <div class="mb-4">
+                                <label class="block w-full cursor-pointer bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg hover:bg-gray-100 transition-colors p-8 text-center">
+                                    <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
+                                    <span class="block text-gray-600">Click để chọn ảnh test</span>
+                                    <input type="file" accept="image/*" class="hidden" @change="handlePreviewImageUpload">
+                                </label>
+                            </div>
+
+                            <div x-show="processedPreviewImage" class="space-y-4">
+                                <!-- Comparison -->
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p class="text-xs font-semibold text-gray-500 mb-1">GỐC</p>
+                                        <img :src="originalPreviewImage" class="w-full rounded-lg border border-gray-200">
+                                        <div class="text-[10px] text-gray-500 mt-1">
+                                            Bright: <span x-text="previewMetrics.before?.mean_intensity?.toFixed(1)"></span> | 
+                                            Blur: <span x-text="previewMetrics.before?.var_laplacian?.toFixed(1)"></span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs font-semibold text-blue-500 mb-1">SAU KHI XỬ LÝ</p>
+                                        <div class="relative">
+                                            <img :src="processedPreviewImage" class="w-full rounded-lg border border-blue-200 shadow-sm transition-opacity duration-200" 
+                                                :class="previewLoading ? 'opacity-50' : 'opacity-100'">
+                                            <div x-show="previewLoading" class="absolute inset-0 flex items-center justify-center">
+                                                <i class="fas fa-spinner fa-spin text-blue-600 text-2xl"></i>
+                                            </div>
+                                        </div>
+                                        <div class="text-[10px] text-blue-600 mt-1">
+                                            Bright: <span x-text="previewMetrics.after?.mean_intensity?.toFixed(1)"></span> | 
+                                            Blur: <span x-text="previewMetrics.after?.var_laplacian?.toFixed(1)"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div x-show="activeTab === 'download'" x-cloak>
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <!-- Download by URL -->
@@ -1221,6 +1395,7 @@
                 </div>
 
 
+
         </div>
     </div>
 
@@ -1248,7 +1423,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-    <script src="/static/js/main.js"></script>
+    <script src="/static/js/main.js?v=1.3"></script>
     <script>
         // Suppress console errors from iframe map (chỉ để giảm noise trong console)
         // Lưu ý: Các lỗi này là từ trang map của TP.HCM, không phải từ hệ thống này

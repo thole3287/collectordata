@@ -9,6 +9,7 @@ import cv2
 import services.minio_service as minio_service
 import services.database as db_service
 import services.scene_analysis as scene_analysis
+from services.image_enhancement import process_image, load_settings
 
 
 logger = logging.getLogger(__name__)
@@ -163,18 +164,38 @@ class CameraCollector:
                         logger.info(f"Skipping camera {camera_id}: Blur score {blur_score:.2f} too low")
                         return False
 
-                    # 4. DEDUPLICATION (Histogram Similarity > 0.95)
-                    curr_hist = cv2.calcHist([img], [0, 1, 2], None, [8, 8, 8], [0, 256, 0, 256, 0, 256])
-                    curr_hist = cv2.normalize(curr_hist, curr_hist).flatten()
-                    
+                    # --- DEDUPLICATION CHECK ---
+                    # Tính histogram của ảnh hiện tại
+                    curr_hist = cv2.calcHist([img], [0], None, [256], [0, 256])
+                    cv2.normalize(curr_hist, curr_hist, 0, 1, cv2.NORM_MINMAX)
+
+                    # Lấy histogram cũ của camera này
                     last_hist = self.last_camera_hists.get(camera_id)
-                    if last_hist is not None:
-                        similarity = cv2.compareHist(last_hist, curr_hist, cv2.HISTCMP_CORREL)
-                        if similarity > 0.95:
-                            logger.info(f"Skipping camera {camera_id}: Duplicate image (Sim: {similarity:.4f})")
-                            return False
                     
-                    # Update cache
+                    is_duplicate = False
+                    if last_hist is not None:
+                        # Compare method CORREL
+                        score = cv2.compareHist(last_hist, curr_hist, cv2.HISTCMP_CORREL)
+                        if score > 0.95: # SAME IMAGE
+                            is_duplicate = True
+                    
+                    if is_duplicate:
+                        logger.info(f"Skipping duplicate frame for Camera {camera_id}")
+                        return False # Changed from None to False to match method signature
+                    
+                    # --- IMAGE ENHANCEMENT ---
+                    # Load settings (Note: In production might want to cache this to avoid reading file every second)
+                    # For now invalid/missing file is handled by load_settings returning defaults
+                    enhance_settings = load_settings()
+                    if enhance_settings.get('enabled_camera', False):
+                        try:
+                            params = enhance_settings.get('params', {})
+                            img = process_image(img, params) # Apply enhancement to 'img'
+                        except Exception as e:
+                            logger.error(f"Error enhancing camera image: {e}")
+                    # -------------------------
+
+                    # Cập nhật histogram mới nhất cho camera này (using the original image's histogram for consistency)
                     self.last_camera_hists[camera_id] = curr_hist
                     
                     # --- Continue to Feature Extraction ---
