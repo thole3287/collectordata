@@ -20,7 +20,7 @@ graph TD
     subgraph "Nguồn Dữ Liệu (Data Sources)"
         YT[YouTube]
         PX[Pexels]
-        CAM[IP Camera / CCTV]
+        CAM["IP Camera / CCTV"]
     end
 
     subgraph "Hàng Đợi & Điều Phối (Queue & Dispatch)"
@@ -30,21 +30,21 @@ graph TD
 
     subgraph "Xử Lý Trung Tâm (Worker Service)"
         subgraph "Downloaders"
-            DL_YT[YouTube Downloader (yt-dlp)]
+            DL_YT["YouTube Downloader (yt-dlp)"]
             DL_PX[Pexels Downloader API]
             DL_CAM[Camera Capture Stream]
         end
         
         subgraph "Processors"
-            EXT[Frame Extractor (OpenCV)]
-            FILTER[Smart Filter (Blur/Dark/Dup)]
+            EXT["Frame Extractor (OpenCV)"]
+            FILTER["Smart Filter (Blur/Dark/Dup)"]
             ENH[Smart Image Enhancer]
         end
     end
 
     subgraph "Lưu Trữ (Storage Layer)"
-        MDB[(MongoDB - Metadata)]
-        MIN[(MinIO - Object Storage)]
+        MDB[("MongoDB - Metadata")]
+        MIN[("MinIO - Object Storage")]
     end
 
     subgraph "Giao Diện (Frontend)"
