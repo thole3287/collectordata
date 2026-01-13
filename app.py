@@ -25,6 +25,8 @@ from routes.frame_routes import frame_bp
 from routes.vehicle_routes import vehicle_bp
 from routes.minio_routes import minio_bp
 from routes.settings_routes import settings_bp
+from routes.boxplot_routes import boxplot_bp
+from routes.scatter_routes import scatter_bp
 
 # Load environment variables
 load_dotenv()
@@ -78,6 +80,8 @@ app.register_blueprint(frame_bp)
 app.register_blueprint(vehicle_bp)
 app.register_blueprint(minio_bp)
 app.register_blueprint(settings_bp)
+app.register_blueprint(boxplot_bp)
+app.register_blueprint(scatter_bp)
 
 # ==================== MAIN ====================
 
