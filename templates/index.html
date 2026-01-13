@@ -202,11 +202,33 @@
                                 </div>
                                 <div class="flex items-center justify-between pt-3 border-t border-gray-100 mt-3">
                                     <span class="text-gray-700 font-medium">Resize 640x640</span>
-                                    <button @click="settings.params.resize_640 = !settings.params.resize_640; debouncePreview()" 
-                                        :class="settings.params.resize_640 ? 'bg-indigo-600' : 'bg-gray-200'"
+                                    <button @click="settings.profiles[activeProfile].resize_640 = !settings.profiles[activeProfile].resize_640; debouncePreview()" 
+                                        :class="settings.profiles[activeProfile].resize_640 ? 'bg-indigo-600' : 'bg-gray-200'"
                                         class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none">
-                                        <span aria-hidden="true" :class="settings.params.resize_640 ? 'translate-x-5' : 'translate-x-0'"
+                                        <span aria-hidden="true" :class="settings.profiles[activeProfile].resize_640 ? 'translate-x-5' : 'translate-x-0'"
                                             class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Profile Selector -->
+                            <div class="mb-6">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Cấu hình cho (Profile)</label>
+                                <div class="flex rounded-md shadow-sm" role="group">
+                                    <button type="button" @click="activeProfile = 'day'; debouncePreview()"
+                                        :class="activeProfile === 'day' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
+                                        class="flex-1 px-4 py-2 text-sm font-medium border border-gray-200 rounded-l-lg focus:z-10 focus:ring-2 focus:ring-blue-500 transition-colors">
+                                        <i class="fas fa-sun mr-2"></i>Ngày
+                                    </button>
+                                    <button type="button" @click="activeProfile = 'night'; debouncePreview()"
+                                        :class="activeProfile === 'night' ? 'bg-indigo-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
+                                        class="flex-1 px-4 py-2 text-sm font-medium border-t border-b border-gray-200 focus:z-10 focus:ring-2 focus:ring-blue-500 transition-colors">
+                                        <i class="fas fa-moon mr-2"></i>Đêm
+                                    </button>
+                                    <button type="button" @click="activeProfile = 'rain'; debouncePreview()"
+                                        :class="activeProfile === 'rain' ? 'bg-blue-400 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
+                                        class="flex-1 px-4 py-2 text-sm font-medium border border-gray-200 rounded-r-lg focus:z-10 focus:ring-2 focus:ring-blue-500 transition-colors">
+                                        <i class="fas fa-cloud-rain mr-2"></i>Mưa
                                     </button>
                                 </div>
                             </div>
@@ -217,9 +239,9 @@
                                 <div>
                                     <label class="flex justify-between text-sm font-medium text-gray-700 mb-2">
                                         <span>Tương phản cục bộ (CLAHE Limit)</span>
-                                        <span class="text-blue-600" x-text="settings.params.clahe_clip_limit"></span>
+                                        <span class="text-blue-600" x-text="settings.profiles[activeProfile].clahe_clip_limit"></span>
                                     </label>
-                                    <input type="range" min="0" max="8.0" step="0.1" x-model.number="settings.params.clahe_clip_limit" 
+                                    <input type="range" min="0" max="8.0" step="0.1" x-model.number="settings.profiles[activeProfile].clahe_clip_limit" 
                                         @input="debouncePreview()"
                                         class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                                     <div class="flex justify-between text-xs text-gray-400 mt-1">
@@ -231,9 +253,9 @@
                                 <div>
                                     <label class="flex justify-between text-sm font-medium text-gray-700 mb-2">
                                         <span>Gamma (Sáng/Tối)</span>
-                                        <span class="text-blue-600" x-text="settings.params.gamma"></span>
+                                        <span class="text-blue-600" x-text="settings.profiles[activeProfile].gamma"></span>
                                     </label>
-                                    <input type="range" min="0.5" max="2.0" step="0.01" x-model.number="settings.params.gamma"
+                                    <input type="range" min="0.5" max="2.0" step="0.01" x-model.number="settings.profiles[activeProfile].gamma"
                                         @input="debouncePreview()"
                                         class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                                     <div class="flex justify-between text-xs text-gray-400 mt-1">
@@ -245,9 +267,9 @@
                                 <div>
                                     <label class="flex justify-between text-sm font-medium text-gray-700 mb-2">
                                         <span>Độ Tương Phản (Contrast)</span>
-                                        <span class="text-blue-600" x-text="settings.params.contrast_scale"></span>
+                                        <span class="text-blue-600" x-text="settings.profiles[activeProfile].contrast_scale"></span>
                                     </label>
-                                    <input type="range" min="0.5" max="2.0" step="0.01" x-model.number="settings.params.contrast_scale"
+                                    <input type="range" min="0.5" max="2.0" step="0.01" x-model.number="settings.profiles[activeProfile].contrast_scale"
                                         @input="debouncePreview()"
                                         class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                                 </div>
@@ -256,9 +278,9 @@
                                 <div>
                                     <label class="flex justify-between text-sm font-medium text-gray-700 mb-2">
                                         <span>Độ Bão Hòa (Saturation)</span>
-                                        <span class="text-blue-600" x-text="settings.params.saturation_scale"></span>
+                                        <span class="text-blue-600" x-text="settings.profiles[activeProfile].saturation_scale"></span>
                                     </label>
-                                    <input type="range" min="0" max="2.0" step="0.01" x-model.number="settings.params.saturation_scale"
+                                    <input type="range" min="0" max="2.0" step="0.01" x-model.number="settings.profiles[activeProfile].saturation_scale"
                                         @input="debouncePreview()"
                                         class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                                 </div>
@@ -267,9 +289,9 @@
                                 <div>
                                     <label class="flex justify-between text-sm font-medium text-gray-700 mb-2">
                                         <span>Khử Nhiễu (Denoise Strength)</span>
-                                        <span class="text-blue-600" x-text="settings.params.denoise_strength"></span>
+                                        <span class="text-blue-600" x-text="settings.profiles[activeProfile].denoise_strength"></span>
                                     </label>
-                                    <input type="range" min="0" max="10" step="0.1" x-model.number="settings.params.denoise_strength"
+                                    <input type="range" min="0" max="10" step="0.1" x-model.number="settings.profiles[activeProfile].denoise_strength"
                                         @input="debouncePreview()"
                                         class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                                 </div>
@@ -277,7 +299,7 @@
                                 <!-- Target Brightness -->
                                 <div>
                                      <label class="block text-sm font-medium text-gray-700 mb-2">Độ Sáng Mục Tiêu (Optional)</label>
-                                     <input type="number" x-model.number="settings.params.mean_intensity" placeholder="e.g. 128"
+                                     <input type="number" x-model.number="settings.profiles[activeProfile].mean_intensity" placeholder="e.g. 128"
                                         @input="debouncePreview()"
                                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                                      <p class="text-xs text-gray-500 mt-1">Để trống nếu không muốn ép độ sáng về giá trị cố định.</p>
@@ -304,6 +326,15 @@
                                 <i class="fas fa-eye text-purple-600"></i>
                                 Xem Trước (Live Preview)
                             </h3>
+
+                            <div x-show="previewDetectedProfile" class="mb-4 bg-blue-50 text-blue-800 px-4 py-2 rounded-lg text-sm flex items-center justify-between">
+                                <span>
+                                    <i class="fas fa-magic mr-2"></i>
+                                    Phát hiện ngữ cảnh: 
+                                    <strong class="uppercase" x-text="previewDetectedProfile"></strong>
+                                </span>
+                                <span class="text-xs text-blue-600">(Đang áp dụng profile này)</span>
+                            </div>
 
                             <div class="mb-4">
                                 <label class="block w-full cursor-pointer bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg hover:bg-gray-100 transition-colors p-8 text-center">

@@ -7,7 +7,7 @@ import services.minio_service as minio_service
 import services.scene_analysis
 import shutil
 from datetime import datetime
-from services.image_enhancement import process_image, load_settings
+from services.image_enhancement import process_image, smart_process_image, load_settings
 
 import numpy as np
 
@@ -68,7 +68,6 @@ def extract_frames_from_folder(input_folder, output_root=None, progress_file_pat
         # Load Image Enhancement Settings once for all videos
         enhancement_settings = load_settings()
         should_enhance = enhancement_settings.get('enabled_video', False)
-        enhance_params = enhancement_settings.get('params', {})
 
         for idx, video_file in enumerate(video_files):
             video_path = os.path.join(input_folder, video_file)
@@ -137,15 +136,20 @@ def extract_frames_from_folder(input_folder, output_root=None, progress_file_pat
                         last_saved_hist = curr_hist
                         
                         # --- Image Enhancement Integration ---
+                        scene_type = 'day' # Default
+                        
                         if should_enhance:
                             try:
-                                resized_frame = process_image(resized_frame, enhance_params)
+                                # Smart process returns (enhanced_img, detected_scene)
+                                resized_frame, scene_type = smart_process_image(resized_frame, enhancement_settings)
                             except Exception as e:
                                 print(f"Error enhancing frame: {e}")
+                                # Fallback analysis if enhancement failed
+                                scene_type = analyze_scene_features(resized_frame)
+                        else:
+                            # --- Feature Extraction for Scene Classification (if not enhanced) ---
+                            scene_type = analyze_scene_features(resized_frame)
                         # -------------------------------------
-
-                        # --- Feature Extraction for Scene Classification ---
-                        scene_type = analyze_scene_features(resized_frame)
                         
                         # Convert to 16-bit PNG (scale up)
                         frame_16bit = resized_frame.astype(np.uint16) * 256
