@@ -243,6 +243,9 @@ class CameraCollector:
                                 os.remove(file_path)
                             except Exception as e:
                                 logger.warning(f"Failed to delete local file {file_path} after MinIO upload: {e}")
+                            
+                            # Update file_path to MinIO path for database storage
+                            file_path = f"{minio_service.MINIO_BUCKET_FRAMES}/{minio_key}"
                         else:
                             logger.warning(f"MinIO Upload Failed for {camera_id}")
 
