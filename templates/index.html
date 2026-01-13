@@ -149,8 +149,8 @@
 
                     <!-- MinIO Button -->
                     <div class="flex items-center mr-4">
-                        <a href="http://localhost:9001" target="_blank" 
-                           class="flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg border border-red-200 transition-colors text-sm font-medium">
+                        <a href="http://localhost:9001" target="_blank"
+                            class="flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg border border-red-200 transition-colors text-sm font-medium">
                             <i class="fas fa-database"></i>
                             <span>MinIO Console</span>
                         </a>
@@ -167,8 +167,8 @@
             <!-- Content Area -->
             <main class="flex-1 overflow-y-auto p-6">
                 <!-- Download Tab -->
-                
-                 <!-- Settings Tab (Moved to top for visibility check) -->
+
+                <!-- Settings Tab (Moved to top for visibility check) -->
                 <div x-show="activeTab === 'settings'">
                     <!-- <h1 class="text-red-500 text-2xl font-bold p-4">DEBUG MODE: SETTINGS TAB VISIBLE</h1> -->
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -184,19 +184,21 @@
                                 <h4 class="font-medium text-gray-700">Áp dụng cho:</h4>
                                 <div class="flex items-center justify-between">
                                     <span class="text-gray-700">Camera Collector</span>
-                                    <button @click="settings.enabled_camera = !settings.enabled_camera" 
+                                    <button @click="settings.enabled_camera = !settings.enabled_camera"
                                         :class="settings.enabled_camera ? 'bg-blue-600' : 'bg-gray-200'"
                                         class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none">
-                                        <span aria-hidden="true" :class="settings.enabled_camera ? 'translate-x-5' : 'translate-x-0'"
+                                        <span aria-hidden="true"
+                                            :class="settings.enabled_camera ? 'translate-x-5' : 'translate-x-0'"
                                             class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
                                     </button>
                                 </div>
                                 <div class="flex items-center justify-between">
                                     <span class="text-gray-700">Video Youtube & Pexels</span>
-                                    <button @click="settings.enabled_video = !settings.enabled_video" 
+                                    <button @click="settings.enabled_video = !settings.enabled_video"
                                         :class="settings.enabled_video ? 'bg-blue-600' : 'bg-gray-200'"
                                         class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none">
-                                        <span aria-hidden="true" :class="settings.enabled_video ? 'translate-x-5' : 'translate-x-0'"
+                                        <span aria-hidden="true"
+                                            :class="settings.enabled_video ? 'translate-x-5' : 'translate-x-0'"
                                             class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
                                     </button>
                                 </div>
@@ -210,8 +212,8 @@
                                         <span>Tương phản cục bộ (CLAHE Limit)</span>
                                         <span class="text-blue-600" x-text="settings.params.clahe_clip_limit"></span>
                                     </label>
-                                    <input type="range" min="0" max="8.0" step="0.1" x-model.number="settings.params.clahe_clip_limit" 
-                                        @input="debouncePreview()"
+                                    <input type="range" min="0" max="8.0" step="0.1"
+                                        x-model.number="settings.params.clahe_clip_limit" @input="debouncePreview()"
                                         class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                                     <div class="flex justify-between text-xs text-gray-400 mt-1">
                                         <span>Off (0)</span><span>8.0</span>
@@ -224,8 +226,8 @@
                                         <span>Gamma (Sáng/Tối)</span>
                                         <span class="text-blue-600" x-text="settings.params.gamma"></span>
                                     </label>
-                                    <input type="range" min="0.5" max="2.0" step="0.01" x-model.number="settings.params.gamma"
-                                        @input="debouncePreview()"
+                                    <input type="range" min="0.5" max="2.0" step="0.01"
+                                        x-model.number="settings.params.gamma" @input="debouncePreview()"
                                         class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                                     <div class="flex justify-between text-xs text-gray-400 mt-1">
                                         <span>0.5</span><span>2.0</span>
@@ -238,8 +240,8 @@
                                         <span>Độ Tương Phản (Contrast)</span>
                                         <span class="text-blue-600" x-text="settings.params.contrast_scale"></span>
                                     </label>
-                                    <input type="range" min="0.5" max="2.0" step="0.01" x-model.number="settings.params.contrast_scale"
-                                        @input="debouncePreview()"
+                                    <input type="range" min="0.5" max="2.0" step="0.01"
+                                        x-model.number="settings.params.contrast_scale" @input="debouncePreview()"
                                         class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                                 </div>
 
@@ -249,8 +251,8 @@
                                         <span>Độ Bão Hòa (Saturation)</span>
                                         <span class="text-blue-600" x-text="settings.params.saturation_scale"></span>
                                     </label>
-                                    <input type="range" min="0" max="2.0" step="0.01" x-model.number="settings.params.saturation_scale"
-                                        @input="debouncePreview()"
+                                    <input type="range" min="0" max="2.0" step="0.01"
+                                        x-model.number="settings.params.saturation_scale" @input="debouncePreview()"
                                         class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                                 </div>
 
@@ -260,18 +262,20 @@
                                         <span>Khử Nhiễu (Denoise Strength)</span>
                                         <span class="text-blue-600" x-text="settings.params.denoise_strength"></span>
                                     </label>
-                                    <input type="range" min="0" max="10" step="0.1" x-model.number="settings.params.denoise_strength"
-                                        @input="debouncePreview()"
+                                    <input type="range" min="0" max="10" step="0.1"
+                                        x-model.number="settings.params.denoise_strength" @input="debouncePreview()"
                                         class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                                 </div>
 
                                 <!-- Target Brightness -->
                                 <div>
-                                     <label class="block text-sm font-medium text-gray-700 mb-2">Độ Sáng Mục Tiêu (Optional)</label>
-                                     <input type="number" x-model.number="settings.params.mean_intensity" placeholder="e.g. 128"
-                                        @input="debouncePreview()"
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Độ Sáng Mục Tiêu
+                                        (Optional)</label>
+                                    <input type="number" x-model.number="settings.params.mean_intensity"
+                                        placeholder="e.g. 128" @input="debouncePreview()"
                                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                     <p class="text-xs text-gray-500 mt-1">Để trống nếu không muốn ép độ sáng về giá trị cố định.</p>
+                                    <p class="text-xs text-gray-500 mt-1">Để trống nếu không muốn ép độ sáng về giá trị
+                                        cố định.</p>
                                 </div>
                             </div>
 
@@ -282,7 +286,7 @@
                                     <i class="fas fa-spinner fa-spin" x-show="settingsSaving"></i>
                                     <span x-text="settingsSaving ? 'Đang lưu...' : 'Lưu Cấu Hình'"></span>
                                 </button>
-                                <button @click="loadSettings()" 
+                                <button @click="loadSettings()"
                                     class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors">
                                     Mặc định
                                 </button>
@@ -297,10 +301,12 @@
                             </h3>
 
                             <div class="mb-4">
-                                <label class="block w-full cursor-pointer bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg hover:bg-gray-100 transition-colors p-8 text-center">
+                                <label
+                                    class="block w-full cursor-pointer bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg hover:bg-gray-100 transition-colors p-8 text-center">
                                     <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
                                     <span class="block text-gray-600">Click để chọn ảnh test</span>
-                                    <input type="file" accept="image/*" class="hidden" @change="handlePreviewImageUpload">
+                                    <input type="file" accept="image/*" class="hidden"
+                                        @change="handlePreviewImageUpload">
                                 </label>
                             </div>
 
@@ -309,23 +315,29 @@
                                 <div class="grid grid-cols-2 gap-4">
                                     <div>
                                         <p class="text-xs font-semibold text-gray-500 mb-1">GỐC</p>
-                                        <img :src="originalPreviewImage" class="w-full rounded-lg border border-gray-200">
+                                        <img :src="originalPreviewImage"
+                                            class="w-full rounded-lg border border-gray-200">
                                         <div class="text-[10px] text-gray-500 mt-1">
-                                            Bright: <span x-text="previewMetrics.before?.mean_intensity?.toFixed(1)"></span> | 
-                                            Blur: <span x-text="previewMetrics.before?.var_laplacian?.toFixed(1)"></span>
+                                            Bright: <span
+                                                x-text="previewMetrics.before?.mean_intensity?.toFixed(1)"></span> |
+                                            Blur: <span
+                                                x-text="previewMetrics.before?.var_laplacian?.toFixed(1)"></span>
                                         </div>
                                     </div>
                                     <div>
                                         <p class="text-xs font-semibold text-blue-500 mb-1">SAU KHI XỬ LÝ</p>
                                         <div class="relative">
-                                            <img :src="processedPreviewImage" class="w-full rounded-lg border border-blue-200 shadow-sm transition-opacity duration-200" 
+                                            <img :src="processedPreviewImage"
+                                                class="w-full rounded-lg border border-blue-200 shadow-sm transition-opacity duration-200"
                                                 :class="previewLoading ? 'opacity-50' : 'opacity-100'">
-                                            <div x-show="previewLoading" class="absolute inset-0 flex items-center justify-center">
+                                            <div x-show="previewLoading"
+                                                class="absolute inset-0 flex items-center justify-center">
                                                 <i class="fas fa-spinner fa-spin text-blue-600 text-2xl"></i>
                                             </div>
                                         </div>
                                         <div class="text-[10px] text-blue-600 mt-1">
-                                            Bright: <span x-text="previewMetrics.after?.mean_intensity?.toFixed(1)"></span> | 
+                                            Bright: <span
+                                                x-text="previewMetrics.after?.mean_intensity?.toFixed(1)"></span> |
                                             Blur: <span x-text="previewMetrics.after?.var_laplacian?.toFixed(1)"></span>
                                         </div>
                                     </div>
@@ -384,7 +396,7 @@
                             </div>
                             <form @submit.prevent="downloadByKeyword()">
                                 <div class="mb-4">
-                                     <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">
                                         Nền tảng
                                     </label>
                                     <select x-model="keywordDownloadPlatform"
@@ -671,7 +683,7 @@
                                 <canvas id="methodChart"></canvas>
                             </div>
                         </div>
-                        
+
                         <!-- Weather Distribution -->
                         <div class="bg-white rounded-lg shadow-md p-6">
                             <h3 class="text-lg font-semibold text-gray-800 mb-4">Phân Bố Thời Tiết (Scene)</h3>
@@ -713,6 +725,240 @@
                         <canvas id="timeChart"></canvas>
                     </div>
 
+                    <!-- Boxplot - luôn hiển thị trong tab visualization, không dùng x-show boxplot -->
+                    <div x-data="boxplotTab()" x-init="init()" x-cloak class="mt-8">
+                        <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+                            <h3 class="text-2xl font-bold text-gray-800 mb-8 flex items-center gap-3 pb-4 border-b">
+                                <i class="fas fa-chart-bar text-red-600 text-3xl"></i>
+                                Biểu đồ Boxplot
+                            </h3>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Chọn Bucket</label>
+                                    <select x-model="selectedBucket"
+                                        @change="loadSubPrefixes(); selectedSubPrefix = ''; generateBoxplot()"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                                        <option value="" disabled selected>--- Chọn bucket ---</option>
+                                        <template x-for="bucket in buckets" :key="bucket">
+                                            <option :value="bucket" x-text="bucket"></option>
+                                        </template>
+                                    </select>
+                                </div>
+
+                                <div x-show="subPrefixes.length > 0">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Chọn nguồn (prefix cấp
+                                        1)</label>
+                                    <select x-model="selectedSubPrefix" @change="updatePrefix(); generateBoxplot()"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                                        <option value="">Toàn bộ bucket</option>
+                                        <template x-for="sub in subPrefixes" :key="sub">
+                                            <option :value="sub" x-text="sub"></option>
+                                        </template>
+                                    </select>
+                                </div>
+
+                                <div x-show="subPrefixes.length === 0 && selectedBucket"
+                                    class="col-span-full md:col-span-2 lg:col-span-3">
+                                    <div
+                                        class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center text-blue-800">
+                                        <i class="fas fa-info-circle mr-2"></i>
+                                        Phân tích <strong>toàn bộ bucket</strong>: <span class="font-semibold"
+                                            x-text="selectedBucket"></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="text-center mb-10">
+                                <button @click="generateBoxplot()" :disabled="loading || !selectedBucket" class="inline-flex items-center gap-3 px-12 py-4 bg-gradient-to-r from-blue-600 to-blue-700 
+                           hover:from-blue-700 hover:to-blue-800 text-white font-bold text-lg rounded-xl 
+                           shadow-lg transform transition-all hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300
+                           disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
+                                    <i x-show="!loading" class="fas fa-sync-alt"></i>
+                                    <i x-show="loading" class="fas fa-spinner fa-spin"></i>
+                                    <span x-text="loading ? 'Đang xử lý...' : 'Tạo Boxplot'"></span>
+                                </button>
+                            </div>
+
+                            <div x-show="loading" class="text-center py-20">
+                                <i class="fas fa-circle-notch fa-spin text-blue-600 text-6xl mb-6"></i>
+                                <p class="text-xl text-gray-700 font-medium">
+                                    Đang phân tích <strong x-text="selectedSource || 'dữ liệu'"></strong>...
+                                </p>
+                            </div>
+
+                            <div x-show="!loading && success" class="animate-fade-in mt-8">
+                                <!-- Danh sách boxplot xếp ngang (1 hàng, scroll nếu cần) -->
+                                <div class="overflow-x-auto pb-6">
+                                    <div class="flex flex-nowrap gap-8 min-w-max">
+                                        <template x-for="(imgSrc, index) in boxplotImages" :key="index">
+                                            <div class="flex-shrink-0 w-96 bg-white rounded-xl shadow-md overflow-hidden border border-gray-200 
+                           cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-300"
+                                                @click="openBoxplotModal(imgSrc, featureLabels[index] || 'Đặc trưng ' + (index + 1))">
+                                                <h4 class="text-xl font-semibold text-center py-4 bg-gray-50 border-b"
+                                                    x-text="featureLabels[index] || 'Đặc trưng ' + (index + 1)"></h4>
+                                                <div class="p-4">
+                                                    <img :src="imgSrc"
+                                                        class="w-full h-auto max-h-[480px] object-contain rounded-lg shadow-inner"
+                                                        alt="Boxplot" loading="lazy" />
+                                                </div>
+                                            </div>
+                                        </template>
+
+                                        <!-- Placeholder nếu không có ảnh -->
+                                        <div x-show="boxplotImages.length === 0"
+                                            class="flex-shrink-0 w-96 text-center py-16 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                                            <i class="fas fa-image text-6xl mb-4 opacity-50"></i>
+                                            <p class="text-lg">Không có boxplot nào được tạo</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Modal phóng to boxplot -->
+                            <div x-show="showBoxplotModal" @click.away="showBoxplotModal = false" x-cloak
+                                class="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                                <div class="relative max-w-5xl w-full bg-white rounded-2xl shadow-2xl overflow-hidden"
+                                    @click.stop>
+                                    <!-- Nút đóng -->
+                                    <button @click="showBoxplotModal = false"
+                                        class="absolute top-4 right-4 z-10 bg-white/80 hover:bg-white text-gray-800 rounded-full p-3 transition-colors shadow-md">
+                                        <i class="fas fa-times text-xl"></i>
+                                    </button>
+
+                                    <!-- Tiêu đề -->
+                                    <div class="bg-gray-100 px-8 py-5 border-b">
+                                        <h3 class="text-2xl font-bold text-gray-800"
+                                            x-text="selectedBoxplotLabel || 'Boxplot chi tiết'"></h3>
+                                        <p class="text-sm text-gray-600 mt-1"
+                                            x-text="'Loại dữ liệu: ' + (resultType === 'video' ? 'VIDEO' : 'FRAME ẢNH')">
+                                        </p>
+                                    </div>
+
+                                    <!-- Nội dung ảnh phóng to -->
+                                    <div class="p-6 bg-gray-50 max-h-[80vh] overflow-auto">
+                                        <img :src="selectedBoxplotSrc"
+                                            class="w-full h-auto object-contain rounded-lg shadow-xl mx-auto"
+                                            alt="Boxplot phóng to" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div x-show="!loading && !success && generatedOnce" class="text-center py-20">
+                                <i class="fas fa-exclamation-triangle text-red-500 text-6xl mb-6"></i>
+                                <p class="text-2xl font-bold text-red-600 mb-4" x-text="message || 'Có lỗi xảy ra'"></p>
+                                <p class="text-gray-600">Vui lòng thử lại hoặc kiểm tra log server</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div x-data="scatterTab()" x-init="init()" x-cloak class="mt-16">
+                        <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+                            <h3 class="text-2xl font-bold text-gray-800 mb-8 flex items-center gap-3 pb-4 border-b">
+                                <i class="fas fa-chart-scatter text-green-600 text-3xl"></i>
+                                Biểu Đồ Phân Tán (Scatter)
+                            </h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Chọn Bucket</label>
+                                    <select x-model="selectedBucket"
+                                        @change="loadSubPrefixes(); selectedSubPrefix = ''; generateScatter()"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base">
+                                        <option value="" disabled selected>--- Chọn bucket ---</option>
+                                        <template x-for="bucket in buckets" :key="bucket">
+                                            <option :value="bucket" x-text="bucket"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div x-show="subPrefixes.length > 0">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Chọn nguồn (prefix cấp
+                                        1)</label>
+                                    <select x-model="selectedSubPrefix" @change="updatePrefix(); generateScatter()"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base">
+                                        <option value="">Toàn bộ bucket</option>
+                                        <template x-for="sub in subPrefixes" :key="sub">
+                                            <option :value="sub" x-text="sub"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div x-show="subPrefixes.length === 0 && selectedBucket"
+                                    class="col-span-full md:col-span-2 lg:col-span-3">
+                                    <div
+                                        class="bg-green-50 border border-green-200 rounded-lg p-4 text-center text-green-800">
+                                        <i class="fas fa-info-circle mr-2"></i>
+                                        Phân tích <strong>toàn bộ bucket</strong>: <span class="font-semibold"
+                                            x-text="selectedBucket"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-center mb-10">
+                                <button @click="generateScatter()" :disabled="loading || !selectedBucket" class="inline-flex items-center gap-3 px-12 py-4 bg-gradient-to-r from-green-600 to-green-700
+                       hover:from-green-700 hover:to-green-800 text-white font-bold text-lg rounded-xl
+                       shadow-lg transform transition-all hover:scale-105 focus:outline-none focus:ring-4 focus:ring-green-300
+                       disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
+                                    <i x-show="!loading" class="fas fa-sync-alt"></i>
+                                    <i x-show="loading" class="fas fa-spinner fa-spin"></i>
+                                    <span x-text="loading ? 'Đang xử lý...' : 'Tạo Scatter Plots'"></span>
+                                </button>
+                            </div>
+                            <div x-show="loading" class="text-center py-20">
+                                <i class="fas fa-circle-notch fa-spin text-green-600 text-6xl mb-6"></i>
+                                <p class="text-xl text-gray-700 font-medium">
+                                    Đang phân tích <strong x-text="selectedSource || 'dữ liệu'"></strong>...
+                                </p>
+                            </div>
+                            <div x-show="!loading && success" class="animate-fade-in space-y-10 mt-8">
+                                <div class="overflow-x-auto pb-6">
+                                    <div class="flex flex-nowrap gap-8 min-w-max">
+                                        <template x-for="(imgSrc, index) in scatterImages" :key="index">
+                                            <div class="flex-shrink-0 w-96 bg-white rounded-xl shadow-md overflow-hidden border border-gray-200 
+                                   cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-300"
+                                                @click="openScatterModal(imgSrc, featureLabels[index] || 'Scatter ' + (index + 1))">
+                                                <h4 class="text-xl font-semibold text-center py-4 bg-gray-50 border-b"
+                                                    x-text="featureLabels[index] || 'Scatter ' + (index + 1)"></h4>
+                                                <div class="p-4">
+                                                    <img :src="imgSrc"
+                                                        class="w-full h-auto max-h-[480px] object-contain rounded-lg shadow-inner"
+                                                        alt="Scatter Plot" loading="lazy" />
+                                                </div>
+                                            </div>
+                                        </template>
+                                        <div x-show="scatterImages.length === 0"
+                                            class="flex-shrink-0 w-96 text-center py-16 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                                            <i class="fas fa-chart-scatter text-6xl mb-4 opacity-50"></i>
+                                            <p class="text-lg">Không có scatter plot nào được tạo</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Modal phóng to scatter (tương tự boxplot modal) -->
+                            <div x-show="showScatterModal" @click.away="closeScatterModal()" x-cloak
+                                class="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                                <div class="relative max-w-5xl w-full bg-white rounded-2xl shadow-2xl overflow-hidden"
+                                    @click.stop>
+                                    <button @click="closeScatterModal()"
+                                        class="absolute top-4 right-4 z-10 bg-white/80 hover:bg-white text-gray-800 rounded-full p-3 transition-colors shadow-md">
+                                        <i class="fas fa-times text-xl"></i>
+                                    </button>
+                                    <div class="bg-gray-100 px-8 py-5 border-b">
+                                        <h3 class="text-2xl font-bold text-gray-800"
+                                            x-text="selectedScatterLabel || 'Scatter Plot chi tiết'"></h3>
+                                        <p class="text-sm text-gray-600 mt-1"
+                                            x-text="'Loại dữ liệu: ' + (resultType === 'video' ? 'VIDEO' : 'FRAME ẢNH')">
+                                        </p>
+                                    </div>
+                                    <div class="p-6 bg-gray-50 max-h-[80vh] overflow-auto flex justify-center">
+                                        <img :src="selectedScatterSrc"
+                                            class="max-w-full max-h-[70vh] object-contain rounded-lg shadow-xl"
+                                            alt="Scatter Plot phóng to" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div x-show="!loading && !success && generatedOnce" class="text-center py-20">
+                                <i class="fas fa-exclamation-triangle text-red-500 text-6xl mb-6"></i>
+                                <p class="text-2xl font-bold text-red-600 mb-4" x-text="message || 'Có lỗi xảy ra'"></p>
+                                <p class="text-gray-600">Vui lòng thử lại hoặc kiểm tra log server</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Edit Keyword Modal -->
@@ -1017,28 +1263,30 @@
                             <div class="flex items-center justify-between">
                                 <div>
                                     <p class="text-sm text-gray-500 mb-1">Tổng Số Frame</p>
-                                    <h3 class="text-2xl font-bold text-gray-800" x-text="galleryStats.total_frames || 0">0</h3>
+                                    <h3 class="text-2xl font-bold text-gray-800"
+                                        x-text="galleryStats.total_frames || 0">0</h3>
                                 </div>
                                 <div class="p-3 bg-blue-100 rounded-full text-blue-600">
                                     <i class="fas fa-images text-xl"></i>
                                 </div>
                             </div>
                         </div>
-                        
+
                         <!-- Charts -->
                         <div class="bg-white rounded-lg shadow-sm p-4 md:col-span-2">
-                             <h4 class="text-sm font-semibold text-gray-700 mb-3 border-b pb-2">Xu hướng thu thập (7 ngày qua)</h4>
-                             <div class="h-64">
+                            <h4 class="text-sm font-semibold text-gray-700 mb-3 border-b pb-2">Xu hướng thu thập (7 ngày
+                                qua)</h4>
+                            <div class="h-64">
                                 <canvas id="galleryTrendChart"></canvas>
-                             </div>
+                            </div>
                         </div>
 
                         <!-- Pie Chart -->
                         <div class="bg-white rounded-lg shadow-sm p-4">
-                             <h4 class="text-sm font-semibold text-gray-700 mb-3 border-b pb-2">Nguồn Dữ Liệu</h4>
-                             <div class="h-64 relative">
+                            <h4 class="text-sm font-semibold text-gray-700 mb-3 border-b pb-2">Nguồn Dữ Liệu</h4>
+                            <div class="h-64 relative">
                                 <canvas id="galleryPlatformChart"></canvas>
-                             </div>
+                            </div>
                         </div>
                     </div>
 
@@ -1047,409 +1295,744 @@
                         <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
                             <h3 class="text-xl font-semibold text-gray-800 flex items-center gap-2">
                                 <i class="fas fa-database text-purple-600"></i>
-                                Quản Lý Dữ Liệu <span class="text-sm font-normal text-gray-500" x-text="'(' + (galleryMode === 'grouped' ? (galleryTotalGroups || 0) : (galleryTotalFrames || 0)) + ' items)'"></span>
-                                <button @click="drawGalleryInterface()" class="ml-4 px-2 py-1 bg-gray-200 text-xs rounded hover:bg-gray-300" title="Force Redraw Charts"><i class="fas fa-sync-alt"></i> Redraw</button>
+                                Quản Lý Dữ Liệu <span class="text-sm font-normal text-gray-500"
+                                    x-text="'(' + (galleryMode === 'grouped' ? (galleryTotalGroups || 0) : (galleryTotalFrames || 0)) + ' items)'"></span>
+                                <button @click="drawGalleryInterface()"
+                                    class="ml-4 px-2 py-1 bg-gray-200 text-xs rounded hover:bg-gray-300"
+                                    title="Force Redraw Charts"><i class="fas fa-sync-alt"></i> Redraw</button>
                             </h3>
-                            
+
                             <!-- Filter Bars -->
                             <div class="flex flex-wrap items-center gap-3">
                                 <div class="relative">
-                                     <select x-model="galleryFilterPlatform" @change="galleryPage=1; loadGallery()" 
+                                    <select x-model="galleryFilterPlatform" @change="galleryPage=1; loadGallery()"
                                         class="appearance-none bg-gray-50 border border-gray-300 text-gray-700 py-2 px-4 pr-8 rounded-lg leading-tight focus:outline-none focus:bg-white focus:border-blue-500 text-sm">
                                         <option value="all">Tất cả nguồn</option>
                                         <option value="youtube">YouTube</option>
                                         <option value="pexels">Pexels</option>
                                         <option value="camera">Camera</option>
-                                     </select>
-                                     <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                                    </select>
+                                    <div
+                                        class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
                                         <i class="fas fa-chevron-down text-xs"></i>
-                                     </div>
+                                    </div>
                                 </div>
-                                
+
                                 <div class="relative">
-                                    <input type="text" x-model.debounce.500ms="gallerySearchQuery" @input="galleryPage=1; loadGallery()"
-                                        placeholder="Tìm theo tên video..." 
+                                    <input type="text" x-model.debounce.500ms="gallerySearchQuery"
+                                        @input="galleryPage=1; loadGallery()" placeholder="Tìm theo tên video..."
                                         class="bg-gray-50 border border-gray-300 text-gray-700 py-2 px-4 pl-10 rounded-lg focus:outline-none focus:bg-white focus:border-blue-500 text-sm w-64" />
                                     <div class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
                                         <i class="fas fa-search"></i>
                                     </div>
                                 </div>
 
-                            <!-- View Mode Switcher -->
-                            <div class="flex bg-gray-100 rounded-lg p-1">
-                                <button @click="galleryMode='grouped'; galleryPage=1; loadGallery()" 
-                                    :class="galleryMode === 'grouped' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
-                                    class="px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2">
-                                    <i class="fas fa-folder"></i> Groups
-                                </button>
-                                <button @click="galleryMode='flat'; galleryPage=1; loadGallery()"
-                                    :class="galleryMode === 'flat' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
-                                    class="px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2">
-                                    <i class="fas fa-th"></i> Grid
+                                <!-- View Mode Switcher -->
+                                <div class="flex bg-gray-100 rounded-lg p-1">
+                                    <button @click="galleryMode='grouped'; galleryPage=1; loadGallery()"
+                                        :class="galleryMode === 'grouped' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+                                        class="px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2">
+                                        <i class="fas fa-folder"></i> Groups
+                                    </button>
+                                    <button @click="galleryMode='flat'; galleryPage=1; loadGallery()"
+                                        :class="galleryMode === 'flat' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+                                        class="px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2">
+                                        <i class="fas fa-th"></i> Grid
+                                    </button>
+                                </div>
+
+                                <button @click="loadGallery(); loadGalleryStats()"
+                                    class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-2 rounded-lg transition-colors"
+                                    title="Làm mới">
+                                    <i class="fas fa-sync-alt"></i>
                                 </button>
                             </div>
-
-                            <button @click="loadGallery(); loadGalleryStats()"
-                                class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-2 rounded-lg transition-colors" title="Làm mới">
-                                <i class="fas fa-sync-alt"></i>
-                            </button>
-                        </div>
-                    </div>
-
-
-                    <!-- Content Area -->
-                    <div>
-                        <!-- Loading State -->
-                        <div x-show="galleryLoading" class="flex justify-center py-12">
-                            <i class="fas fa-circle-notch fa-spin text-4xl text-blue-500"></i>
                         </div>
 
-                        <!-- GROUPED VIEW -->
-                        <div x-show="!galleryLoading && galleryMode === 'grouped'" class="space-y-4">
-                            <template x-for="group in galleryGroups" :key="group.video_id">
-                                <div class="border border-gray-200 rounded-lg scale-100 hover:scale-[1.005] transition-transform overflow-hidden font-sans">
-                                    <!-- Header -->
-                                    <div class="flex items-center p-4 bg-white cursor-pointer hover:bg-gray-50 transition-colors"
-                                        @click="toggleGroup(group)">
-                                        <!-- Preview -->
-                                        <div class="w-32 h-20 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0 mr-4 border border-gray-200 relative shadow-sm">
-                                            <img :src="group.preview_image" onerror="this.src='/static/img/no-image.png'" class="w-full h-full object-cover">
-                                            <div class="absolute bottom-1 right-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded backdrop-blur-sm">
-                                                <i class="fas fa-images mr-1"></i><span x-text="group.total_frames"></span>
+
+                        <!-- Content Area -->
+                        <div>
+                            <!-- Loading State -->
+                            <div x-show="galleryLoading" class="flex justify-center py-12">
+                                <i class="fas fa-circle-notch fa-spin text-4xl text-blue-500"></i>
+                            </div>
+
+                            <!-- GROUPED VIEW -->
+                            <div x-show="!galleryLoading && galleryMode === 'grouped'" class="space-y-4">
+                                <template x-for="group in galleryGroups" :key="group.video_id">
+                                    <div
+                                        class="border border-gray-200 rounded-lg scale-100 hover:scale-[1.005] transition-transform overflow-hidden font-sans">
+                                        <!-- Header -->
+                                        <div class="flex items-center p-4 bg-white cursor-pointer hover:bg-gray-50 transition-colors"
+                                            @click="toggleGroup(group)">
+                                            <!-- Preview -->
+                                            <div
+                                                class="w-32 h-20 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0 mr-4 border border-gray-200 relative shadow-sm">
+                                                <img :src="group.preview_image"
+                                                    onerror="this.src='/static/img/no-image.png'"
+                                                    class="w-full h-full object-cover">
+                                                <div
+                                                    class="absolute bottom-1 right-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded backdrop-blur-sm">
+                                                    <i class="fas fa-images mr-1"></i><span
+                                                        x-text="group.total_frames"></span>
+                                                </div>
                                             </div>
-                                        </div>
-                                        
-                                        <!-- Info -->
-                                        <div class="flex-1 min-w-0 py-1">
-                                            <h4 class="font-bold text-gray-800 text-lg truncate mb-1" x-text="group.title"></h4>
-                                            <div class="flex items-center gap-3 text-sm text-gray-500">
-                                                 <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wide border"
-                                                    :class="{
+
+                                            <!-- Info -->
+                                            <div class="flex-1 min-w-0 py-1">
+                                                <h4 class="font-bold text-gray-800 text-lg truncate mb-1"
+                                                    x-text="group.title"></h4>
+                                                <div class="flex items-center gap-3 text-sm text-gray-500">
+                                                    <span
+                                                        class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wide border"
+                                                        :class="{
                                                         'bg-red-50 text-red-700 border-red-100': group.platform==='youtube', 
                                                         'bg-green-50 text-green-700 border-green-100': group.platform==='pexels',
                                                         'bg-blue-50 text-blue-700 border-blue-100': group.platform==='camera'
                                                     }">
-                                                    <span x-text="group.platform"></span>
-                                                 </span>
-                                                 <span class="flex items-center gap-1"><i class="fas fa-fingerprint text-gray-400 text-xs"></i> <span class="font-mono text-xs" x-text="group.video_id"></span></span>
-                                                 <span class="flex items-center gap-1"><i class="far fa-clock text-gray-400 text-xs"></i> <span class="text-xs" x-text="formatDateTime(group.last_updated)"></span></span>
-                                                 
-                                                 <!-- Overall Weather Badge -->
-                                                 <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ml-2"
-                                                    :class="{
+                                                        <span x-text="group.platform"></span>
+                                                    </span>
+                                                    <span class="flex items-center gap-1"><i
+                                                            class="fas fa-fingerprint text-gray-400 text-xs"></i> <span
+                                                            class="font-mono text-xs"
+                                                            x-text="group.video_id"></span></span>
+                                                    <span class="flex items-center gap-1"><i
+                                                            class="far fa-clock text-gray-400 text-xs"></i> <span
+                                                            class="text-xs"
+                                                            x-text="formatDateTime(group.last_updated)"></span></span>
+
+                                                    <!-- Overall Weather Badge -->
+                                                    <span
+                                                        class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ml-2"
+                                                        :class="{
                                                         'bg-yellow-100 text-yellow-800 border-yellow-200': group.weather === 'day',
                                                         'bg-indigo-100 text-indigo-800 border-indigo-200': group.weather === 'night',
                                                         'bg-gray-100 text-gray-800 border-gray-200': group.weather === 'rain'
                                                     }" x-show="group.weather && group.weather !== 'unknown'">
-                                                    <span x-show="group.weather === 'day'" class="mr-1">☀️</span>
-                                                    <span x-show="group.weather === 'night'" class="mr-1">🌙</span>
-                                                    <span x-show="group.weather === 'rain'" class="mr-1">🌧️</span>
-                                                    <span x-text="(group.weather || '').toUpperCase()"></span>
-                                                 </span>
+                                                        <span x-show="group.weather === 'day'" class="mr-1">☀️</span>
+                                                        <span x-show="group.weather === 'night'" class="mr-1">🌙</span>
+                                                        <span x-show="group.weather === 'rain'" class="mr-1">🌧️</span>
+                                                        <span x-text="(group.weather || '').toUpperCase()"></span>
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <!-- Chevron -->
+                                            <div
+                                                class="ml-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 text-gray-400 transition-colors">
+                                                <i class="fas transition-transform duration-300"
+                                                    :class="galleryExpandedGroups.includes(group.video_id) ? 'rotate-180 fa-chevron-up' : 'fa-chevron-down'"></i>
                                             </div>
                                         </div>
-                                        
-                                        <!-- Chevron -->
-                                        <div class="ml-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 text-gray-400 transition-colors">
-                                             <i class="fas transition-transform duration-300" 
-                                                :class="galleryExpandedGroups.includes(group.video_id) ? 'rotate-180 fa-chevron-up' : 'fa-chevron-down'"></i>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Body (Frames) -->
-                                    <div x-show="galleryExpandedGroups.includes(group.video_id)" 
-                                        x-transition:enter="transition ease-out duration-200"
-                                        x-transition:enter-start="opacity-0 -translate-y-2"
-                                        x-transition:enter-end="opacity-100 translate-y-0"
-                                        class="p-4 border-t border-gray-100 bg-gray-50/50">
-                                         
-                                         <template x-if="!galleryGroupFrames[group.video_id]">
-                                              <div class="flex items-center justify-center py-8 text-gray-500 gap-2">
-                                                  <i class="fas fa-spinner fa-spin text-blue-500"></i> Đang tải frames...
-                                              </div>
-                                         </template>
-                                         
-                                         <div class="grid grid-cols-2 md:grid-cols-6 lg:grid-cols-8 gap-3" x-show="galleryGroupFrames[group.video_id]">
-                                              <template x-for="frame in galleryGroupFrames[group.video_id] || []" :key="frame.id">
-                                                   <div class="aspect-video bg-white rounded-lg shadow-sm overflow-hidden relative group cursor-pointer border border-gray-200 hover:ring-2 ring-blue-500 transition-all"
+
+                                        <!-- Body (Frames) -->
+                                        <div x-show="galleryExpandedGroups.includes(group.video_id)"
+                                            x-transition:enter="transition ease-out duration-200"
+                                            x-transition:enter-start="opacity-0 -translate-y-2"
+                                            x-transition:enter-end="opacity-100 translate-y-0"
+                                            class="p-4 border-t border-gray-100 bg-gray-50/50">
+
+                                            <template x-if="!galleryGroupFrames[group.video_id]">
+                                                <div class="flex items-center justify-center py-8 text-gray-500 gap-2">
+                                                    <i class="fas fa-spinner fa-spin text-blue-500"></i> Đang tải
+                                                    frames...
+                                                </div>
+                                            </template>
+
+                                            <div class="grid grid-cols-2 md:grid-cols-6 lg:grid-cols-8 gap-3"
+                                                x-show="galleryGroupFrames[group.video_id]">
+                                                <template x-for="frame in galleryGroupFrames[group.video_id] || []"
+                                                    :key="frame.id">
+                                                    <div class="aspect-video bg-white rounded-lg shadow-sm overflow-hidden relative group cursor-pointer border border-gray-200 hover:ring-2 ring-blue-500 transition-all"
                                                         @click.stop="selectedGalleryFrame = frame; showGalleryModal = true">
-                                                        <img :src="frame.image_url" loading="lazy" class="w-full h-full object-cover">
-                                                         
-                                                         <!-- Scene Badge -->
-                                                         <div class="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[10px] font-bold backdrop-blur-sm z-10"
+                                                        <img :src="frame.image_url" loading="lazy"
+                                                            class="w-full h-full object-cover">
+
+                                                        <!-- Scene Badge -->
+                                                        <div class="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[10px] font-bold backdrop-blur-sm z-10"
                                                             :class="{
                                                                 'bg-yellow-400/80 text-yellow-900': frame.scene_type === 'day',
                                                                 'bg-indigo-900/80 text-white': frame.scene_type === 'night',
                                                                 'bg-gray-600/80 text-white': frame.scene_type === 'rain'
                                                             }">
-                                                            <template x-if="frame.scene_type === 'day'"><span title="Day">☀️</span></template>
-                                                            <template x-if="frame.scene_type === 'night'"><span title="Night">🌙</span></template>
-                                                            <template x-if="frame.scene_type === 'rain'"><span title="Rain">🌧️</span></template>
-                                                         </div>
-
-                                                        <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-xs">
-                                                             <span class="font-bold" x-text="'#' + frame.frame_index"></span>
+                                                            <template x-if="frame.scene_type === 'day'"><span
+                                                                    title="Day">☀️</span></template>
+                                                            <template x-if="frame.scene_type === 'night'"><span
+                                                                    title="Night">🌙</span></template>
+                                                            <template x-if="frame.scene_type === 'rain'"><span
+                                                                    title="Rain">🌧️</span></template>
                                                         </div>
-                                                   </div>
-                                              </template>
-                                         </div>
-                                         <div class="mt-3 flex justify-end" x-show="galleryGroupFrames[group.video_id] && galleryGroupFrames[group.video_id].length >= 100">
-                                             <span class="text-xs text-gray-500 italic bg-gray-100 px-2 py-1 rounded">Hiển thị 100 frame mới nhất.</span>
-                                         </div>
-                                    </div>
-                                </div>
-                            </template>
-                             <!-- Empty State for Groups -->
-                            <div x-show="galleryGroups.length === 0" class="text-center py-12 text-gray-500">
-                                <i class="fas fa-folder-open text-4xl mb-3 text-gray-300"></i>
-                                <p>Không có dữ liệu video nào.</p>
-                            </div>
-                        </div>
 
-                        <!-- FLAT VIEW (Original) -->
-                        <div x-show="!galleryLoading && galleryMode === 'flat'" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                            <template x-for="frame in galleryFrames" :key="frame.id">
-                                <div class="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200 hover:shadow-md transition-shadow cursor-pointer relative group"
-                                     @click="selectedGalleryFrame = frame; showGalleryModal = true">
-                                    <div class="aspect-video bg-gray-100 relative">
-                                        <img :src="frame.image_url" loading="lazy" class="w-full h-full object-cover">
-                                        
-                                        <!-- Scene Badge -->
-                                        <div class="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[10px] font-bold backdrop-blur-sm z-10"
-                                           :class="{
+                                                        <div
+                                                            class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-xs">
+                                                            <span class="font-bold"
+                                                                x-text="'#' + frame.frame_index"></span>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                            <div class="mt-3 flex justify-end"
+                                                x-show="galleryGroupFrames[group.video_id] && galleryGroupFrames[group.video_id].length >= 100">
+                                                <span
+                                                    class="text-xs text-gray-500 italic bg-gray-100 px-2 py-1 rounded">Hiển
+                                                    thị 100 frame mới nhất.</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                                <!-- Empty State for Groups -->
+                                <div x-show="galleryGroups.length === 0" class="text-center py-12 text-gray-500">
+                                    <i class="fas fa-folder-open text-4xl mb-3 text-gray-300"></i>
+                                    <p>Không có dữ liệu video nào.</p>
+                                </div>
+                            </div>
+
+                            <!-- FLAT VIEW (Original) -->
+                            <div x-show="!galleryLoading && galleryMode === 'flat'"
+                                class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                                <template x-for="frame in galleryFrames" :key="frame.id">
+                                    <div class="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200 hover:shadow-md transition-shadow cursor-pointer relative group"
+                                        @click="selectedGalleryFrame = frame; showGalleryModal = true">
+                                        <div class="aspect-video bg-gray-100 relative">
+                                            <img :src="frame.image_url" loading="lazy"
+                                                class="w-full h-full object-cover">
+
+                                            <!-- Scene Badge -->
+                                            <div class="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[10px] font-bold backdrop-blur-sm z-10"
+                                                :class="{
                                                'bg-yellow-400/80 text-yellow-900': frame.scene_type === 'day',
                                                'bg-indigo-900/80 text-white': frame.scene_type === 'night',
                                                'bg-gray-600/80 text-white': frame.scene_type === 'rain'
                                            }">
-                                           <template x-if="frame.scene_type === 'day'"><span title="Day">☀️</span></template>
-                                           <template x-if="frame.scene_type === 'night'"><span title="Night">🌙</span></template>
-                                           <template x-if="frame.scene_type === 'rain'"><span title="Rain">🌧️</span></template>
-                                        </div>
+                                                <template x-if="frame.scene_type === 'day'"><span
+                                                        title="Day">☀️</span></template>
+                                                <template x-if="frame.scene_type === 'night'"><span
+                                                        title="Night">🌙</span></template>
+                                                <template x-if="frame.scene_type === 'rain'"><span
+                                                        title="Rain">🌧️</span></template>
+                                            </div>
 
-                                        <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-xs">
-                                             <span class="font-bold" x-text="'#' + frame.frame_index"></span>
+                                            <div
+                                                class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-xs">
+                                                <span class="font-bold" x-text="'#' + frame.frame_index"></span>
+                                            </div>
+                                        </div>
+                                        <div class="p-2">
+                                            <div class="truncate text-xs font-semibold mb-0.5"
+                                                x-text="frame.video_name"></div>
+                                            <!-- Added Camera ID/Video ID display -->
+                                            <div class="truncate text-[10px] text-gray-500 mb-0.5"
+                                                x-show="frame.video_id !== frame.video_name" x-text="frame.video_id">
+                                            </div>
+                                            <div class="flex justify-between items-end">
+                                                <div class="text-[10px] opacity-80"
+                                                    x-text="'Frame: ' + frame.frame_index"></div>
+                                                <div class="text-[10px] opacity-60"
+                                                    x-text="formatDateShort(frame.created_at)"></div>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div class="p-2">
-                                        <div class="truncate text-xs font-semibold mb-0.5" x-text="frame.video_name"></div>
-                                        <!-- Added Camera ID/Video ID display -->
-                                        <div class="truncate text-[10px] text-gray-500 mb-0.5" x-show="frame.video_id !== frame.video_name" x-text="frame.video_id"></div>
-                                        <div class="flex justify-between items-end">
-                                            <div class="text-[10px] opacity-80" x-text="'Frame: ' + frame.frame_index"></div>
-                                            <div class="text-[10px] opacity-60" x-text="formatDateShort(frame.created_at)"></div>
-                                        </div>
-                                    </div>
+                                </template>
+
+                                <!-- Empty State -->
+                                <div x-show="galleryFrames.length === 0 && !galleryLoading"
+                                    class="col-span-full text-center py-12 text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                                    <i class="fas fa-search text-4xl mb-3 text-gray-300"></i>
+                                    <p class="text-gray-600 font-medium">Không tìm thấy dữ liệu phù hợp.</p>
+                                    <p class="text-sm mt-1">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.</p>
                                 </div>
-                            </template>
-                            
-                            <!-- Empty State -->
-                            <div x-show="galleryFrames.length === 0 && !galleryLoading" class="col-span-full text-center py-12 text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-                                <i class="fas fa-search text-4xl mb-3 text-gray-300"></i>
-                                <p class="text-gray-600 font-medium">Không tìm thấy dữ liệu phù hợp.</p>
-                                <p class="text-sm mt-1">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.</p>
+
+                                <!-- Loading State -->
+                                <div x-show="galleryLoading"
+                                    class="col-span-full py-12 flex justify-center items-center flex-col gap-3">
+                                    <i class="fas fa-circle-notch fa-spin text-3xl text-blue-600"></i>
+                                    <span class="text-sm text-gray-500">Đang tải dữ liệu...</span>
+                                </div>
                             </div>
-                            
-                            <!-- Loading State -->
-                            <div x-show="galleryLoading" class="col-span-full py-12 flex justify-center items-center flex-col gap-3">
-                                <i class="fas fa-circle-notch fa-spin text-3xl text-blue-600"></i>
-                                <span class="text-sm text-gray-500">Đang tải dữ liệu...</span>
-                            </div>
-                        </div>
-                        
-                        <!-- Pagination -->
-                        <div class="mt-6 flex items-center justify-between border-t pt-4" x-show="galleryTotalPages > 1">
-                            <div class="text-sm text-gray-700">
-                                Hiển thị trang <span class="font-bold" x-text="galleryPage"></span> / <span x-text="galleryTotalPages"></span> 
-                            </div>
-                            <div class="flex gap-2">
-                                <button @click="changeGalleryPage(galleryPage - 1)" :disabled="galleryPage === 1"
-                                    class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium text-gray-700">
-                                    <i class="fas fa-chevron-left mr-1"></i> Trước
-                                </button>
-                                <button @click="changeGalleryPage(galleryPage + 1)" :disabled="galleryPage === galleryTotalPages"
-                                    class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium text-gray-700">
-                                    Sau <i class="fas fa-chevron-right ml-1"></i>
-                                </button>
+
+                            <!-- Pagination -->
+                            <div class="mt-6 flex items-center justify-between border-t pt-4"
+                                x-show="galleryTotalPages > 1">
+                                <div class="text-sm text-gray-700">
+                                    Hiển thị trang <span class="font-bold" x-text="galleryPage"></span> / <span
+                                        x-text="galleryTotalPages"></span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button @click="changeGalleryPage(galleryPage - 1)" :disabled="galleryPage === 1"
+                                        class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium text-gray-700">
+                                        <i class="fas fa-chevron-left mr-1"></i> Trước
+                                    </button>
+                                    <button @click="changeGalleryPage(galleryPage + 1)"
+                                        :disabled="galleryPage === galleryTotalPages"
+                                        class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium text-gray-700">
+                                        Sau <i class="fas fa-chevron-right ml-1"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Data Passport Modal -->
-                <div x-show="showGalleryModal" @click="showGalleryModal = false" x-cloak
-                    class="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div class="relative max-w-6xl w-full bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]" @click.stop>
-                        
-                        <!-- Close Button -->
-                        <button @click="showGalleryModal = false" 
-                            class="absolute top-4 right-4 z-10 bg-white/10 hover:bg-black/20 text-gray-800 md:text-white rounded-full p-2 transition-colors">
-                            <i class="fas fa-times text-xl"></i>
-                        </button>
+                    <!-- Data Passport Modal -->
+                    <div x-show="showGalleryModal" @click="showGalleryModal = false" x-cloak
+                        class="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                        <div class="relative max-w-6xl w-full bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]"
+                            @click.stop>
 
-                        <!-- Left: Image Preview -->
-                        <div class="w-full md:w-2/3 bg-black flex items-center justify-center relative group">
-                            <img :src="selectedGalleryFrame?.image_url" 
-                                class="max-w-full max-h-[50vh] md:max-h-[90vh] object-contain" />
-                                
-                            <!-- Zoom hints could go here -->
-                        </div>
+                            <!-- Close Button -->
+                            <button @click="showGalleryModal = false"
+                                class="absolute top-4 right-4 z-10 bg-white/10 hover:bg-black/20 text-gray-800 md:text-white rounded-full p-2 transition-colors">
+                                <i class="fas fa-times text-xl"></i>
+                            </button>
 
-                        <!-- Right: Data Passport -->
-                        <div class="w-full md:w-1/3 bg-white p-6 overflow-y-auto border-l border-gray-100 flex flex-col">
-                            <div class="mb-6 pb-4 border-b border-gray-100">
-                                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">DATA PASSPORT</h3>
-                                <h2 class="text-xl font-bold text-gray-900 break-words" x-text="selectedGalleryFrame?.video_name"></h2>
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-2"
-                                    :class="{
+                            <!-- Left: Image Preview -->
+                            <div class="w-full md:w-2/3 bg-black flex items-center justify-center relative group">
+                                <img :src="selectedGalleryFrame?.image_url"
+                                    class="max-w-full max-h-[50vh] md:max-h-[90vh] object-contain" />
+
+                                <!-- Zoom hints could go here -->
+                            </div>
+
+                            <!-- Right: Data Passport -->
+                            <div
+                                class="w-full md:w-1/3 bg-white p-6 overflow-y-auto border-l border-gray-100 flex flex-col">
+                                <div class="mb-6 pb-4 border-b border-gray-100">
+                                    <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">DATA
+                                        PASSPORT</h3>
+                                    <h2 class="text-xl font-bold text-gray-900 break-words"
+                                        x-text="selectedGalleryFrame?.video_name"></h2>
+                                    <span
+                                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-2"
+                                        :class="{
                                         'bg-red-100 text-red-800': selectedGalleryFrame?.platform === 'youtube',
                                         'bg-green-100 text-green-800': selectedGalleryFrame?.platform === 'pexels',
                                         'bg-blue-100 text-blue-800': selectedGalleryFrame?.platform === 'camera'
                                     }">
-                                    <i class="fas fa-circle text-[8px] mr-1.5 opacity-60"></i>
-                                    <span x-text="(selectedGalleryFrame?.platform || 'unknown').toUpperCase()"></span>
-                                </span>
-                                
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-2 ml-2"
-                                    :class="{
+                                        <i class="fas fa-circle text-[8px] mr-1.5 opacity-60"></i>
+                                        <span
+                                            x-text="(selectedGalleryFrame?.platform || 'unknown').toUpperCase()"></span>
+                                    </span>
+
+                                    <span
+                                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-2 ml-2"
+                                        :class="{
                                         'bg-yellow-100 text-yellow-800': selectedGalleryFrame?.scene_type === 'day',
                                         'bg-indigo-100 text-indigo-800': selectedGalleryFrame?.scene_type === 'night',
                                         'bg-gray-100 text-gray-800': selectedGalleryFrame?.scene_type === 'rain'
                                     }">
-                                    <span x-show="selectedGalleryFrame?.scene_type === 'day'">☀️ DAY</span>
-                                    <span x-show="selectedGalleryFrame?.scene_type === 'night'">🌙 NIGHT</span>
-                                    <span x-show="selectedGalleryFrame?.scene_type === 'rain'">🌧️ RAIN</span>
-                                    <span x-show="!selectedGalleryFrame?.scene_type">Unknown</span>
-                                </span>
-                            </div>
+                                        <span x-show="selectedGalleryFrame?.scene_type === 'day'">☀️ DAY</span>
+                                        <span x-show="selectedGalleryFrame?.scene_type === 'night'">🌙 NIGHT</span>
+                                        <span x-show="selectedGalleryFrame?.scene_type === 'rain'">🌧️ RAIN</span>
+                                        <span x-show="!selectedGalleryFrame?.scene_type">Unknown</span>
+                                    </span>
+                                </div>
 
-                            <div class="space-y-4 flex-1">
-                                <!-- Technical Specs -->
-                                <div>
-                                    <h4 class="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                                        <i class="fas fa-microchip text-blue-500"></i> Technical Specs
-                                    </h4>
-                                    <div class="bg-gray-50 rounded-lg p-3 text-sm space-y-2">
-                                        <div class="flex justify-between">
-                                            <span class="text-gray-500">Resource ID</span>
-                                            <span class="font-mono text-gray-700 text-xs" x-text="selectedGalleryFrame?.id"></span>
+                                <div class="space-y-4 flex-1">
+                                    <!-- Technical Specs -->
+                                    <div>
+                                        <h4 class="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                                            <i class="fas fa-microchip text-blue-500"></i> Technical Specs
+                                        </h4>
+                                        <div class="bg-gray-50 rounded-lg p-3 text-sm space-y-2">
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-500">Resource ID</span>
+                                                <span class="font-mono text-gray-700 text-xs"
+                                                    x-text="selectedGalleryFrame?.id"></span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-500">File Size</span>
+                                                <span class="font-medium text-gray-900"
+                                                    x-text="formatFileSize(selectedGalleryFrame?.file_size)"></span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-500">Video ID</span>
+                                                <span class="font-mono text-gray-700 text-xs"
+                                                    x-text="selectedGalleryFrame?.video_id || '-'"></span>
+                                            </div>
                                         </div>
-                                        <div class="flex justify-between">
-                                            <span class="text-gray-500">File Size</span>
-                                            <span class="font-medium text-gray-900" x-text="formatFileSize(selectedGalleryFrame?.file_size)"></span>
+                                    </div>
+
+                                    <!-- Temporal Data -->
+                                    <div>
+                                        <h4 class="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                                            <i class="fas fa-clock text-green-500"></i> Temporal Data
+                                        </h4>
+                                        <div class="bg-gray-50 rounded-lg p-3 text-sm space-y-2">
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-500">Extracted At</span>
+                                                <span class="font-medium text-gray-900"
+                                                    x-text="formatDateTime(selectedGalleryFrame?.created_at)"></span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-500">Frame Index</span>
+                                                <span class="font-bold text-blue-600"
+                                                    x-text="selectedGalleryFrame?.frame_index"></span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-500">Original Frame No.</span>
+                                                <span class="text-gray-900"
+                                                    x-text="selectedGalleryFrame?.video_frame_number || '-'"></span>
+                                            </div>
                                         </div>
-                                        <div class="flex justify-between">
-                                            <span class="text-gray-500">Video ID</span>
-                                            <span class="font-mono text-gray-700 text-xs" x-text="selectedGalleryFrame?.video_id || '-'"></span>
+                                    </div>
+
+                                    <!-- Storage Info -->
+                                    <div>
+                                        <h4 class="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                                            <i class="fas fa-hdd text-purple-500"></i> Storage Reference
+                                        </h4>
+                                        <div
+                                            class="bg-gray-50 rounded-lg p-3 text-xs space-y-2 break-all font-mono text-gray-600">
+                                            <div>
+                                                <span class="block text-gray-400 mb-0.5">Bucket</span>
+                                                <span x-text="selectedGalleryFrame?.storage_bucket || '-'"></span>
+                                            </div>
+                                            <div>
+                                                <span class="block text-gray-400 mb-0.5">Key</span>
+                                                <span x-text="selectedGalleryFrame?.storage_key || '-'"></span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <!-- Temporal Data -->
-                                <div>
-                                    <h4 class="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                                        <i class="fas fa-clock text-green-500"></i> Temporal Data
-                                    </h4>
-                                    <div class="bg-gray-50 rounded-lg p-3 text-sm space-y-2">
-                                        <div class="flex justify-between">
-                                            <span class="text-gray-500">Extracted At</span>
-                                            <span class="font-medium text-gray-900" x-text="formatDateTime(selectedGalleryFrame?.created_at)"></span>
-                                        </div>
-                                        <div class="flex justify-between">
-                                            <span class="text-gray-500">Frame Index</span>
-                                            <span class="font-bold text-blue-600" x-text="selectedGalleryFrame?.frame_index"></span>
-                                        </div>
-                                        <div class="flex justify-between">
-                                            <span class="text-gray-500">Original Frame No.</span>
-                                            <span class="text-gray-900" x-text="selectedGalleryFrame?.video_frame_number || '-'"></span>
-                                        </div>
-                                    </div>
+                                <!-- Actions -->
+                                <div class="mt-6 pt-4 border-t border-gray-100">
+                                    <a :href="selectedGalleryFrame?.image_url" target="_blank" download
+                                        class="flex items-center justify-center w-full bg-gray-900 hover:bg-black text-white py-3 rounded-lg font-medium transition-colors gap-2">
+                                        <i class="fas fa-download"></i> Download Master File
+                                    </a>
                                 </div>
-
-                                <!-- Storage Info -->
-                                <div>
-                                    <h4 class="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                                        <i class="fas fa-hdd text-purple-500"></i> Storage Reference
-                                    </h4>
-                                    <div class="bg-gray-50 rounded-lg p-3 text-xs space-y-2 break-all font-mono text-gray-600">
-                                        <div>
-                                            <span class="block text-gray-400 mb-0.5">Bucket</span>
-                                            <span x-text="selectedGalleryFrame?.storage_bucket || '-'"></span>
-                                        </div>
-                                        <div>
-                                            <span class="block text-gray-400 mb-0.5">Key</span>
-                                            <span x-text="selectedGalleryFrame?.storage_key || '-'"></span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Actions -->
-                            <div class="mt-6 pt-4 border-t border-gray-100">
-                                <a :href="selectedGalleryFrame?.image_url" target="_blank" download
-                                   class="flex items-center justify-center w-full bg-gray-900 hover:bg-black text-white py-3 rounded-lg font-medium transition-colors gap-2">
-                                    <i class="fas fa-download"></i> Download Master File
-                                </a>
                             </div>
                         </div>
                     </div>
+
+
+
                 </div>
-
-
-
         </div>
-    </div>
 
-    <!-- Camera Image Modal -->
-    <div x-show="showCameraImageModal" @click.away="showCameraImageModal = false" x-cloak
-        class="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-auto" @click.stop>
-            <div class="p-4 border-b flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-gray-800" x-text="selectedCameraImage?.camera_name"></h3>
-                <button @click="showCameraImageModal = false" class="text-gray-500 hover:text-gray-700">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="p-4">
-                <img :src="selectedCameraImage ? (selectedCameraImage.url || '/api/camera/images/' + selectedCameraImage.path) : ''"
-                    :alt="selectedCameraImage?.camera_name" class="w-full h-auto rounded-lg" />
-                <div class="mt-4 text-sm text-gray-600">
-                    <div><strong>Thời gian:</strong> <span
-                            x-text="selectedCameraImage ? formatDateTime(selectedCameraImage.timestamp) : ''"></span>
+        <!-- Camera Image Modal -->
+        <div x-show="showCameraImageModal" @click.away="showCameraImageModal = false" x-cloak
+            class="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-auto" @click.stop>
+                <div class="p-4 border-b flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-gray-800" x-text="selectedCameraImage?.camera_name"></h3>
+                    <button @click="showCameraImageModal = false" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="p-4">
+                    <img :src="selectedCameraImage ? (selectedCameraImage.url || '/api/camera/images/' + selectedCameraImage.path) : ''"
+                        :alt="selectedCameraImage?.camera_name" class="w-full h-auto rounded-lg" />
+                    <div class="mt-4 text-sm text-gray-600">
+                        <div><strong>Thời gian:</strong> <span
+                                x-text="selectedCameraImage ? formatDateTime(selectedCameraImage.timestamp) : ''"></span>
+                        </div>
+                        <div><strong>Camera ID:</strong> <span x-text="selectedCameraImage?.camera_id"></span></div>
                     </div>
-                    <div><strong>Camera ID:</strong> <span x-text="selectedCameraImage?.camera_id"></span></div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-    <script src="/static/js/main.js?v=1.3"></script>
-    <script>
-        // Suppress console errors from iframe map (chỉ để giảm noise trong console)
-        // Lưu ý: Các lỗi này là từ trang map của TP.HCM, không phải từ hệ thống này
-        window.addEventListener('error', function (e) {
-            // Kiểm tra xem lỗi có phải từ iframe map không
-            if (e.filename && e.filename.includes('giaothong.hochiminhcity.gov.vn')) {
-                // Không log lỗi từ iframe map
-                return true;
-            }
-        }, true);
+        <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+        <script src="/static/js/main.js?v=1.3"></script>
+        <script>
+            // Suppress console errors from iframe map (chỉ để giảm noise trong console)
+            // Lưu ý: Các lỗi này là từ trang map của TP.HCM, không phải từ hệ thống này
+            window.addEventListener('error', function (e) {
+                // Kiểm tra xem lỗi có phải từ iframe map không
+                if (e.filename && e.filename.includes('giaothong.hochiminhcity.gov.vn')) {
+                    // Không log lỗi từ iframe map
+                    return true;
+                }
+            }, true);
 
-        // Suppress WebSocket và các lỗi JavaScript khác từ iframe
-        const originalError = console.error;
-        console.error = function (...args) {
-            const message = args.join(' ');
-            // Bỏ qua các lỗi WebSocket từ iframe map
-            if (message.includes('WebSocket') && message.includes('giaothong.hochiminhcity.gov.vn')) {
-                return;
+            // Suppress WebSocket và các lỗi JavaScript khác từ iframe
+            const originalError = console.error;
+            console.error = function (...args) {
+                const message = args.join(' ');
+                // Bỏ qua các lỗi WebSocket từ iframe map
+                if (message.includes('WebSocket') && message.includes('giaothong.hochiminhcity.gov.vn')) {
+                    return;
+                }
+                // Bỏ qua các lỗi từ DetailView.js, LayerSwitcher.js của iframe
+                if (message.includes('DetailView.js') || message.includes('LayerSwitcher.js')) {
+                    return;
+                }
+                originalError.apply(console, args);
+            };
+        </script>
+        <script>
+            function boxplotTab() {
+                return {
+                    loading: false,
+                    success: false,
+                    generatedOnce: false,
+                    message: '',
+                    resultType: 'frame',
+                    buckets: [],
+                    subPrefixes: [],
+                    selectedBucket: '',
+                    selectedSubPrefix: '',
+                    selectedSource: '',
+
+                    // Hỗ trợ nhiều boxplot
+                    boxplotImages: [],
+                    featureLabels: [],
+
+                    // Modal phóng to
+                    showBoxplotModal: false,
+                    selectedBoxplotSrc: '',
+                    selectedBoxplotLabel: '',
+
+                    async init() {
+                        console.log("Boxplot module khởi động");
+                        await this.loadBuckets();
+                        if (this.buckets.length > 0) {
+                            this.selectedBucket = this.buckets[0];
+                            // await this.generateBoxplot();  // Bật nếu muốn tự động tạo lần đầu
+                        }
+                    },
+
+                    async loadBuckets() {
+                        try {
+                            const res = await fetch("/api/boxplots/buckets");
+                            const json = await res.json();
+                            if (json.success && json.buckets?.length) {
+                                this.buckets = json.buckets;
+                            } else {
+                                this.buckets = ["frames"];
+                            }
+                            await this.loadSubPrefixes();
+                        } catch (err) {
+                            console.error("Lỗi load buckets:", err);
+                            this.buckets = ["frames"];
+                        }
+                    },
+
+                    async loadSubPrefixes() {
+                        if (!this.selectedBucket) return;
+                        try {
+                            const res = await fetch(`/api/boxplots/subprefixes?bucket=${encodeURIComponent(this.selectedBucket)}`);
+                            const json = await res.json();
+                            this.subPrefixes = json.success ? (json.subprefixes || []) : [];
+                        } catch (err) {
+                            console.error("Lỗi load subprefixes:", err);
+                            this.subPrefixes = [];
+                        }
+                    },
+
+                    updatePrefix() {
+                        this.selectedSource = this.selectedSubPrefix || this.selectedBucket;
+                    },
+
+                    async generateBoxplot() {
+                        if (this.loading || !this.selectedBucket) return;
+
+                        this.updatePrefix();
+                        this.loading = true;
+                        this.generatedOnce = true;
+                        this.success = false;
+
+                        // Reset dữ liệu cũ
+                        this.boxplotImages = [];
+                        this.featureLabels = [];
+                        this.message = '';
+                        this.closeBoxplotModal();  // Đóng modal nếu đang mở
+
+                        try {
+                            const res = await fetch("/api/boxplots/generate", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    bucket: this.selectedBucket,
+                                    prefix: this.selectedSubPrefix || ""
+                                })
+                            });
+
+                            if (!res.ok) {
+                                throw new Error(`HTTP error! status: ${res.status}`);
+                            }
+
+                            const json = await res.json();
+
+                            if (json.success) {
+                                this.success = true;
+                                this.message = json.message || "Hoàn tất phân tích";
+                                this.resultType = json.type || 'frame';
+
+                                // Xử lý danh sách nhiều boxplot
+                                if (json.images_base64 && Array.isArray(json.images_base64) && json.images_base64.length > 0) {
+                                    this.boxplotImages = json.images_base64;
+                                    this.featureLabels = json.feature_labels || json.images_base64.map((_, i) => `Đặc trưng ${i + 1}`);
+                                    console.log(`Đã nhận ${this.boxplotImages.length} boxplot riêng lẻ`);
+                                }
+                                // Fallback cho image_base64 cũ
+                                else if (json.image_base64) {
+                                    this.boxplotImages = [json.image_base64];
+                                    this.featureLabels = ["Tất cả đặc trưng"];
+                                    console.warn("Backend trả image_base64 cũ → fallback");
+                                } else {
+                                    this.message += " (không nhận được ảnh boxplot nào)";
+                                }
+                            } else {
+                                this.message = json.message || "Lỗi từ server";
+                                console.warn("API trả success=false:", json.message);
+                            }
+                        } catch (err) {
+                            console.error("Lỗi khi gọi generateBoxplot:", err);
+                            this.message = "Lỗi kết nối hoặc xử lý dữ liệu";
+                        } finally {
+                            this.loading = false;
+                        }
+                    },
+
+                    // Hàm mở modal khi click vào boxplot
+                    openBoxplotModal(src, label) {
+                        this.selectedBoxplotSrc = src;
+                        this.selectedBoxplotLabel = label;
+                        this.showBoxplotModal = true;
+                        document.body.style.overflow = 'hidden';  // Ngăn scroll nền
+                    },
+
+                    // Hàm đóng modal
+                    closeBoxplotModal() {
+                        this.showBoxplotModal = false;
+                        this.selectedBoxplotSrc = '';
+                        this.selectedBoxplotLabel = '';
+                        document.body.style.overflow = '';  // Khôi phục scroll
+                    }
+                }
             }
-            // Bỏ qua các lỗi từ DetailView.js, LayerSwitcher.js của iframe
-            if (message.includes('DetailView.js') || message.includes('LayerSwitcher.js')) {
-                return;
+        </script>
+        <script>
+            function scatterTab() {
+                return {
+                    loading: false,
+                    success: false,
+                    generatedOnce: false,
+                    message: '',
+                    resultType: 'frame',
+                    buckets: [],
+                    subPrefixes: [],
+                    selectedBucket: '',
+                    selectedSubPrefix: '',
+                    selectedSource: '',
+
+                    scatterImages: [],
+                    featureLabels: [],
+
+                    showScatterModal: false,
+                    selectedScatterSrc: '',
+                    selectedScatterLabel: '',
+
+                    async init() {
+                        console.log("Scatter module khởi động");
+                        await this.loadBuckets();
+                        if (this.buckets.length > 0) {
+                            this.selectedBucket = this.buckets[0];
+                        }
+                    },
+
+                    async loadBuckets() {
+                        try {
+                            const res = await fetch("/api/boxplots/buckets");  // Dùng chung endpoint buckets với boxplot
+                            const json = await res.json();
+                            if (json.success && json.buckets?.length) {
+                                this.buckets = json.buckets;
+                            } else {
+                                this.buckets = ["frames"];
+                            }
+                            await this.loadSubPrefixes();
+                        } catch (err) {
+                            console.error("Lỗi load buckets:", err);
+                            this.buckets = ["frames"];
+                        }
+                    },
+
+                    async loadSubPrefixes() {
+                        if (!this.selectedBucket) return;
+                        try {
+                            const res = await fetch(`/api/boxplots/subprefixes?bucket=${encodeURIComponent(this.selectedBucket)}`);  // Dùng chung endpoint
+                            const json = await res.json();
+                            this.subPrefixes = json.success ? (json.subprefixes || []) : [];
+                        } catch (err) {
+                            console.error("Lỗi load subprefixes:", err);
+                            this.subPrefixes = [];
+                        }
+                    },
+
+                    updatePrefix() {
+                        this.selectedSource = this.selectedSubPrefix || this.selectedBucket;
+                    },
+
+                    async generateScatter() {
+                        if (this.loading || !this.selectedBucket) return;
+
+                        this.updatePrefix();
+                        this.loading = true;
+                        this.generatedOnce = true;
+                        this.success = false;
+
+                        this.scatterImages = [];
+                        this.featureLabels = [];
+                        this.message = '';
+                        this.closeScatterModal();
+
+                        try {
+                            const res = await fetch("/api/scatters/generate", {  // Endpoint mới
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    bucket: this.selectedBucket,
+                                    prefix: this.selectedSubPrefix || ""
+                                })
+                            });
+
+                            if (!res.ok) {
+                                throw new Error(`HTTP error! status: ${res.status}`);
+                            }
+
+                            const json = await res.json();
+
+                            if (json.success) {
+                                this.success = true;
+                                this.message = json.message || "Hoàn tất phân tích scatter";
+                                this.resultType = json.type || 'frame';
+
+                                if (json.images_base64 && Array.isArray(json.images_base64) && json.images_base64.length > 0) {
+                                    this.scatterImages = json.images_base64;
+                                    this.featureLabels = json.feature_labels || json.images_base64.map((_, i) => `Scatter ${i + 1}`);
+                                    console.log(`Đã nhận ${this.scatterImages.length} scatter plots`);
+                                } else {
+                                    this.message += " (không nhận được scatter plot nào)";
+                                }
+                            } else {
+                                this.message = json.message || "Lỗi từ server";
+                            }
+                        } catch (err) {
+                            console.error("Lỗi khi gọi generateScatter:", err);
+                            this.message = "Lỗi kết nối hoặc xử lý dữ liệu";
+                        } finally {
+                            this.loading = false;
+                        }
+                    },
+
+                    openScatterModal(src, label) {
+                        this.selectedScatterSrc = src;
+                        this.selectedScatterLabel = label;
+                        this.showScatterModal = true;
+                        document.body.style.overflow = 'hidden';
+                    },
+
+                    closeScatterModal() {
+                        this.showScatterModal = false;
+                        this.selectedScatterSrc = '';
+                        this.selectedScatterLabel = '';
+                        document.body.style.overflow = '';
+                    }
+                }
             }
-            originalError.apply(console, args);
-        };
-    </script>
+        </script>
 </body>
 
 </html>
