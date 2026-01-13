@@ -15,7 +15,8 @@ DEFAULT_SETTINGS = {
         'denoise_strength': 0,
         'hue_shift': 0,
         'saturation_scale': 1.0,
-        'contrast_scale': 1.0
+        'contrast_scale': 1.0,
+        'resize_640': False  # New setting
     }
 }
 
@@ -23,7 +24,12 @@ def load_settings():
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                settings = json.load(f)
+                # Ensure new key exists in old files
+                if 'resize_640' not in settings.get('params', {}):
+                    if 'params' not in settings: settings['params'] = {}
+                    settings['params']['resize_640'] = False
+                return settings
         except:
             return DEFAULT_SETTINGS
     return DEFAULT_SETTINGS
@@ -54,6 +60,10 @@ def calculate_var_laplacian(image):
     else:
         gray = image
     return float(cv2.Laplacian(gray, cv2.CV_64F).var())
+
+def resize_image(image, target_size=(640, 640)):
+    """Resize ảnh về kích thước target_size"""
+    return cv2.resize(image, target_size, interpolation=cv2.INTER_AREA)
 
 def apply_clahe(image, clip_limit=2.0, tile_grid_size=(8, 8)):
     """Áp dụng CLAHE (Contrast Limited Adaptive Histogram Equalization)"""
@@ -157,6 +167,7 @@ def process_image(image, settings):
     mean_intensity = settings.get('mean_intensity') # Optional
     gamma = float(settings.get('gamma', 1.0))
     clahe_clip_limit = float(settings.get('clahe_clip_limit', 0))
+    resize_640 = settings.get('resize_640', False) # New setting
 
     adjusted_image = image.copy()
 
@@ -187,5 +198,9 @@ def process_image(image, settings):
     # 6. CLAHE
     if clahe_clip_limit > 0.01:
         adjusted_image = apply_clahe(adjusted_image, clip_limit=clahe_clip_limit)
+
+    # 7. Resize (Last step to retain details during processing)
+    if resize_640:
+        adjusted_image = resize_image(adjusted_image, (640, 640))
 
     return adjusted_image

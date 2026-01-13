@@ -200,6 +200,15 @@
                                             class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
                                     </button>
                                 </div>
+                                <div class="flex items-center justify-between pt-3 border-t border-gray-100 mt-3">
+                                    <span class="text-gray-700 font-medium">Resize 640x640</span>
+                                    <button @click="settings.params.resize_640 = !settings.params.resize_640; debouncePreview()" 
+                                        :class="settings.params.resize_640 ? 'bg-indigo-600' : 'bg-gray-200'"
+                                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none">
+                                        <span aria-hidden="true" :class="settings.params.resize_640 ? 'translate-x-5' : 'translate-x-0'"
+                                            class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+                                    </button>
+                                </div>
                             </div>
 
                             <!-- Sliders -->
