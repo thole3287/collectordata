@@ -286,6 +286,8 @@ function app() {
                     if (this.galleryPage === 1) {
                         this.loadGalleryStats();
                     }
+                } else {
+                    console.error("[DEBUG] Groups API Failed:", data);
                 }
             } catch (error) {
                 this.showNotify('Lỗi tải groups: ' + error.message, 'error');

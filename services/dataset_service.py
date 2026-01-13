@@ -243,7 +243,9 @@ def get_dataset_groups_service(params):
         groups = []
         
         for v in videos:
-            video_id = v.get('video_id', str(v.get('_id')))
+            video_id = v.get('video_id')
+            if not video_id:
+                 video_id = str(v.get('_id'))
             
             # 2. Get Frame Stats for this video
             total_frames = frames_collection.count_documents({'video_id': video_id})

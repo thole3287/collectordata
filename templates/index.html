@@ -1398,7 +1398,7 @@
 
                             <!-- GROUPED VIEW -->
                             <div x-show="!galleryLoading && galleryMode === 'grouped'" class="space-y-4">
-                                <template x-for="group in galleryGroups" :key="group.video_id">
+                                <template x-for="(group, idx) in galleryGroups" :key="group.video_id ? (group.video_id + '_' + idx) : idx">
                                     <div
                                         class="border border-gray-200 rounded-lg scale-100 hover:scale-[1.005] transition-transform overflow-hidden font-sans">
                                         <!-- Header -->

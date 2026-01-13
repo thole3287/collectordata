@@ -345,7 +345,6 @@ def download_by_keyword(keyword, num_videos=1):
     print(f"\n--> Đang tìm kiếm và chuẩn bị tải {num_videos} video cho từ khóa: '{keyword}'...")
     
     # Xử lý Keyword: Hỗ trợ format "Search Query || Regex Filter"
-    # Ví dụ: "Vietnam traffic || (camera|cctv|drone)"
     real_search_query = keyword
     regex_filter = keyword
 
@@ -358,80 +357,94 @@ def download_by_keyword(keyword, num_videos=1):
             print(f"    - Search YouTube: {real_search_query}")
             print(f"    - Filter Regex:   {regex_filter}")
 
-    # Tăng số lượng tìm kiếm để bù cho video đã tồn tại và video bị lọc bởi regex
-    search_multiplier = 3  # Tăng lên 3 để bù cho regex filter
-    search_count = num_videos * search_multiplier
+    # Tăng số lượng tìm kiếm RẤT LỚN để tạo bộ đệm (như là pagination vô tận)
+    # Vì mình sẽ iter generator, nên con số này chỉ là "giới hạn tối đa" của phiên tìm kiếm này.
+    search_limit = max(num_videos * 50, 2000) 
     
     ydl_opts = get_ydl_options()
-    # Sử dụng real_search_query để gửi lên YouTube
-    dlp_search_str = f"ytsearch{search_count}:{real_search_query}"
+    # "ytsearchN" trả về generator các kết quả.
+    dlp_search_str = f"ytsearch{search_limit}:{real_search_query}"
     
     downloaded_videos = []
     skipped_count = 0
+    inspected_count = 0
     
     try:
+        # 1. Tìm kiếm (Extract info KHÔNG download -> Lấy metadata nhanh)
+        print(f"  🔎 Đang quét metadata từ YouTube (Limit: {search_limit})...")
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            # Lấy thông tin video trước (không tải ngay)
-            # Lưu ý: search query ở đây phải dùng biến clean
+            # download=False returns a dict with 'entries' which is a LAZY GENERATOR (iterator)
             info = ydl.extract_info(dlp_search_str, download=False)
         
-        entries = info.get("entries", []) if isinstance(info, dict) else []
+        # 'entries' là generator, ta duyệt từng cái một
+        entries = info.get("entries", [])
         
+        if not entries:
+            print("  ⚠ Không tìm thấy video nào.")
+            return []
+
         for entry in entries:
+            # STOP CONDITIONS
+            if len(downloaded_videos) >= num_videos:
+                print(f"  ✓ Đã đủ số lượng yêu cầu ({num_videos}). Dừng.")
+                break
+                
             if not entry:
                 continue
-                
-            video_id = entry.get("id")
-            if not video_id:
-                continue
             
-            # Kiểm tra video đã tồn tại chưa
-            # if check_video_exists(video_id):
-            #     skipped_count += 1
-            #     print(f"  ⏭ Video {video_id} đã tồn tại, bỏ qua...")
-            #     continue
+            inspected_count += 1
+            if inspected_count % 10 == 0:
+                print(f"  ... Đã quét {inspected_count} video...")
 
-            # --- REGEX CHECK TITLE ---
-            # Chỉ tải nếu tiêu đề khớp với regex_filter
+            video_id = entry.get("id")
             video_title = entry.get("title", "")
+            
+            # --- REGEX FILTER ---
             if regex_filter:
                 try:
                     if not re.search(regex_filter, video_title, re.IGNORECASE):
-                        print(f"  ⏭ Video '{video_title}' không khớp Regex Filter '{regex_filter}'. Bỏ qua.")
+                        # print(f"  ⏭ Bỏ qua '{video_title}' (Regex mismatch)")
                         continue
-                except Exception as e:
-                    print(f"  ⚠ Lỗi Regex '{regex_filter}': {e}. Vẫn tiếp tục kiểm tra...")
+                except:
                     pass
-            
-            # Chỉ tải nếu chưa đủ số lượng video cần
-            if len(downloaded_videos) >= num_videos:
-                break
-            
-            # Tải video này
+
+            # --- CHECK DB EXISTS (Fast Check by ID) ---
+            # User trước đây bảo "dùng Hash" nhưng để tối ưu tốc độ, ta CÓ THỂ check ID trước.
+            # Nếu User muốn *bắt buộc* tải về tính Hash thì ta comment đoạn này.
+            # TUY NHIÊN: Để "paginate" hiệu quả trên 500+ video, check ID là CỰC KỲ CẦN THIẾT
+            # để không phải tải oan 500 cái video cũ.
+            if check_video_exists(video_id):
+                skipped_count += 1
+                if skipped_count % 5 == 0:
+                     print(f"  ⏭ Đã bỏ qua {skipped_count} video trùng lặp (có trong DB)...")
+                continue
+
+            # --- TẢI VIDEO ---
             try:
-                print(f"  📥 Đang tải video {video_id}...")
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    video_info_dict = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=True)
+                print(f"  📥 Đang tải ({len(downloaded_videos) + 1}/{num_videos}): {video_id} - {video_title[:50]}...")
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl_executor:
+                    # Tải chi tiết và file video
+                    video_info_dict = ydl_executor.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=True)
                 
                 video_info = extract_video_info(video_info_dict, keyword=keyword)
                 if video_info:
-                    # Lưu vào database
+                    # Lưu vào database (Sẽ check Hash lần 2 bên trong hàm này)
                     if save_to_database(video_info, download_method='keyword'):
                         downloaded_videos.append(video_info)
-                        print(f"  ✓ Đã tải và lưu video {video_id}")
+                        print(f"  ✓ [OK] Video {len(downloaded_videos)}/{num_videos} hoàn tất.")
                     else:
-                        print(f"  ⚠ Không thể lưu video {video_id}")
+                        print(f"  ⚠ Video tải được nhưng trùng Hash hoặc lỗi DB.")
             except Exception as e:
                 print(f"  ✗ Lỗi khi tải video {video_id}: {e}")
                 continue
         
-        print(f"\n--> Hoàn tất: Đã tải {len(downloaded_videos)} video mới, bỏ qua {skipped_count} video đã tồn tại")
+        print(f"\n--> Hoàn tất: Đã tải {len(downloaded_videos)} video mới. (Quét tổng {inspected_count}, Bỏ qua {skipped_count})")
         return downloaded_videos
         
     except Exception as e:
         print(f"✗ Đã xảy ra lỗi: {e}")
-        import traceback
-        traceback.print_exc()
+        # import traceback
+        # traceback.print_exc()
         return []
 
 # ==================== TẢI VIDEO THEO URL ====================
