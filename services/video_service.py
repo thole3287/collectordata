@@ -36,7 +36,8 @@ def analyze_scene_features(frame):
     return services.scene_analysis.analyze_scene_features(frame)
 
 
-def extract_frames_from_folder(input_folder, output_root=None, progress_file_path=None, interval_seconds=1.0, platform='youtube'):
+def extract_frames_from_folder(input_folder, output_root=None, progress_file_path=None, interval_seconds=1.0, platform='youtube',
+                               blur_threshold=100, sim_threshold=0.95, min_brightness=40, max_brightness=220):
     """
     Extract frames from all videos in a folder.
     """
@@ -83,7 +84,9 @@ def extract_frames_from_folder(input_folder, output_root=None, progress_file_pat
                 frame_step = 1
 
             count = 0
+            count = 0
             saved_count = 0
+            last_saved_hist = None
 
             while True:
                 ret, frame = cap.read()
@@ -97,6 +100,38 @@ def extract_frames_from_folder(input_folder, output_root=None, progress_file_pat
                         
                         # Use Original Frame for Scene Analysis & Saving
                         resized_frame = frame
+                        
+                        # Use Original Frame for Scene Analysis & Saving
+                        resized_frame = frame
+                        
+                        # --- SMART FILTERING (Brightness, Blur, Deduplication) ---
+                        # 1. Convert to gray for analysis
+                        gray = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2GRAY)
+
+                        # 2. BRIGHTNESS FILTER
+                        avg_brightness = np.mean(gray)
+                        if avg_brightness < min_brightness or avg_brightness > max_brightness:
+                            count += 1
+                            continue
+
+                        # 3. BLUR FILTER
+                        blur_score = cv2.Laplacian(gray, cv2.CV_64F).var()
+                        if blur_score < blur_threshold:
+                            count += 1
+                            continue
+
+                        # 4. DEDUPLICATION (Histogram Similarity)
+                        curr_hist = cv2.calcHist([resized_frame], [0, 1, 2], None, [8, 8, 8], [0, 256, 0, 256, 0, 256])
+                        curr_hist = cv2.normalize(curr_hist, curr_hist).flatten()
+
+                        if last_saved_hist is not None:
+                            similarity = cv2.compareHist(last_saved_hist, curr_hist, cv2.HISTCMP_CORREL)
+                            if similarity > sim_threshold:
+                                count += 1
+                                continue
+                        
+                        # Apply current histogram as last saved (will be saved below)
+                        last_saved_hist = curr_hist
                         
                         # --- Feature Extraction for Scene Classification ---
                         scene_type = analyze_scene_features(resized_frame)

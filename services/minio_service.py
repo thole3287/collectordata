@@ -508,7 +508,8 @@ def save_frame_to_mongodb(db, video_id, platform, frame_index, minio_key, bucket
 
 
 def extract_and_upload_frames(video_path, video_id, platform='youtube', 
-                               fps=None, interval_seconds=None, target_width=None, target_height=None, db=None):
+                               fps=None, interval_seconds=None, target_width=None, target_height=None, db=None,
+                               blur_threshold=100, sim_threshold=0.95, min_brightness=40, max_brightness=220):
     """
     Extract frames từ video và upload lên MinIO, đồng thời lưu metadata vào MongoDB
     
@@ -586,6 +587,7 @@ def extract_and_upload_frames(video_path, video_id, platform='youtube',
             
             count = 0
             saved_count = 0
+            last_saved_hist = None
             
             while True:
                 ret, frame = cap.read()
@@ -604,7 +606,39 @@ def extract_and_upload_frames(video_path, video_id, platform='youtube',
                             )
                         else:
                             resized_frame = frame
+
+                        # --- SMART FILTERING (Brightness, Blur, Deduplication) ---
+                        # 1. Convert to gray for analysis
+                        gray = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2GRAY)
+
+                        # 2. BRIGHTNESS FILTER
+                        avg_brightness = np.mean(gray)
+                        if avg_brightness < min_brightness or avg_brightness > max_brightness:
+                            # print(f"  [Skip] Brightness {avg_brightness:.2f} out of range")
+                            count += 1
+                            continue
+
+                        # 3. BLUR FILTER
+                        blur_score = cv2.Laplacian(gray, cv2.CV_64F).var()
+                        if blur_score < blur_threshold:
+                            # print(f"  [Skip] Blur score {blur_score:.2f} < {blur_threshold}")
+                            count += 1
+                            continue
+
+                        # 4. DEDUPLICATION (Histogram Similarity)
+                        curr_hist = cv2.calcHist([resized_frame], [0, 1, 2], None, [8, 8, 8], [0, 256, 0, 256, 0, 256])
+                        curr_hist = cv2.normalize(curr_hist, curr_hist).flatten()
+
+                        if last_saved_hist is not None:
+                            similarity = cv2.compareHist(last_saved_hist, curr_hist, cv2.HISTCMP_CORREL)
+                            if similarity > sim_threshold:
+                                # print(f"  [Skip] Duplicate frame (Sim: {similarity:.4f})")
+                                count += 1
+                                continue
                         
+                        # Apply current histogram as last saved (will be saved below)
+                        last_saved_hist = curr_hist
+
                         # --- Feature Extraction for Scene Classification ---
                         from services.video_service import analyze_scene_features
                         scene_type = analyze_scene_features(resized_frame) # Or original frame? Resized is smaller/faster.

@@ -36,6 +36,7 @@ class CameraCollector:
             'successful': 0,
             'failed': 0
         }
+        self.last_camera_hists = {} # Cache for deduplication per camera
         
         # Create a session to maintain cookies and connection pooling
         self.session = requests.Session()
@@ -144,8 +145,41 @@ class CameraCollector:
 
 
                     # --- Feature Extraction for Scene Classification ---
+                    # scene_type = scene_analysis.analyze_scene_features(img)
+                    
+                    # --- SMART FILTERING (Brightness, Blur, Deduplication) ---
+                    # 1. Convert to gray for analysis
+                    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                    
+                    # 2. BRIGHTNESS FILTER (Default params: 40-220)
+                    avg_brightness = np.mean(gray)
+                    if avg_brightness < 40 or avg_brightness > 220:
+                        logger.info(f"Skipping camera {camera_id}: Brightness {avg_brightness:.2f} out of range")
+                        return False
+
+                    # 3. BLUR FILTER (Default 100)
+                    blur_score = cv2.Laplacian(gray, cv2.CV_64F).var()
+                    if blur_score < 100:
+                        logger.info(f"Skipping camera {camera_id}: Blur score {blur_score:.2f} too low")
+                        return False
+
+                    # 4. DEDUPLICATION (Histogram Similarity > 0.95)
+                    curr_hist = cv2.calcHist([img], [0, 1, 2], None, [8, 8, 8], [0, 256, 0, 256, 0, 256])
+                    curr_hist = cv2.normalize(curr_hist, curr_hist).flatten()
+                    
+                    last_hist = self.last_camera_hists.get(camera_id)
+                    if last_hist is not None:
+                        similarity = cv2.compareHist(last_hist, curr_hist, cv2.HISTCMP_CORREL)
+                        if similarity > 0.95:
+                            logger.info(f"Skipping camera {camera_id}: Duplicate image (Sim: {similarity:.4f})")
+                            return False
+                    
+                    # Update cache
+                    self.last_camera_hists[camera_id] = curr_hist
+                    
+                    # --- Continue to Feature Extraction ---
                     scene_type = scene_analysis.analyze_scene_features(img)
-                    # ---------------------------------------------------
+
 
                     # Convert to 16-bit (scale 8-bit [0-255] to 16-bit [0-65535])
                     img_16bit = img.astype(np.uint16) * 256
