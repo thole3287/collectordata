@@ -301,7 +301,7 @@ def get_ydl_options():
     download_dir = get_download_directory()
     
     return {
-        'format': 'bestvideo[height<=1080]/best[height<=1080]/best',
+        'format': 'bestvideo[height<=1080][vcodec^=avc1]+bestaudio/best[height<=1080][vcodec^=avc1]/best',
         'merge_output_format': 'mp4',
         'postprocessors': [
             {'key': 'FFmpegVideoConvertor', 'preferedformat': 'mp4'},
