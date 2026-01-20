@@ -168,3 +168,4 @@ volumes:
 networks:
   collectordata_network:
     driver: bridge
+

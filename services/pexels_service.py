@@ -19,8 +19,10 @@ logger = logging.getLogger(__name__)
 logger = logging.getLogger(__name__)
 
 PEXELS_OUTPUT_FOLDER = "pexels_traffic_dataset"
-TARGET_WIDTH = 1280
+# TARGET_WIDTH = 1280 (Removed to keep original size)
+TARGET_WIDTH = 1280 # Keeping for logic download best quality, but not for resize
 TARGET_HEIGHT = 720
+
 
 from services.video_service import calculate_file_hash
 
@@ -125,8 +127,8 @@ def save_pexels_video_to_database(video_data, query, download_method='pexels'):
                                 video_id=video_id,
                                 platform='pexels',
                                 fps=video_fps,
-                                target_width=1280,
-                                target_height=720,
+                                target_width=None, # Use original size
+                                target_height=None,
                                 db=db
                             )
                             if frames_result.get('success'):

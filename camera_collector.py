@@ -9,6 +9,7 @@ import cv2
 import services.minio_service as minio_service
 import services.database as db_service
 import services.scene_analysis as scene_analysis
+from services.image_enhancement import process_image, load_settings
 
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,7 @@ class CameraCollector:
             'successful': 0,
             'failed': 0
         }
+        self.last_camera_hists = {} # Cache for deduplication per camera
         
         # Create a session to maintain cookies and connection pooling
         self.session = requests.Session()
@@ -139,12 +141,66 @@ class CameraCollector:
                 img = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
                 
                 if img is not None:
-                    # Resize to 1280x720 standard
-                    img = cv2.resize(img, (1280, 720), interpolation=cv2.INTER_AREA)
+                    # Resize to 1280x720 standard - REMOVED per user request
+                    # img = cv2.resize(img, (1280, 720), interpolation=cv2.INTER_AREA)
+
 
                     # --- Feature Extraction for Scene Classification ---
+                    # scene_type = scene_analysis.analyze_scene_features(img)
+                    
+                    # --- SMART FILTERING (Brightness, Blur, Deduplication) ---
+                    # 1. Convert to gray for analysis
+                    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                    
+                    # 2. BRIGHTNESS FILTER (Default params: 40-220)
+                    avg_brightness = np.mean(gray)
+                    if avg_brightness < 40 or avg_brightness > 220:
+                        logger.info(f"Skipping camera {camera_id}: Brightness {avg_brightness:.2f} out of range")
+                        return False
+
+                    # 3. BLUR FILTER (Default 100)
+                    blur_score = cv2.Laplacian(gray, cv2.CV_64F).var()
+                    if blur_score < 100:
+                        logger.info(f"Skipping camera {camera_id}: Blur score {blur_score:.2f} too low")
+                        return False
+
+                    # --- DEDUPLICATION CHECK ---
+                    # Tính histogram của ảnh hiện tại
+                    curr_hist = cv2.calcHist([img], [0], None, [256], [0, 256])
+                    cv2.normalize(curr_hist, curr_hist, 0, 1, cv2.NORM_MINMAX)
+
+                    # Lấy histogram cũ của camera này
+                    last_hist = self.last_camera_hists.get(camera_id)
+                    
+                    is_duplicate = False
+                    if last_hist is not None:
+                        # Compare method CORREL
+                        score = cv2.compareHist(last_hist, curr_hist, cv2.HISTCMP_CORREL)
+                        if score > 0.95: # SAME IMAGE
+                            is_duplicate = True
+                    
+                    if is_duplicate:
+                        logger.info(f"Skipping duplicate frame for Camera {camera_id}")
+                        return False # Changed from None to False to match method signature
+                    
+                    # --- IMAGE ENHANCEMENT ---
+                    # Load settings (Note: In production might want to cache this to avoid reading file every second)
+                    # For now invalid/missing file is handled by load_settings returning defaults
+                    enhance_settings = load_settings()
+                    if enhance_settings.get('enabled_camera', False):
+                        try:
+                            params = enhance_settings.get('params', {})
+                            img = process_image(img, params) # Apply enhancement to 'img'
+                        except Exception as e:
+                            logger.error(f"Error enhancing camera image: {e}")
+                    # -------------------------
+
+                    # Cập nhật histogram mới nhất cho camera này (using the original image's histogram for consistency)
+                    self.last_camera_hists[camera_id] = curr_hist
+                    
+                    # --- Continue to Feature Extraction ---
                     scene_type = scene_analysis.analyze_scene_features(img)
-                    # ---------------------------------------------------
+
 
                     # Convert to 16-bit (scale 8-bit [0-255] to 16-bit [0-65535])
                     img_16bit = img.astype(np.uint16) * 256

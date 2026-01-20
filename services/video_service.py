@@ -5,7 +5,9 @@ import threading
 import services.database as db_service
 import services.minio_service as minio_service
 import services.scene_analysis
+import shutil
 from datetime import datetime
+from services.image_enhancement import process_image, load_settings
 
 import numpy as np
 
@@ -14,8 +16,9 @@ import hashlib
 FRAMES_OUTPUT_ROOT = "dataset_extracted"
 VALID_VIDEO_EXTENSIONS = ('.mp4', '.avi', '.mov', '.mkv', '.wmv')
 # Đọc từ env nếu có, nhưng ở đây cần import os/cv2 nên sẽ xử lý tham số truyền vào
-TARGET_WIDTH = 1280
-TARGET_HEIGHT = 720
+# TARGET_WIDTH = 1280
+# TARGET_HEIGHT = 720
+
 
 def calculate_file_hash(file_path):
     """Calculate SHA256 hash of a file."""
@@ -35,7 +38,8 @@ def analyze_scene_features(frame):
     return services.scene_analysis.analyze_scene_features(frame)
 
 
-def extract_frames_from_folder(input_folder, output_root=None, progress_file_path=None, interval_seconds=1.0, platform='youtube'):
+def extract_frames_from_folder(input_folder, output_root=None, progress_file_path=None, interval_seconds=1.0, platform='youtube',
+                               blur_threshold=100, sim_threshold=0.95, min_brightness=40, max_brightness=220):
     """
     Extract frames from all videos in a folder.
     """
@@ -61,6 +65,11 @@ def extract_frames_from_folder(input_folder, output_root=None, progress_file_pat
         
         os.makedirs(output_root, exist_ok=True)
 
+        # Load Image Enhancement Settings once for all videos
+        enhancement_settings = load_settings()
+        should_enhance = enhancement_settings.get('enabled_video', False)
+        enhance_params = enhancement_settings.get('params', {})
+
         for idx, video_file in enumerate(video_files):
             video_path = os.path.join(input_folder, video_file)
             video_name = os.path.splitext(video_file)[0]
@@ -83,6 +92,7 @@ def extract_frames_from_folder(input_folder, output_root=None, progress_file_pat
 
             count = 0
             saved_count = 0
+            last_saved_hist = None
 
             while True:
                 ret, frame = cap.read()
@@ -91,9 +101,49 @@ def extract_frames_from_folder(input_folder, output_root=None, progress_file_pat
 
                 if count % frame_step == 0:
                     try:
-                        # Resize frame
-                        resized_frame = cv2.resize(frame, (TARGET_WIDTH, TARGET_HEIGHT), interpolation=cv2.INTER_AREA)
+                        # Resize frame REMOVED - Use original size
+                        # resized_frame = cv2.resize(frame, (TARGET_WIDTH, TARGET_HEIGHT), interpolation=cv2.INTER_AREA)
                         
+                        # Use Original Frame for Scene Analysis & Saving
+                        resized_frame = frame
+                        
+                        # --- SMART FILTERING (Brightness, Blur, Deduplication) ---
+                        # 1. Convert to gray for analysis
+                        gray = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2GRAY)
+
+                        # 2. BRIGHTNESS FILTER
+                        avg_brightness = np.mean(gray)
+                        if avg_brightness < min_brightness or avg_brightness > max_brightness:
+                            count += 1
+                            continue
+
+                        # 3. BLUR FILTER
+                        blur_score = cv2.Laplacian(gray, cv2.CV_64F).var()
+                        if blur_score < blur_threshold:
+                            count += 1
+                            continue
+
+                        # 4. DEDUPLICATION (Histogram Similarity)
+                        curr_hist = cv2.calcHist([resized_frame], [0, 1, 2], None, [8, 8, 8], [0, 256, 0, 256, 0, 256])
+                        curr_hist = cv2.normalize(curr_hist, curr_hist).flatten()
+
+                        if last_saved_hist is not None:
+                            similarity = cv2.compareHist(last_saved_hist, curr_hist, cv2.HISTCMP_CORREL)
+                            if similarity > sim_threshold:
+                                count += 1
+                                continue
+                        
+                        # Apply current histogram as last saved (will be saved below)
+                        last_saved_hist = curr_hist
+                        
+                        # --- Image Enhancement Integration ---
+                        if should_enhance:
+                            try:
+                                resized_frame = process_image(resized_frame, enhance_params)
+                            except Exception as e:
+                                print(f"Error enhancing frame: {e}")
+                        # -------------------------------------
+
                         # --- Feature Extraction for Scene Classification ---
                         scene_type = analyze_scene_features(resized_frame)
                         

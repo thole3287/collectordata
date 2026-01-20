@@ -2,6 +2,7 @@
 MinIO Helper - Utility functions để upload/download files từ MinIO
 Tích hợp với MongoDB để lưu metadata và storage references
 """
+
 import os
 from datetime import datetime, timedelta
 from minio import Minio
@@ -12,44 +13,46 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Load MinIO configuration from environment
-MINIO_ENDPOINT = os.getenv('MINIO_ENDPOINT', 'localhost')
-MINIO_PORT = int(os.getenv('MINIO_PORT', 9000))
-MINIO_ACCESS_KEY = os.getenv('MINIO_ACCESS_KEY', 'minioadmin')
-MINIO_SECRET_KEY = os.getenv('MINIO_SECRET_KEY', 'minioadmin123')
-MINIO_USE_SSL = os.getenv('MINIO_USE_SSL', 'False').lower() == 'true'
+MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost")
+MINIO_PORT = int(os.getenv("MINIO_PORT", 9000))
+MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
+MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin123")
+MINIO_USE_SSL = os.getenv("MINIO_USE_SSL", "False").lower() == "true"
 
 # Bucket names
-MINIO_BUCKET_VIDEOS = os.getenv('MINIO_BUCKET_VIDEOS', 'videos')
-MINIO_BUCKET_IMAGES = os.getenv('MINIO_BUCKET_IMAGES', 'images')
-MINIO_BUCKET_FRAMES = os.getenv('MINIO_BUCKET_FRAMES', 'dataset')
-MINIO_BUCKET_CAMERA = os.getenv('MINIO_BUCKET_CAMERA', 'camera-images')
-MINIO_BUCKET_VEHICLE_DETECTION = os.getenv('MINIO_BUCKET_VEHICLE_DETECTION', 'vehicle-detection')
+MINIO_BUCKET_VIDEOS = os.getenv("MINIO_BUCKET_VIDEOS", "videos")
+MINIO_BUCKET_IMAGES = os.getenv("MINIO_BUCKET_IMAGES", "images")
+MINIO_BUCKET_FRAMES = os.getenv("MINIO_BUCKET_FRAMES", "dataset")
+MINIO_BUCKET_CAMERA = os.getenv("MINIO_BUCKET_CAMERA", "camera-images")
+MINIO_BUCKET_VEHICLE_DETECTION = os.getenv(
+    "MINIO_BUCKET_VEHICLE_DETECTION", "vehicle-detection"
+)
 
 
 def get_minio_client(internal=False):
     """
     Tạo MinIO client connection
-    
+
     Args:
         internal: Nếu True, sử dụng internal endpoint (cho Docker container)
-    
+
     Returns:
         Minio client object
     """
-    endpoint_host = 'minio' if internal else MINIO_ENDPOINT
+    endpoint_host = "minio" if internal else MINIO_ENDPOINT
     # Fallback: if MINIO_ENDPOINT is not localhost, maybe it's already set correctly?
     # But safe bet for docker environment (app -> minio) is service name.
-    
+
     # However, if we are running locally (not docker), collectordata_minio won't resolve.
     # We should only force collectordata_minio if we suspect we are in docker.
     # But app.py calling this with internal=True implies it knows what it's doing.
-    
+
     endpoint = f"{endpoint_host}:{MINIO_PORT}"
     return Minio(
         endpoint,
         access_key=MINIO_ACCESS_KEY,
         secret_key=MINIO_SECRET_KEY,
-        secure=MINIO_USE_SSL
+        secure=MINIO_USE_SSL,
     )
 
 
@@ -64,16 +67,16 @@ def ensure_buckets_exist():
             # MINIO_BUCKET_IMAGES, # Deprecated
             MINIO_BUCKET_FRAMES,
             # MINIO_BUCKET_CAMERA, # Deprecated, using frames/camera instead
-            MINIO_BUCKET_VEHICLE_DETECTION
+            MINIO_BUCKET_VEHICLE_DETECTION,
         ]
-        
+
         for bucket_name in buckets:
             if not client.bucket_exists(bucket_name):
                 client.make_bucket(bucket_name)
                 print(f"[OK] Created bucket: {bucket_name}")
             else:
                 print(f"[OK] Bucket already exists: {bucket_name}")
-        
+
         return True
     except S3Error as e:
         print(f"Error ensuring buckets exist: {e}")
@@ -86,13 +89,13 @@ def ensure_buckets_exist():
 def upload_file(file_path, bucket_name, object_name=None, content_type=None):
     """
     Upload file lên MinIO
-    
+
     Args:
         file_path: Đường dẫn file local
         bucket_name: Tên bucket
         object_name: Tên object trong bucket (mặc định = tên file)
         content_type: MIME type (tự động detect nếu None)
-    
+
     Returns:
         True nếu thành công, False nếu thất bại
     """
@@ -100,28 +103,25 @@ def upload_file(file_path, bucket_name, object_name=None, content_type=None):
         if not os.path.exists(file_path):
             print(f"File not found: {file_path}")
             return False
-        
+
         client = get_minio_client()
-        
+
         # Đảm bảo bucket tồn tại
         if not client.bucket_exists(bucket_name):
             client.make_bucket(bucket_name)
-        
+
         # Nếu không có object_name, dùng tên file
         if object_name is None:
             object_name = os.path.basename(file_path)
-        
+
         # Upload file
         client.fput_object(
-            bucket_name,
-            object_name,
-            file_path,
-            content_type=content_type
+            bucket_name, object_name, file_path, content_type=content_type
         )
-        
+
         print(f"[OK] Uploaded {file_path} to {bucket_name}/{object_name}")
         return True
-        
+
     except S3Error as e:
         print(f"Error uploading file: {e}")
         return False
@@ -133,27 +133,27 @@ def upload_file(file_path, bucket_name, object_name=None, content_type=None):
 def download_file(bucket_name, object_name, file_path):
     """
     Download file từ MinIO
-    
+
     Args:
         bucket_name: Tên bucket
         object_name: Tên object trong bucket
         file_path: Đường dẫn file local để lưu
-    
+
     Returns:
         True nếu thành công, False nếu thất bại
     """
     try:
         client = get_minio_client()
-        
+
         # Tạo thư mục nếu chưa có
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        
+
         # Download file
         client.fget_object(bucket_name, object_name, file_path)
-        
+
         print(f"[OK] Downloaded {bucket_name}/{object_name} to {file_path}")
         return True
-        
+
     except S3Error as e:
         print(f"Error downloading file: {e}")
         return False
@@ -163,12 +163,13 @@ def download_file(bucket_name, object_name, file_path):
 
 
 # Public access configuration (for browser)
-MINIO_PUBLIC_ENDPOINT = os.getenv('MINIO_PUBLIC_ENDPOINT', 'localhost')
-MINIO_PUBLIC_PORT = int(os.getenv('MINIO_PUBLIC_PORT', 9000))
+MINIO_PUBLIC_ENDPOINT = os.getenv("MINIO_PUBLIC_ENDPOINT", "localhost")
+MINIO_PUBLIC_PORT = int(os.getenv("MINIO_PUBLIC_PORT", 9000))
 
 
 # Singleton public client
 _public_client = None
+
 
 def get_public_minio_client():
     """
@@ -177,15 +178,16 @@ def get_public_minio_client():
     global _public_client
     if _public_client is not None:
         return _public_client
-        
+
     endpoint = f"{MINIO_PUBLIC_ENDPOINT}:{MINIO_PUBLIC_PORT}"
     _public_client = Minio(
         endpoint,
         access_key=MINIO_ACCESS_KEY,
         secret_key=MINIO_SECRET_KEY,
-        secure=MINIO_USE_SSL
+        secure=MINIO_USE_SSL,
     )
     return _public_client
+
 
 def get_file_url(bucket_name, object_name, expires=3600):
     """
@@ -195,18 +197,18 @@ def get_file_url(bucket_name, object_name, expires=3600):
     try:
         # Use internal client to generate URL (avoids connection errors inside container)
         client = get_minio_client()
-        
+
         # Ensure expires is timedelta
         if isinstance(expires, int):
             expires = timedelta(seconds=expires)
-            
+
         url = client.presigned_get_object(bucket_name, object_name, expires=expires)
-        
+
         # Replace internal container hostname (minio) with public hostname (localhost)
         # so the browser can access it
-        if url and 'minio:9000' in url:
-            url = url.replace('minio:9000', 'localhost:9000')
-            
+        if url and "minio:9000" in url:
+            url = url.replace("minio:9000", "localhost:9000")
+
         return url
     except S3Error as e:
         print(f"Error getting presigned URL: {e}")
@@ -219,11 +221,11 @@ def get_file_url(bucket_name, object_name, expires=3600):
 def list_files(bucket_name, prefix=None):
     """
     Liệt kê các files trong bucket
-    
+
     Args:
         bucket_name: Tên bucket
         prefix: Prefix để filter (optional)
-    
+
     Returns:
         List of object names
     """
@@ -242,11 +244,11 @@ def list_files(bucket_name, prefix=None):
 def delete_file(bucket_name, object_name):
     """
     Xóa file từ MinIO
-    
+
     Args:
         bucket_name: Tên bucket
         object_name: Tên object
-    
+
     Returns:
         True nếu thành công, False nếu thất bại
     """
@@ -263,34 +265,43 @@ def delete_file(bucket_name, object_name):
         return False
 
 
-def generate_storage_path(camera_id, event_id, file_type='full', extension='jpg', timestamp=None):
+def generate_storage_path(
+    camera_id, event_id, file_type="full", extension="jpg", timestamp=None
+):
     """
     Tạo đường dẫn có cấu trúc cho file trong MinIO
     Format: YYYY/MM/DD/{camera_id}/{event_id}_{type}.{ext}
-    
+
     Args:
         camera_id: ID của camera
         event_id: ID của sự kiện detection
         file_type: Loại file (full, crop, plate, video)
         extension: Đuôi file (jpg, mp4, etc.)
         timestamp: Datetime object (mặc định = now)
-    
+
     Returns:
         String path: YYYY/MM/DD/camera_id/event_id_type.ext
     """
     if timestamp is None:
         timestamp = datetime.now()
-    
+
     date_path = timestamp.strftime("%Y/%m/%d")
     filename = f"{event_id}_{file_type}.{extension}"
     return f"{date_path}/{camera_id}/{filename}"
 
 
-def upload_and_get_key(file_path, bucket_name, camera_id=None, event_id=None, 
-                       file_type='full', content_type=None, custom_path=None):
+def upload_and_get_key(
+    file_path,
+    bucket_name,
+    camera_id=None,
+    event_id=None,
+    file_type="full",
+    content_type=None,
+    custom_path=None,
+):
     """
     Upload file lên MinIO và trả về key (path) để lưu vào MongoDB
-    
+
     Args:
         file_path: Đường dẫn file local
         bucket_name: Tên bucket
@@ -299,98 +310,84 @@ def upload_and_get_key(file_path, bucket_name, camera_id=None, event_id=None,
         file_type: Loại file (full, crop, plate, video)
         content_type: MIME type
         custom_path: Path tùy chỉnh (nếu không dùng generate_storage_path)
-    
+
     Returns:
         dict với keys: 'success', 'bucket', 'key', 'error'
     """
     try:
         if not os.path.exists(file_path):
-            return {
-                'success': False,
-                'error': f'File not found: {file_path}'
-            }
-        
+            return {"success": False, "error": f"File not found: {file_path}"}
+
         client = get_minio_client()
-        
+
         # Đảm bảo bucket tồn tại
         if not client.bucket_exists(bucket_name):
             client.make_bucket(bucket_name)
-        
+
         # Tạo object key
         if custom_path:
             object_key = custom_path
         elif camera_id and event_id:
-            extension = os.path.splitext(file_path)[1][1:] or 'jpg'
-            object_key = generate_storage_path(camera_id, event_id, file_type, extension)
+            extension = os.path.splitext(file_path)[1][1:] or "jpg"
+            object_key = generate_storage_path(
+                camera_id, event_id, file_type, extension
+            )
         else:
             object_key = os.path.basename(file_path)
-        
+
         # Upload file
         client.fput_object(
-            bucket_name,
-            object_key,
-            file_path,
-            content_type=content_type
+            bucket_name, object_key, file_path, content_type=content_type
         )
-        
-        return {
-            'success': True,
-            'bucket': bucket_name,
-            'key': object_key
-        }
-        
+
+        return {"success": True, "bucket": bucket_name, "key": object_key}
+
     except S3Error as e:
-        return {
-            'success': False,
-            'error': f'MinIO error: {str(e)}'
-        }
+        return {"success": False, "error": f"MinIO error: {str(e)}"}
     except Exception as e:
-        return {
-            'success': False,
-            'error': f'Unexpected error: {str(e)}'
-        }
+        return {"success": False, "error": f"Unexpected error: {str(e)}"}
 
 
 def save_vehicle_detection_to_mongodb(db, detection_data, storage_refs):
     """
     Lưu metadata vehicle detection vào MongoDB với storage references
-    
+
     Args:
         db: MongoDB database object
         detection_data: Dict chứa thông tin detection (vehicle_type, license_plate, etc.)
         storage_refs: Dict chứa bucket và keys (full_frame_key, cropped_vehicle_key, etc.)
-    
+
     Returns:
         ObjectId của document đã tạo hoặc None nếu lỗi
     """
     try:
-        collection = db['vehicle_detections']
-        
+        collection = db["vehicle_detections"]
+
         document = {
-            'event_id': detection_data.get('event_id'),
-            'timestamp': detection_data.get('timestamp', datetime.now()),
-            'camera_id': detection_data.get('camera_id'),
-            'location': detection_data.get('location', {}),
-            'detection_data': {
-                'vehicle_type': detection_data.get('vehicle_type'),
-                'license_plate': detection_data.get('license_plate'),
-                'color': detection_data.get('color'),
-                'confidence': detection_data.get('confidence', 0.0)
+            "event_id": detection_data.get("event_id"),
+            "timestamp": detection_data.get("timestamp", datetime.now()),
+            "camera_id": detection_data.get("camera_id"),
+            "location": detection_data.get("location", {}),
+            "detection_data": {
+                "vehicle_type": detection_data.get("vehicle_type"),
+                "license_plate": detection_data.get("license_plate"),
+                "color": detection_data.get("color"),
+                "confidence": detection_data.get("confidence", 0.0),
             },
-            'storage_refs': {
-                'bucket': storage_refs.get('bucket', MINIO_BUCKET_VEHICLE_DETECTION),
-                'full_frame_key': storage_refs.get('full_frame_key'),
-                'cropped_vehicle_key': storage_refs.get('cropped_vehicle_key'),
-                'cropped_plate_key': storage_refs.get('cropped_plate_key'),
-                'video_clip_key': storage_refs.get('video_clip_key')
+            "storage_refs": {
+                "bucket": storage_refs.get("bucket", MINIO_BUCKET_VEHICLE_DETECTION),
+                "full_frame_key": storage_refs.get("full_frame_key"),
+                "cropped_vehicle_key": storage_refs.get("cropped_vehicle_key"),
+                "cropped_plate_key": storage_refs.get("cropped_plate_key"),
+                "video_clip_key": storage_refs.get("video_clip_key"),
             },
-            'created_at': datetime.now(),
-            'updated_at': datetime.now()
+            "created_at": datetime.now(),
+            "updated_at": datetime.now(),
         }
-        
+
         result = collection.insert_one(document)
         return result.inserted_id
-        
+
     except Exception as e:
         print(f"Error saving to MongoDB: {e}")
         return None
@@ -399,69 +396,79 @@ def save_vehicle_detection_to_mongodb(db, detection_data, storage_refs):
 def get_presigned_urls_for_detection(db, event_id, expires=3600):
     """
     Lấy presigned URLs cho tất cả files của một detection event
-    
+
     Args:
         db: MongoDB database object
         event_id: ID của event
         expires: Thời gian hết hạn URL (giây)
-    
+
     Returns:
         Dict chứa presigned URLs hoặc None nếu không tìm thấy
     """
     try:
-        collection = db['vehicle_detections']
-        detection = collection.find_one({'event_id': event_id})
-        
+        collection = db["vehicle_detections"]
+        detection = collection.find_one({"event_id": event_id})
+
         if not detection:
             return None
-        
-        storage_refs = detection.get('storage_refs', {})
-        bucket = storage_refs.get('bucket', MINIO_BUCKET_VEHICLE_DETECTION)
-        
+
+        storage_refs = detection.get("storage_refs", {})
+        bucket = storage_refs.get("bucket", MINIO_BUCKET_VEHICLE_DETECTION)
+
         urls = {}
         client = get_minio_client()
-        
+
         # Ensure expires is timedelta
         if isinstance(expires, int):
             expires = timedelta(seconds=expires)
-        
+
         # Tạo presigned URL cho từng file
-        if storage_refs.get('full_frame_key'):
-            urls['full_frame'] = client.presigned_get_object(
-                bucket, storage_refs['full_frame_key'], expires=expires
+        if storage_refs.get("full_frame_key"):
+            urls["full_frame"] = client.presigned_get_object(
+                bucket, storage_refs["full_frame_key"], expires=expires
             )
-        
-        if storage_refs.get('cropped_vehicle_key'):
-            urls['cropped_vehicle'] = client.presigned_get_object(
-                bucket, storage_refs['cropped_vehicle_key'], expires=expires
+
+        if storage_refs.get("cropped_vehicle_key"):
+            urls["cropped_vehicle"] = client.presigned_get_object(
+                bucket, storage_refs["cropped_vehicle_key"], expires=expires
             )
-        
-        if storage_refs.get('cropped_plate_key'):
-            urls['cropped_plate'] = client.presigned_get_object(
-                bucket, storage_refs['cropped_plate_key'], expires=expires
+
+        if storage_refs.get("cropped_plate_key"):
+            urls["cropped_plate"] = client.presigned_get_object(
+                bucket, storage_refs["cropped_plate_key"], expires=expires
             )
-        
-        if storage_refs.get('video_clip_key'):
-            urls['video_clip'] = client.presigned_get_object(
-                bucket, storage_refs['video_clip_key'], expires=expires
+
+        if storage_refs.get("video_clip_key"):
+            urls["video_clip"] = client.presigned_get_object(
+                bucket, storage_refs["video_clip_key"], expires=expires
             )
-        
+
         return {
-            'event_id': event_id,
-            'detection_data': detection.get('detection_data'),
-            'urls': urls
+            "event_id": event_id,
+            "detection_data": detection.get("detection_data"),
+            "urls": urls,
         }
-        
+
     except Exception as e:
         print(f"Error getting presigned URLs: {e}")
         return None
 
 
-def save_frame_to_mongodb(db, video_id, platform, frame_index, minio_key, bucket_name, 
-                          frame_number, video_frame_number, timestamp=None, scene_type='day'):
+def save_frame_to_mongodb(
+    db,
+    video_id,
+    platform,
+    frame_index,
+    minio_key,
+    bucket_name,
+    frame_number,
+    video_frame_number,
+    timestamp=None,
+    scene_type="day",
+):
     """
     Lưu metadata của một frame vào MongoDB
-    
+
     Args:
         db: MongoDB database object
         video_id: ID của video
@@ -473,45 +480,50 @@ def save_frame_to_mongodb(db, video_id, platform, frame_index, minio_key, bucket
         video_frame_number: Số frame trong video gốc (frame thứ bao nhiêu trong video)
         timestamp: Thời gian extract (mặc định = now)
         scene_type: Loại cảnh (day, night, rain)
-    
+
     Returns:
         ObjectId của document đã tạo hoặc None nếu lỗi
     """
     try:
         if timestamp is None:
             timestamp = datetime.now()
-        
-        collection = db['video_frames']
-        
+
+        collection = db["video_frames"]
+
         document = {
-            'video_id': video_id,
-            'platform': platform,
-            'frame_index': frame_index,  # Thứ tự trong danh sách frames đã extract
-            'frame_number': frame_number,  # Số thứ tự trong tên file (fr00000)
-            'video_frame_number': video_frame_number,  # Số frame trong video gốc
-            'scene_type': scene_type, # Detected scene
-            'weather': scene_type, # Mirror scene_type for chart aggregation
-            'storage_refs': {
-                'bucket': bucket_name,
-                'key': minio_key
-            },
-            'extracted_at': timestamp,
-            'created_at': datetime.now()
+            "video_id": video_id,
+            "platform": platform,
+            "frame_index": frame_index,  # Thứ tự trong danh sách frames đã extract
+            "frame_number": frame_number,  # Số thứ tự trong tên file (fr00000)
+            "video_frame_number": video_frame_number,  # Số frame trong video gốc
+            "scene_type": scene_type,  # Detected scene
+            "weather": scene_type,  # Mirror scene_type for chart aggregation
+            "storage_refs": {"bucket": bucket_name, "key": minio_key},
+            "extracted_at": timestamp,
+            "created_at": datetime.now(),
         }
-        
+
         result = collection.insert_one(document)
         return result.inserted_id
-        
+
     except Exception as e:
         print(f"Error saving frame to MongoDB: {e}")
         return None
 
 
-def extract_and_upload_frames(video_path, video_id, platform='youtube', 
-                               fps=None, interval_seconds=None, target_width=1280, target_height=720, db=None):
+def extract_and_upload_frames(
+    video_path,
+    video_id,
+    platform="youtube",
+    fps=None,
+    interval_seconds=None,
+    target_width=1280,
+    target_height=720,
+    db=None,
+):
     """
     Extract frames từ video và upload lên MinIO, đồng thời lưu metadata vào MongoDB
-    
+
     Args:
         video_path: Đường dẫn video local
         video_id: ID của video
@@ -521,47 +533,41 @@ def extract_and_upload_frames(video_path, video_id, platform='youtube',
         target_width: Chiều rộng ảnh output
         target_height: Chiều cao ảnh output
         db: MongoDB database object (optional, nếu có sẽ lưu metadata vào MongoDB)
-    
+
     Returns:
         dict với keys: 'success', 'frames_uploaded', 'frame_keys', 'frame_ids', 'fps', 'frame_step', 'error'
     """
     try:
         # Đọc interval từ env nếu không được truyền vào
         if interval_seconds is None:
-            interval_seconds = float(os.getenv('FRAME_INTERVAL_SECONDS', 1.0))
+            interval_seconds = float(os.getenv("FRAME_INTERVAL_SECONDS", 1.0))
         import cv2
         import tempfile
         import shutil
-        
+
         if not os.path.exists(video_path):
-            return {
-                'success': False,
-                'error': f'Video file not found: {video_path}'
-            }
-        
+            return {"success": False, "error": f"Video file not found: {video_path}"}
+
         client = get_minio_client()
         bucket_name = MINIO_BUCKET_FRAMES
-        
+
         # Đảm bảo bucket tồn tại
         if not client.bucket_exists(bucket_name):
             client.make_bucket(bucket_name)
-        
+
         # Tạo temp directory để lưu frames tạm thời
         temp_dir = tempfile.mkdtemp()
         frame_keys = []
         frame_ids = []  # MongoDB ObjectIds
         frames_uploaded = 0
         extract_timestamp = datetime.now()
-        
+
         try:
             # Mở video
             cap = cv2.VideoCapture(video_path)
             if not cap.isOpened():
-                return {
-                    'success': False,
-                    'error': 'Cannot open video file'
-                }
-            
+                return {"success": False, "error": "Cannot open video file"}
+
             # Lấy FPS từ video nếu chưa có
             if fps is None:
                 video_fps = cap.get(cv2.CAP_PROP_FPS)
@@ -573,7 +579,7 @@ def extract_and_upload_frames(video_path, video_id, platform='youtube',
                     print(f"  [!] Cannot detect FPS, using default: {fps} fps")
             else:
                 video_fps = fps
-            
+
             # Tính frame_step dựa trên FPS và interval
             # Ví dụ: fps=30, interval=1 giây → frame_step=30
             # Ví dụ: fps=60, interval=1 giây → frame_step=60
@@ -581,54 +587,61 @@ def extract_and_upload_frames(video_path, video_id, platform='youtube',
             frame_step = int(fps * interval_seconds)
             if frame_step < 1:
                 frame_step = 1
-            
-            print(f"  [INFO] Video FPS: {fps:.2f}, Interval: {interval_seconds}s -> Frame step: {frame_step}")
-            
+
+            print(
+                f"  [INFO] Video FPS: {fps:.2f}, Interval: {interval_seconds}s -> Frame step: {frame_step}"
+            )
+
             count = 0
             saved_count = 0
-            
+
             while True:
                 ret, frame = cap.read()
                 if not ret:
                     break
-                
+
                 # Extract frame theo step (tính từ FPS)
                 if count % frame_step == 0:
                     try:
                         # Resize frame
                         resized_frame = cv2.resize(
-                            frame, 
-                            (target_width, target_height), 
-                            interpolation=cv2.INTER_AREA
+                            frame,
+                            (target_width, target_height),
+                            interpolation=cv2.INTER_AREA,
                         )
-                        
+
                         # --- Feature Extraction for Scene Classification ---
                         from services.video_service import analyze_scene_features
-                        scene_type = analyze_scene_features(resized_frame) # Or original frame? Resized is smaller/faster.
-                        
+
+                        scene_type = analyze_scene_features(
+                            resized_frame
+                        )  # Or original frame? Resized is smaller/faster.
+
                         # Convert to 16-bit PNG (scale up)
                         frame_16bit = resized_frame.astype(np.uint16) * 256
-                        
+
                         # Lưu frame tạm thời (PNG)
                         frame_filename = f"{video_id}_fr{saved_count:05d}.png"
                         temp_frame_path = os.path.join(temp_dir, frame_filename)
                         cv2.imwrite(temp_frame_path, frame_16bit)
-                        
+
                         # Tạo object key: platform/scene/video_id/frame_xxx.png
                         # User requested: dataset - youtube - day - ...
-                        object_key = f"{platform}/{scene_type}/{video_id}/{frame_filename}"
-                        
+                        object_key = (
+                            f"{platform}/{scene_type}/{video_id}/{frame_filename}"
+                        )
+
                         # Upload lên MinIO
                         client.fput_object(
                             bucket_name,
                             object_key,
                             temp_frame_path,
-                            content_type='image/png'
+                            content_type="image/png",
                         )
-                        
+
                         frame_keys.append(object_key)
                         frames_uploaded += 1
-                        
+
                         # Lưu metadata vào MongoDB nếu có db connection
                         if db is not None:
                             frame_id = save_frame_to_mongodb(
@@ -641,44 +654,74 @@ def extract_and_upload_frames(video_path, video_id, platform='youtube',
                                 frame_number=f"fr{saved_count:05d}",
                                 video_frame_number=count,  # Số frame trong video gốc
                                 timestamp=extract_timestamp,
-                                scene_type=scene_type
+                                scene_type=scene_type,
                             )
                             if frame_id:
                                 frame_ids.append(str(frame_id))
-                        
+
                         saved_count += 1
-                        
+
                     except Exception as e:
                         print(f"Error processing frame {count}: {e}")
-                
+
                 if count % (frame_step * 50) == 0:
-                     print(f"  [INFO] Processed {count} frames ({saved_count} saved)...")
+                    print(f"  [INFO] Processed {count} frames ({saved_count} saved)...")
 
                 count += 1
-            
+
             cap.release()
-            
+
             return {
-                'success': True,
-                'frames_uploaded': frames_uploaded,
-                'frame_keys': frame_keys,
-                'frame_ids': frame_ids,  # MongoDB ObjectIds
-                'bucket': bucket_name,
-                'fps': fps,
-                'frame_step': frame_step,
-                'interval_seconds': interval_seconds
+                "success": True,
+                "frames_uploaded": frames_uploaded,
+                "frame_keys": frame_keys,
+                "frame_ids": frame_ids,  # MongoDB ObjectIds
+                "bucket": bucket_name,
+                "fps": fps,
+                "frame_step": frame_step,
+                "interval_seconds": interval_seconds,
             }
-            
+
         finally:
             # Xóa temp directory
             if os.path.exists(temp_dir):
                 shutil.rmtree(temp_dir)
-                
+
     except Exception as e:
-        return {
-            'success': False,
-            'error': str(e)
-        }
+        return {"success": False, "error": str(e)}
+
+
+def list_objects_recursive(client, bucket_name, prefix=""):
+    """
+    List tất cả object theo prefix, recursive = True
+    Trả về list MinioObject
+    """
+    try:
+        objects = client.list_objects(bucket_name, prefix=prefix, recursive=True)
+        return list(objects)
+    except S3Error as e:
+        print(f"Lỗi list_objects_recursive {bucket_name}/{prefix}: {e}")
+        return []
+    except Exception as e:
+        print(f"Lỗi bất ngờ: {e}")
+        return []
+
+
+def download_object(client, bucket_name, object_name, local_path):
+    """
+    Tải object về local path (wrapper cho fget_object)
+    """
+    try:
+        os.makedirs(os.path.dirname(local_path), exist_ok=True)
+        client.fget_object(bucket_name, object_name, local_path)
+        print(f"Downloaded: {bucket_name}/{object_name} → {local_path}")
+        return True
+    except S3Error as e:
+        print(f"Lỗi tải {bucket_name}/{object_name}: {e}")
+        return False
+    except Exception as e:
+        print(f"Lỗi bất ngờ khi tải: {e}")
+        return False
 
 
 if __name__ == "__main__":
@@ -688,5 +731,3 @@ if __name__ == "__main__":
         print("[OK] MinIO setup successful!")
     else:
         print("[FAIL] MinIO setup failed!")
-
-
