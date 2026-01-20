@@ -9,7 +9,7 @@ import cv2
 import services.minio_service as minio_service
 import services.database as db_service
 import services.scene_analysis as scene_analysis
-from services.image_enhancement import process_image, load_settings
+from services.image_enhancement import process_image, smart_process_image, load_settings
 
 
 logger = logging.getLogger(__name__)
@@ -186,20 +186,27 @@ class CameraCollector:
                     # --- IMAGE ENHANCEMENT ---
                     # Load settings (Note: In production might want to cache this to avoid reading file every second)
                     # For now invalid/missing file is handled by load_settings returning defaults
+                    # --- IMAGE ENHANCEMENT & SCENE ANALYSIS ---
                     enhance_settings = load_settings()
+                    scene_type = 'day' # Default
+
                     if enhance_settings.get('enabled_camera', False):
                         try:
-                            params = enhance_settings.get('params', {})
-                            img = process_image(img, params) # Apply enhancement to 'img'
+                            # Smart Process (detects scene -> calls process_image)
+                            img, scene_type = smart_process_image(img, enhance_settings)
                         except Exception as e:
                             logger.error(f"Error enhancing camera image: {e}")
+                            # Fallback analysis
+                            scene_type = scene_analysis.analyze_scene_features(img)
+                    else:
+                        # Analysis only
+                        scene_type = scene_analysis.analyze_scene_features(img)
                     # -------------------------
 
                     # Cập nhật histogram mới nhất cho camera này (using the original image's histogram for consistency)
                     self.last_camera_hists[camera_id] = curr_hist
                     
-                    # --- Continue to Feature Extraction ---
-                    scene_type = scene_analysis.analyze_scene_features(img)
+                    # --- Feature Extraction done above ---
 
 
                     # Convert to 16-bit (scale 8-bit [0-255] to 16-bit [0-65535])
@@ -236,6 +243,9 @@ class CameraCollector:
                                 os.remove(file_path)
                             except Exception as e:
                                 logger.warning(f"Failed to delete local file {file_path} after MinIO upload: {e}")
+                            
+                            # Update file_path to MinIO path for database storage
+                            file_path = f"{minio_service.MINIO_BUCKET_FRAMES}/{minio_key}"
                         else:
                             logger.warning(f"MinIO Upload Failed for {camera_id}")
 

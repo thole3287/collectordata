@@ -8,6 +8,8 @@ import services.minio_service as minio_service
 from datetime import datetime
 import numpy as np
 
+from services.image_enhancement import smart_process_image, load_settings
+
 FRAMES_OUTPUT_ROOT = "dataset_extracted"
 VALID_VIDEO_EXTENSIONS = ('.mp4', '.avi', '.mov', '.mkv', '.wmv')
 VALID_IMAGE_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.webp')
@@ -109,6 +111,18 @@ def extract_frames_from_folder(input_folder, output_root=None, progress_file_pat
 
                         # --- LƯU ẢNH (NẾU ĐẠT CHUẨN) ---
                         last_saved_hist = curr_hist
+
+                        # --- APPLY IMAGE ENHANCEMENT (Resize, Denoise, etc) ---
+                        enhance_settings = load_settings()
+                        if enhance_settings.get('enabled_video', False):
+                            # Smart Process (detects scene -> calls process_image)
+                            # frame is 8-bit BGR here
+                            try:
+                                processed_frame, scene_type = smart_process_image(frame, enhance_settings)
+                                if processed_frame is not None:
+                                    frame = processed_frame
+                            except Exception as e:
+                                print(f"Error enhancing video frame: {e}")
 
                         # QUAN TRỌNG: Convert sang 16-bit PNG
                         # frame đang là uint8 (0-255). Nhân 256 để scale lên uint16 (0-65535)

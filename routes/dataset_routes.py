@@ -18,7 +18,7 @@ def serve_minio_image(frame_id):
     key = result['key']
     
     try:
-        client = minio_service.get_minio_client()
+        client = minio_service.get_minio_client(internal=True)
         data = client.get_object(bucket, key)
         
         def generate():

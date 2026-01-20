@@ -2,20 +2,28 @@ import cv2
 import numpy as np
 import json
 import os
+from services.scene_analysis import analyze_scene_features
 
 SETTINGS_FILE = 'enhance_settings.json'
+
+DEFAULT_PARAMS = {
+    'mean_intensity': "",
+    'clahe_clip_limit': 1.0, 
+    'gamma': 1.0,
+    'denoise_strength': 0,
+    'hue_shift': 0,
+    'saturation_scale': 1.0,
+    'contrast_scale': 1.0,
+    'resize_640': False
+}
 
 DEFAULT_SETTINGS = {
     'enabled_camera': False,
     'enabled_video': False,
-    'params': {
-        'mean_intensity': "",
-        'clahe_clip_limit': 1.0, 
-        'gamma': 1.0,
-        'denoise_strength': 0,
-        'hue_shift': 0,
-        'saturation_scale': 1.0,
-        'contrast_scale': 1.0
+    'profiles': {
+        'day': DEFAULT_PARAMS.copy(),
+        'night': {**DEFAULT_PARAMS, 'gamma': 1.2, 'denoise_strength': 3.0, 'contrast_scale': 1.1}, # Night defaults
+        'rain': {**DEFAULT_PARAMS, 'clahe_clip_limit': 2.0, 'contrast_scale': 1.2, 'saturation_scale': 1.1}, # Rain defaults
     }
 }
 
@@ -23,7 +31,22 @@ def load_settings():
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                settings = json.load(f)
+                
+                # MIGRATION: Old flat params -> New Profiles
+                if 'profiles' not in settings:
+                    old_params = settings.get('params', DEFAULT_PARAMS.copy())
+                    # Ensure new keys exist in old params
+                    if 'resize_640' not in old_params: old_params['resize_640'] = False
+                    
+                    settings['profiles'] = {
+                        'day': old_params,
+                        'night': {**old_params, 'gamma': 1.2, 'denoise_strength': 3.0}, # Inherit + modify
+                        'rain': {**old_params, 'clahe_clip_limit': 2.0}
+                    }
+                    if 'params' in settings: del settings['params']
+                
+                return settings
         except:
             return DEFAULT_SETTINGS
     return DEFAULT_SETTINGS
@@ -54,6 +77,32 @@ def calculate_var_laplacian(image):
     else:
         gray = image
     return float(cv2.Laplacian(gray, cv2.CV_64F).var())
+
+def resize_image(image, target_size=(640, 640)):
+    """
+    Resize ảnh về kích thước target_size giữ nguyên tỷ lệ và thêm padding (letterbox)
+    """
+    h, w = image.shape[:2]
+    target_w, target_h = target_size
+    
+    # Calculate scale
+    scale = min(target_w/w, target_h/h)
+    new_w = int(w * scale)
+    new_h = int(h * scale)
+    
+    # Resize keeping aspect ratio
+    resized = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_AREA)
+    
+    # Create blank canvas
+    canvas = np.full((target_h, target_w, 3), 0, dtype=np.uint8)
+    
+    # Center placement
+    x_offset = (target_w - new_w) // 2
+    y_offset = (target_h - new_h) // 2
+    
+    canvas[y_offset:y_offset+new_h, x_offset:x_offset+new_w] = resized
+    
+    return canvas
 
 def apply_clahe(image, clip_limit=2.0, tile_grid_size=(8, 8)):
     """Áp dụng CLAHE (Contrast Limited Adaptive Histogram Equalization)"""
@@ -157,6 +206,7 @@ def process_image(image, settings):
     mean_intensity = settings.get('mean_intensity') # Optional
     gamma = float(settings.get('gamma', 1.0))
     clahe_clip_limit = float(settings.get('clahe_clip_limit', 0))
+    resize_640 = settings.get('resize_640', False) # New setting
 
     adjusted_image = image.copy()
 
@@ -188,4 +238,27 @@ def process_image(image, settings):
     if clahe_clip_limit > 0.01:
         adjusted_image = apply_clahe(adjusted_image, clip_limit=clahe_clip_limit)
 
+    # 7. Resize (Last step to retain details during processing)
+    if resize_640:
+        adjusted_image = resize_image(adjusted_image, (640, 640))
+
     return adjusted_image
+
+def smart_process_image(image, global_settings):
+    """
+    Tự động nhận diện ngữ cảnh (Ngày/Đêm/Mưa) và áp dụng Profile phù hợp
+    """
+    if image is None: return None
+    
+    # 1. Detect Scene
+    scene_type = analyze_scene_features(image)
+    
+    # 2. Select Profile
+    profiles = global_settings.get('profiles', DEFAULT_SETTINGS['profiles'])
+    profile_name = scene_type if scene_type in profiles else 'day'
+    params = profiles.get(profile_name, profiles['day'])
+    
+    # 3. Process
+    # print(f"DEBUG: Smart Process | Scene: {scene_type} | Profile: {profile_name}")
+    processed = process_image(image, params)
+    return processed, scene_type

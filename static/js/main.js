@@ -137,19 +137,15 @@ function app() {
         galleryFilterPlatform: 'all',
         gallerySearchQuery: '',
         galleryCharts: {},
-
         // Settings State
+        activeProfile: 'day', // 'day', 'night', 'rain'
         settings: {
             enabled_camera: false,
             enabled_video: false,
-            params: {
-                mean_intensity: "",
-                clahe_clip_limit: 1.0,
-                gamma: 1.0,
-                denoise_strength: 0,
-                hue_shift: 0,
-                saturation_scale: 1.0,
-                contrast_scale: 1.0
+            profiles: {
+                day: { mean_intensity: "", clahe_clip_limit: 1.0, gamma: 1.0, denoise_strength: 0, hue_shift: 0, saturation_scale: 1.0, contrast_scale: 1.0, resize_640: false },
+                night: { mean_intensity: "", clahe_clip_limit: 1.0, gamma: 1.2, denoise_strength: 3.0, hue_shift: 0, saturation_scale: 1.0, contrast_scale: 1.1, resize_640: false },
+                rain: { mean_intensity: "", clahe_clip_limit: 2.0, gamma: 1.0, denoise_strength: 0, hue_shift: 0, saturation_scale: 1.1, contrast_scale: 1.2, resize_640: false }
             }
         },
         settingsSaving: false,
@@ -157,8 +153,9 @@ function app() {
         previewLoading: false,
         originalPreviewImage: null,
         processedPreviewImage: null,
-        previewMetrics: { before: {}, after: {} },
+        previewMetrics: {},
         previewDebounceTimer: null,
+        previewDetectedProfile: null, // New state for info
 
         formatFileSize(bytes) {
             if (!bytes) return '0 B';
@@ -289,6 +286,8 @@ function app() {
                     if (this.galleryPage === 1) {
                         this.loadGalleryStats();
                     }
+                } else {
+                    console.error("[DEBUG] Groups API Failed:", data);
                 }
             } catch (error) {
                 this.showNotify('Lỗi tải groups: ' + error.message, 'error');
@@ -408,7 +407,7 @@ function app() {
                     this.settings = {
                         enabled_camera: data.enabled_camera || false,
                         enabled_video: data.enabled_video || false,
-                        params: { ...this.settings.params, ...(data.params || {}) }
+                        profiles: data.profiles || this.settings.profiles // Load profiles or keep default
                     };
                 }
             } catch (e) {
@@ -426,7 +425,15 @@ function app() {
                     body: JSON.stringify(this.settings)
                 });
                 const data = await response.json();
+
+                // Ensure profiles structure exists (handle migration on frontend if backend missed something)
+                if (!data.profiles) {
+                    data.profiles = this.settings.profiles; // Use default
+                }
+
                 if (data.success) {
+                    // Update settings but keep current profile selection
+                    this.settings.profiles = data.settings.profiles || this.settings.profiles;
                     this.showNotify('Lưu cấu hình thành công', 'success');
                 } else {
                     this.showNotify('Lỗi khi lưu: ' + data.error, 'error');
@@ -468,7 +475,8 @@ function app() {
             try {
                 const formData = new FormData();
                 formData.append('image', this.settingsPreviewFile);
-                formData.append('settings', JSON.stringify(this.settings.params));
+                formData.append('settings', JSON.stringify(this.settings));
+                formData.append('preview_profile', this.activeProfile);
 
                 const response = await fetch('/api/settings/preview', {
                     method: 'POST',
@@ -482,6 +490,7 @@ function app() {
                         before: data.metrics_before,
                         after: data.metrics_after
                     };
+                    this.previewDetectedProfile = data.detected_profile;
                 } else {
                     this.showNotify(data.error || 'Preview failed', 'error');
                 }

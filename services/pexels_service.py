@@ -231,101 +231,135 @@ def download_pexels_videos(query, num_videos, api_key):
         total = len(videos)
         logger.info(f"Pexels API found {len(data.get('videos', []))} videos for query '{search_query}', filtering with '{regex_filter}'")
         
-        count = 0
         saved_to_db = 0
         downloaded_files = []
         progress_file = os.path.join(PEXELS_OUTPUT_FOLDER, '.download_progress.json')
         
-        for idx, video in enumerate(videos):
-            video_id = video["id"]
+        # Determine starting page (randomize to vary results, but allow sequential fetching)
+        # If we really want "new" data every time, random is okay, but for "filling quota", we need sequence.
+        # Let's start random, then increment.
+        current_page = random.randint(1, 50) 
+        
+        attempts = 0
+        max_attempts = 20 # Avoid infinite loops
+        
+        while saved_to_db < num_videos and attempts < max_attempts:
+            attempts += 1
+            remaining = num_videos - saved_to_db
             
-            # [OPTIMIZATION] Check DB before downloading (DISABLED per user request to check content hash)
-            # db = get_db_connection()
-            # if db:
-            #     existing_video = db['downloaded_videos'].find_one({'video_id': str(video_id)})
-            #     if existing_video:
-            #         logger.info(f"Video {video_id} already exists in DB. Skipping.")
-            #         continue
+            # Fetch slightly more than needed to account for filtering
+            per_page = max(min(remaining * 2, 80), 15)
+            
+            logger.info(f"Pexels Search: Query='{search_query}', Page={current_page}, Need={remaining}, Fetching={per_page}")
+            
+            url = f"https://api.pexels.com/videos/search?query={search_query}&per_page={per_page}&orientation=landscape&page={current_page}"
+            response = requests.get(url, headers=headers)
+            
+            if response.status_code != 200:
+                logger.error(f"Pexels API Error: {response.status_code} - {response.text}")
+                # If rate limited, maybe wait? For now just break to be safe/not hang.
+                break
 
-            # --- REGEX CHECK TITLE ---
-            video_title = extract_title_from_url(video.get("url"), video_id)
-            if regex_filter:
-                try:
-                    if not re.search(regex_filter, video_title, re.IGNORECASE):
-                        logger.info(f"Skipping video '{video_title}' - does not match regex '{regex_filter}'")
+            data = response.json()
+            videos = data.get("videos", [])
+            
+            if not videos:
+                logger.info("No more videos found on Pexels.")
+                break
+                
+            logger.info(f"  -> Found {len(videos)} videos on page {current_page}")
+            
+            for video in videos:
+                if saved_to_db >= num_videos:
+                    break
+                    
+                video_id = video["id"]
+                
+                # --- REGEX CHECK TITLE ---
+                video_title = extract_title_from_url(video.get("url"), video_id)
+                if regex_filter:
+                    try:
+                        if not re.search(regex_filter, video_title, re.IGNORECASE):
+                            # logger.info(f"Skipping '{video_title}' (Regex mismatch)")
+                            continue
+                    except Exception:
+                        pass
+
+                video_files = video.get("video_files", [])
+                
+                # Find best file ~1280px width
+                best_link = None
+                best_file = None
+                min_diff = 99999
+                for v_file in video_files:
+                    diff = abs(v_file.get("width", 0) - TARGET_WIDTH)
+                    if diff < min_diff:
+                        min_diff = diff
+                        best_link = v_file.get("link")
+                        best_file = v_file
+                
+                if best_link and best_file:
+                    filename = os.path.join(PEXELS_OUTPUT_FOLDER, f"pexels_{query}_{video_id}.mp4")
+                    file_path = os.path.abspath(filename)
+                    
+                    # Download
+                    try:
+                        vid_content = requests.get(best_link).content
+                        with open(filename, "wb") as f:
+                            f.write(vid_content)
+                    except Exception as e:
+                        logger.error(f"Download failed: {e}")
                         continue
-                except Exception as e:
-                    logger.warning(f"Regex error for '{regex_filter}': {e}. Skipping check.")
-                    pass
-
-            video_files = video["video_files"]
+                    
+                    downloaded_files.append(filename)
+                    
+                    video_data = {
+                        "id": str(video_id),
+                        "title": video_title,
+                        "url": video.get("url"),
+                        "file_path": file_path,
+                        "duration": video.get("duration"),
+                        "fps": best_file.get("fps"),
+                        "width": best_file.get("width"),
+                        "height": best_file.get("height")
+                    }
+                    
+                    if save_pexels_video_to_database(video_data, query):
+                        saved_to_db += 1
+                        logger.info(f"[SUCCESS] Saved Pexels video {video_id} ({saved_to_db}/{num_videos})")
+                        
+                        # Cleanup local file immediately
+                        try:
+                            if os.path.exists(filename):
+                                os.remove(filename)
+                        except:
+                            pass
+                    else:
+                        # Duplicate or error, cleanup anyway
+                        try:
+                            if os.path.exists(filename):
+                                os.remove(filename)
+                        except:
+                            pass
+                    
+                    # Update progress
+                    progress_data = {
+                        "total": num_videos,
+                        "downloaded": saved_to_db,
+                        "status": f"Page {current_page}"
+                    }
+                    with open(progress_file, 'w', encoding='utf-8') as f:
+                        json.dump(progress_data, f, ensure_ascii=False)
             
-            # Find best file ~1280px width
-            best_link = None
-            best_file = None
-            min_diff = 99999
-            for v_file in video_files:
-                diff = abs(v_file["width"] - TARGET_WIDTH)
-                if diff < min_diff:
-                    min_diff = diff
-                    best_link = v_file["link"]
-                    best_file = v_file
-            
-            if best_link and best_file:
-                vid_content = requests.get(best_link).content
-                filename = os.path.join(PEXELS_OUTPUT_FOLDER, f"pexels_{query}_{video_id}.mp4")
-                file_path = os.path.abspath(filename)
-                
-                with open(filename, "wb") as f:
-                    f.write(vid_content)
-                
-                downloaded_files.append(filename)
-                
-                video_data = {
-                    "id": str(video_id),
-                    "title": extract_title_from_url(video.get("url"), video_id),
-                    "url": video.get("url"),
-                    "file_path": file_path,
-                    "duration": video.get("duration"),
-                    "fps": best_file.get("fps"),
-                    "width": best_file.get("width"),
-                    "height": best_file.get("height")
-                }
-                
-                if save_pexels_video_to_database(video_data, query):
-                    saved_to_db += 1
-                    logger.info(f"Successfully processed video {video_id}")
-                else:
-                    logger.warning(f"Failed to save video {video_id} to DB (duplicate or error)")
-                
-                # Cleanup: Ensure local file is removed regardless of result (success/duplicate/error)
-                # save_pexels_video_to_database attempts delete on success, but we double check here
-                try:
-                    if os.path.exists(filename):
-                        os.remove(filename)
-                        print(f"[INFO] Deleted local file (cleanup): {filename}")
-                except Exception as e:
-                    print(f"[WARN] Failed to delete local file {filename}: {e}")
-                
-                count += 1
-                
-                # Update progress
-                progress = int((count / total) * 100) if total > 0 else 0
-                progress_data = {
-                    "total": total,
-                    "downloaded": count,
-                    "progress": progress,
-                    "saved_to_db": saved_to_db
-                }
-                with open(progress_file, 'w', encoding='utf-8') as f:
-                    json.dump(progress_data, f, ensure_ascii=False)
-                
-                time.sleep(1)
+            # Move to next page for next iteration
+            current_page += 1
+            # Random delay to be nice to API
+            time.sleep(1)
         
         if os.path.exists(progress_file):
             os.remove(progress_file)
             
-        return {"success": True, "count": count, "saved_to_db": saved_to_db, "files": downloaded_files}
+        return {"success": True, "count": saved_to_db, "saved_to_db": saved_to_db, "files": downloaded_files}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
