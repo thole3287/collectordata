@@ -1,176 +1,103 @@
+# services/boxplot_service.py
+
 import cv2
 import numpy as np
 import os
 import shutil
 import time
-import random
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-from io import BytesIO
-import base64
 import traceback
-
-from services.minio_service import get_minio_client
-from services.database import get_db_connection  # ← Thêm import này
+import random # Added back just in case, though might not be used in new logic if we list all recursive
+from services.minio_service import get_minio_client, list_objects_recursive, download_object # Assuming these are available now
 
 # Cấu hình
-MAX_SAMPLES = 9999                # max số file tải về (tăng để lấy gần hết)
+MAX_SAMPLES = 400
 TEMP_DIR = "downloads/temp_boxplot"
-
-FEATURE_COLORS = [
-    '#1f77b4',  # blue
-    '#ff7f0e',  # orange
-    '#2ca02c',  # green
-    '#d62728',  # red
-    '#9467bd',  # purple
-    '#8c564b',  # brown
-]
-
-FRAMES_BUCKET_NAMES = ["frames"]  # bucket chứa frame
+FRAMES_BUCKET_NAMES = ["frames", "dataset", "camera-images"] 
 
 def generate_boxplot_for_prefix(
     bucket: str,
     prefix: str = "",
     local_root: str = TEMP_DIR,
 ) -> dict:
+    """
+    Tạo dữ liệu boxplot từ bucket/prefix, dùng chung logic MinIO từ minio_service.
+    Trả dữ liệu thô cho Chart.js (không vẽ base64 nữa).
+    """
     start_time = time.time()
-    print(f"🚀 Bắt đầu tạo boxplot - Bucket: {bucket} | Prefix: '{prefix}'")
+    print(f"🚀 Boxplot - Bucket: {bucket} | Prefix: '{prefix}'")
 
     try:
         os.makedirs(local_root, exist_ok=True)
         client = get_minio_client()
-        db = get_db_connection()
 
+        # Chuẩn hóa prefix
         if prefix:
             prefix = prefix.strip().rstrip('/') + '/'
-
-        is_frame_bucket = bucket in FRAMES_BUCKET_NAMES or 'frame' in bucket.lower()
 
         local_paths = []
         type_str = ""
         source_info = ""
 
-        if is_frame_bucket:
-            # ── TRƯỜNG HỢP BUCKET FRAME ─────────────────────────────────────
-            print(f"Chế độ FRAME BUCKET: xử lý bucket frames")
+        # ── List objects dùng hàm chung ────────────────────────────────────────
+        print(f"Listing recursive với prefix: '{prefix}'")
+        all_objects = list_objects_recursive(client, bucket, prefix)
 
-            if not prefix:
-                # Prefix rỗng → fallback dùng MongoDB để lấy đúng frame theo video
-                print("→ Prefix rỗng → fallback dùng MongoDB lấy frame_keys")
-                query = {"storage_refs.frames_bucket": bucket}
-                cursor = db['downloaded_videos'].find(query).limit(MAX_SAMPLES)
-                videos = list(cursor)
+        if not all_objects:
+            return {"success": False, "message": f"Không tìm thấy object nào trong {bucket}/{prefix.rstrip('/')}"}
 
-                if not videos:
-                    return {"success": False, "message": f"Không tìm thấy video nào trong MongoDB cho bucket frames '{bucket}'"}
+        is_frame_bucket = bucket in FRAMES_BUCKET_NAMES or 'frame' in bucket.lower()
 
-                selected_keys = []
-                for doc in videos:
-                    storage = doc.get("storage_refs", {})
-                    frame_keys = storage.get("frame_keys", [])
-                    if frame_keys:
-                        selected_keys.extend(frame_keys)
+        valid_items = []
+        for obj in all_objects:
+            key = obj.object_name
+            if key.endswith("/"): continue
 
-                if not selected_keys:
-                    return {"success": False, "message": "Không tìm thấy frame nào trong metadata"}
-
-                print(f"→ Lấy {len(selected_keys)} frame từ metadata video")
-
-                # Tải frame
-                for idx, key in enumerate(selected_keys):
-                    safe_name = f"frame_{idx:06d}_{os.path.basename(key)}"
-                    local_path = os.path.join(local_root, safe_name)
-                    try:
-                        client.fget_object(bucket, key, local_path)
-                        local_paths.append(local_path)
-                    except Exception as e:
-                        print(f"Skip {key}: {e}")
-
-                type_str = "FRAME ẢNH (từ metadata)"
-                source_info = "metadata_fallback"
-
+            lower_key = key.lower()
+            if is_frame_bucket:
+                if lower_key.endswith(('.png', '.jpg', '.jpeg')):
+                    valid_items.append((bucket, key))
             else:
-                # Prefix có → list trực tiếp
-                print(f"List trực tiếp object từ {bucket}/{prefix}")
-                all_objects = list(client.list_objects(bucket, prefix=prefix, recursive=True))
-                if not all_objects:
-                    return {"success": False, "message": f"Không tìm thấy object trong {bucket}/{prefix.rstrip('/')}"}
+                # Video hoặc media
+                if any(lower_key.endswith(ext) for ext in ('.mp4', '.avi', '.mov', '.mkv', '.webm')):
+                    valid_items.append((bucket, key))
 
-                valid_frames = [
-                    obj for obj in all_objects
-                    if not obj.object_name.endswith("/") 
-                    and obj.object_name.lower().endswith(('.png', '.jpg', '.jpeg'))
-                ]
+        print(f"→ Tìm thấy {len(valid_items)} file hợp lệ")
 
-                if not valid_frames:
-                    return {"success": False, "message": "Không tìm thấy file ảnh hợp lệ"}
+        # Giới hạn số lượng
+        valid_items = valid_items[:MAX_SAMPLES]
 
-                # Lấy hết (giới hạn MAX_SAMPLES nếu cần)
-                valid_frames = valid_frames[:MAX_SAMPLES]
-
-                print(f"→ Tìm thấy {len(valid_frames)} frame trong prefix")
-
-                for idx, obj in enumerate(valid_frames):
-                    safe_name = f"frame_{idx:06d}_{os.path.basename(obj.object_name)}"
-                    local_path = os.path.join(local_root, safe_name)
-                    try:
-                        client.fget_object(bucket, obj.object_name, local_path)
-                        local_paths.append(local_path)
-                    except Exception as e:
-                        print(f"Skip {obj.object_name}: {e}")
-
-                type_str = "FRAME ẢNH (từ bucket trực tiếp)"
-                source_info = "bucket_direct"
-
-        else:
-            # ── TRƯỜNG HỢP BUCKET VIDEO ─────────────────────────────────────
-            # Giữ nguyên code cũ của bạn cho bucket video (tải video và tính metadata)
-            print(f"Chế độ VIDEO BUCKET: xử lý như video gốc")
-
-            all_objects = list(client.list_objects(bucket, prefix=prefix, recursive=True))
-            if not all_objects:
-                return {"success": False, "message": f"Không tìm thấy object trong {bucket}/{prefix.rstrip('/')}"}
-
-            valid_objects = [obj for obj in all_objects if not obj.object_name.endswith("/") and "." in obj.object_name]
-            if not valid_objects:
-                return {"success": False, "message": "Không tìm thấy file media hợp lệ"}
-
-            if len(valid_objects) > MAX_SAMPLES:
-                valid_objects = random.sample(valid_objects, MAX_SAMPLES)
-
-            is_video = any(obj.object_name.lower().endswith(('.mp4','.avi','.mov','.mkv','.webm','.mpg'))
-                           for obj in valid_objects)
-
-            type_str = "VIDEO" if is_video else "FRAME ẢNH"
-
-            for obj in valid_objects:
-                filename = os.path.basename(obj.object_name)
-                safe_name = f"{bucket}_{prefix.replace('/', '_')}_{filename}"
-                local_path = os.path.join(local_root, safe_name)
-                try:
-                    client.fget_object(bucket, obj.object_name, local_path)
-                    local_paths.append(local_path)
-                except Exception as e:
-                    print(f"Skip {obj.object_name}: {e}")
-
-            source_info = "direct_list"
+        # Tải về local dùng hàm chung
+        for idx, (bkt, key) in enumerate(valid_items):
+            filename = os.path.basename(key)
+            safe_name = f"item_{idx:06d}_{filename}"
+            local_path = os.path.join(local_root, safe_name)
+            if download_object(client, bkt, key, local_path):
+                local_paths.append(local_path)
+            else:
+                print(f"Skip tải {key}")
 
         if not local_paths:
-            return {"success": False, "message": "Không tải được file nào"}
+            return {"success": False, "message": "Không tải được file hợp lệ nào"}
 
-        print(f"✓ Đã tải {len(local_paths)} file ({type_str}) - nguồn: {source_info}")
+        type_str = "FRAME" if is_frame_bucket else "VIDEO/MEDIA"
+        source_info = f"prefix:{prefix}" if prefix else "root"
 
-        # ── Trích xuất đặc trưng (giữ nguyên code cũ của bạn) ────────────────
-        if "VIDEO" in type_str.upper():
+        print(f"✓ Đã tải {len(local_paths)} {type_str} (nguồn: {source_info})")
+
+        # ── Tính đặc trưng ───────────────────────────────────────────────────── 
+        data = {}
+        features = []
+        feature_names_vn = {}
+
+        if type_str.startswith("VIDEO"):
             features = ["duration", "bitrate", "frame_rate", "width", "height", "file_size_mb"]
             feature_names_vn = {
                 "duration": "Thời lượng (giây)",
-                "bitrate": "Bitrate (kbps)",
+                "bitrate": "Bitrate ước tính (kbps)",
                 "frame_rate": "FPS",
                 "width": "Chiều rộng (px)",
                 "height": "Chiều cao (px)",
-                "file_size_mb": "Kích thước (MB)",
+                "file_size_mb": "Kích thước file (MB)",
             }
             data = {f: [] for f in features}
 
@@ -193,16 +120,15 @@ def generate_boxplot_for_prefix(
                     data["height"].append(height)
                     data["file_size_mb"].append(size_mb)
                     cap.release()
-                except:
-                    pass
+                except Exception as e:
+                    print(f"Skip video analysis {path}: {e}")
         else:
-            # Frame-based features
             features = ["brightness", "contrast", "blur", "noise_level", "edge_density"]
             feature_names_vn = {
-                "brightness": "Độ sáng",
+                "brightness": "Độ sáng trung bình",
                 "contrast": "Độ tương phản",
-                "blur": "Độ nét (Laplacian var)",
-                "noise_level": "Độ nhiễu",
+                "blur": "Độ mờ (Laplacian variance)",
+                "noise_level": "Mức nhiễu",
                 "edge_density": "Mật độ cạnh",
             }
             data = {f: [] for f in features}
@@ -213,82 +139,57 @@ def generate_boxplot_for_prefix(
                     if img is None: continue
                     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-                    data["brightness"].append(np.mean(gray))
-                    data["contrast"].append(np.std(gray))
-                    data["blur"].append(cv2.Laplacian(gray, cv2.CV_64F).var())
+                    data["brightness"].append(float(np.mean(gray)))
+                    data["contrast"].append(float(np.std(gray)))
+                    data["blur"].append(float(cv2.Laplacian(gray, cv2.CV_64F).var()))
                     blurred = cv2.GaussianBlur(gray, (5,5), 0)
-                    data["noise_level"].append(np.std(gray - blurred))
+                    data["noise_level"].append(float(np.std(gray - blurred)))
                     edges = cv2.Canny(gray, 100, 200)
-                    data["edge_density"].append(np.sum(edges > 0) / edges.size)
-                except:
-                    pass
+                    data["edge_density"].append(float(np.sum(edges > 0) / edges.size if edges.size > 0 else 0))
+                except Exception as e:
+                    print(f"Skip frame analysis {path}: {e}")
 
-        valid_features = [f for f in features if len(data[f]) >= 3]
-        if not valid_features:
-            return {"success": False, "message": "Không đủ dữ liệu (cần ít nhất 3 mẫu mỗi đặc trưng)"}
+        # ── Chuẩn bị dữ liệu cho Chart.js ─────────────────────────────────────
+        boxplot_data = []
+        valid_features = [f for f in features if len(data.get(f, [])) >= 3]
 
-        # ── Vẽ từng boxplot riêng lẻ ────────────────────────────────────────
-        images_base64 = []
-        feature_labels = []
-
-        for i, feat in enumerate(valid_features):
+        for feat in valid_features:
             values = [v for v in data[feat] if not np.isnan(v) and not np.isinf(v)]
             if len(values) < 3:
                 continue
 
-            fig, ax = plt.subplots(figsize=(7.5, 5.2), dpi=110)
+            q1, q3 = np.percentile(values, [25, 75])
+            iqr = q3 - q1
+            outliers = [v for v in values if v < (q1 - 1.5 * iqr) or v > (q3 + 1.5 * iqr)]
 
-            bp = ax.boxplot(
-                values,
-                patch_artist=True,
-                notch=False,
-                whis=1.5,
-                showfliers=True,
-                flierprops=dict(marker='o', markerfacecolor='red', markersize=5, alpha=0.7)
-            )
+            stats = {
+                "min": float(np.min(values)),
+                "q1": float(q1),
+                "median": float(np.median(values)),
+                "q3": float(q3),
+                "max": float(np.max(values)),
+                "mean": float(np.mean(values)),
+                "count": len(values),
+                "outliers": outliers
+            }
 
-            color = FEATURE_COLORS[i % len(FEATURE_COLORS)]
-            for patch in bp['boxes']:
-                patch.set_facecolor(color)
-                patch.set_alpha(0.58)
-
-            for median in bp['medians']:
-                median.set(color='black', linewidth=2.2)
-
-            ax.set_title(f"{feature_names_vn.get(feat, feat)}", fontsize=15, pad=12)
-            ax.set_ylabel("Giá trị", fontsize=12)
-            ax.grid(axis='y', linestyle='--', alpha=0.35, zorder=0)
-            ax.tick_params(axis='both', labelsize=10.5)
-
-            stats_text = (
-                f"n = {len(values)}\n"
-                f"Median: {np.median(values):.2f}\n"
-                f"Mean: {np.mean(values):.2f}"
-            )
-            ax.text(0.02, 0.98, stats_text, transform=ax.transAxes,
-                    fontsize=10, verticalalignment='top',
-                    bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'))
-
-            buf = BytesIO()
-            plt.savefig(buf, format='png', bbox_inches='tight', dpi=130)
-            buf.seek(0)
-            b64 = base64.b64encode(buf.read()).decode('utf-8')
-            images_base64.append(f"data:image/png;base64,{b64}")
-
-            feature_labels.append(feature_names_vn.get(feat, feat))
-
-            plt.close(fig)
-
-        if not images_base64:
-            return {"success": False, "message": "Không tạo được boxplot nào"}
+            boxplot_data.append({
+                "feature": feat,
+                "label": feature_names_vn.get(feat, feat),
+                "values": values,
+                "stats": stats
+            })
 
         elapsed = time.time() - start_time
+
+        if not boxplot_data:
+            return {"success": False, "message": "Không có đặc trưng nào đủ dữ liệu để vẽ boxplot"}
+
         return {
             "success": True,
-            "message": f"Đã phân tích {len(local_paths)} {type_str.lower()} – {len(images_base64)} boxplot riêng lẻ (nguồn: {source_info}) ({elapsed:.1f}s)",
-            "type": "video" if "VIDEO" in type_str.upper() else "frame",
-            "images_base64": images_base64,
-            "feature_labels": feature_labels,
+            "message": f"Đã xử lý {len(local_paths)} {type_str} – {len(boxplot_data)} boxplot ({elapsed:.1f}s)",
+            "type": "frame" if type_str.startswith("FRAME") else "video",
+            "boxplot_data": boxplot_data
         }
 
     except Exception as e:
