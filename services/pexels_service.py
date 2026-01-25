@@ -15,6 +15,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 # Setup logger
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ PEXELS_OUTPUT_FOLDER = "pexels_traffic_dataset"
 # TARGET_WIDTH = 1280 (Removed to keep original size)
 TARGET_WIDTH = 1280 # Keeping for logic download best quality, but not for resize
 TARGET_HEIGHT = 720
+MIN_RESOLUTION = 512
 
 
 from services.video_service import calculate_file_hash
@@ -291,7 +293,12 @@ def download_pexels_videos(query, num_videos, api_key):
                 best_link = None
                 best_file = None
                 min_diff = 99999
+                
                 for v_file in video_files:
+                    # CHECK RESOLUTION
+                    if v_file.get("width", 0) < MIN_RESOLUTION or v_file.get("height", 0) < MIN_RESOLUTION:
+                        continue
+                        
                     diff = abs(v_file.get("width", 0) - TARGET_WIDTH)
                     if diff < min_diff:
                         min_diff = diff
@@ -350,6 +357,9 @@ def download_pexels_videos(query, num_videos, api_key):
                     }
                     with open(progress_file, 'w', encoding='utf-8') as f:
                         json.dump(progress_data, f, ensure_ascii=False)
+                else:
+                    # logger.info(f"Skipping video {video_id}: No file meets criteria (>= {MIN_RESOLUTION}px)")
+                    pass
             
             # Move to next page for next iteration
             current_page += 1
@@ -390,6 +400,10 @@ def download_video_by_id(video_id, api_key):
         best_file = None
         min_diff = 99999
         for v_file in video_files:
+            # CHECK RESOLUTION
+            if v_file.get("width", 0) < MIN_RESOLUTION or v_file.get("height", 0) < MIN_RESOLUTION:
+                continue
+
             diff = abs(v_file["width"] - TARGET_WIDTH)
             if diff < min_diff:
                 min_diff = diff
@@ -431,7 +445,7 @@ def download_video_by_id(video_id, api_key):
             else:
                 return {"success": False, "error": "Failed to save to database (duplicate?)"}
         else:
-            return {"success": False, "error": "Could not determine best quality video link"}
+            return {"success": False, "error": f"No video file meets resolution criteria (>={MIN_RESOLUTION}px)"}
 
     except Exception as e:
         logger.error(f"Error downloading video {video_id}: {e}")

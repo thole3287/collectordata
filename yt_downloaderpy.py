@@ -13,6 +13,10 @@ load_dotenv()
 
 import services.video_service as video_service
 
+
+# ==================== CONSTANTS ====================
+MIN_RESOLUTION = 512
+
 # ==================== CẤU HÌNH DATABASE ====================
 DB_CONFIG = {
     'host': os.getenv('DB_HOST', 'localhost'),
@@ -399,6 +403,14 @@ def download_by_keyword(keyword, num_videos=1):
             video_id = entry.get("id")
             video_title = entry.get("title", "")
             
+            # --- RESOLUTION CHECK ---
+            v_width = entry.get('width')
+            v_height = entry.get('height')
+            if v_width and v_height:
+                if v_width < MIN_RESOLUTION or v_height < MIN_RESOLUTION:
+                   # print(f"  ⏭ Bỏ qua '{video_title}' (Res thấp: {v_width}x{v_height})")
+                   continue
+            
             # --- REGEX FILTER ---
             if regex_filter:
                 try:
@@ -469,6 +481,14 @@ def download_by_url(url):
             # if check_video_exists(video_id):
             #     print(f"  ⚠ Video {video_id} đã tồn tại trong database!")
             #     return None
+            
+            # --- RESOLUTION CHECK ---
+            v_width = info.get('width')
+            v_height = info.get('height')
+            if v_width and v_height:
+                if v_width < MIN_RESOLUTION or v_height < MIN_RESOLUTION:
+                    print(f"  ❌ Bỏ qua video. Độ phân giải quá thấp: {v_width}x{v_height} (Min: {MIN_RESOLUTION}x{MIN_RESOLUTION})")
+                    return None
             
             # Tải video
             print("  --> Đang tải video...")

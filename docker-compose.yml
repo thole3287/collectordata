@@ -44,7 +44,7 @@ services:
     container_name: collectordata_zookeeper
     restart: unless-stopped
     ports:
-      - "2181:2181"
+      - "12181:2181"
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
