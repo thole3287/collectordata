@@ -117,8 +117,7 @@ services:
     build: .
     container_name: collectordata_app
     restart: unless-stopped
-    ports:
-      - "5000:5000"
+    ports: []
     volumes:
       - ./downloads:/app/downloads
       - ./dataset_extracted:/app/dataset_extracted

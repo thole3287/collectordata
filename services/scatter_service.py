@@ -4,135 +4,157 @@ import os
 import shutil
 import time
 import traceback
+from datetime import datetime
 
 from services.minio_service import get_minio_client
 from services.database import get_db_connection
 
 # Cấu hình
-MAX_VIDEOS = 9999                 # max số video xử lý
-MAX_TOTAL_FRAMES = 9999           # giới hạn tổng frame tính feature
+MAX_VIDEOS = 9999
+MAX_TOTAL_FRAMES = 2000
 
-FRAMES_BUCKET_NAMES = ["frames"]  # danh sách bucket chứa frame trực tiếp
+FRAMES_BUCKET_NAMES = ["dataset", "frames", "camera_frames"]
+
 
 def generate_scatter_for_prefix(
     bucket: str,
     prefix: str = "",
     local_root: str = "downloads/temp_scatter",
 ) -> dict:
-    """
-    Xử lý frame từ MinIO và trả về dữ liệu đặc trưng thô để vẽ scatter bằng Chart.js
-    
-    Returns:
-        dict chứa dữ liệu scatter_data (các cặp x,y + labels) thay vì ảnh base64
-    """
     start_time = time.time()
-    print(f"🚀 Bắt đầu xử lý scatter data - Bucket: {bucket} | Prefix: '{prefix}'")
+    print(f"🚀 Bắt đầu xử lý scatter - Bucket: {bucket} | Prefix: '{prefix}'")
 
     try:
         os.makedirs(local_root, exist_ok=True)
         minio_client = get_minio_client()
         db = get_db_connection()
 
-        # Chuẩn hóa prefix
         if prefix:
-            prefix = prefix.strip().rstrip('/') + '/'
+            prefix = prefix.strip().rstrip("/") + "/"
 
-        is_frame_bucket = bucket in FRAMES_BUCKET_NAMES or 'frame' in bucket.lower()
+        is_frame_bucket = bucket.lower() in [n.lower() for n in FRAMES_BUCKET_NAMES] or "frame" in bucket.lower()
 
         local_paths = []
+        metadata_list = []
         type_str = ""
         frame_source = ""
 
-        # ── 1. Xử lý bucket chứa frame trực tiếp ────────────────────────────────
+        # 1. FRAME BUCKET (dataset, frames, ...)
         if is_frame_bucket:
-            print(f"Chế độ FRAME BUCKET: List trực tiếp từ {bucket}/{prefix}")
-
+            print(f"Chế độ FRAME BUCKET: List từ {bucket}/{prefix}")
             all_objects = list(minio_client.list_objects(bucket, prefix=prefix, recursive=True))
+
             if not all_objects:
-                return {"success": False, "message": f"Không tìm thấy object trong bucket {bucket}/{prefix.rstrip('/')}"}
+                return {"success": False, "message": f"Không tìm thấy object trong {bucket}/{prefix.rstrip('/')}"}
 
             valid_frames = [
                 obj for obj in all_objects
-                if not obj.object_name.endswith("/")
-                and obj.object_name.lower().endswith(('.png', '.jpg', '.jpeg'))
+                if not obj.object_name.endswith("/") and obj.object_name.lower().endswith((".png", ".jpg", ".jpeg"))
             ]
 
             if not valid_frames:
                 return {"success": False, "message": "Không tìm thấy file ảnh hợp lệ"}
 
             valid_frames = valid_frames[:MAX_TOTAL_FRAMES]
-            print(f"→ Tìm thấy {len(valid_frames)} frame hợp lệ (giới hạn {MAX_TOTAL_FRAMES})")
+            print(f"→ Tìm thấy {len(valid_frames)} frame hợp lệ")
 
             for idx, obj in enumerate(valid_frames):
-                safe_name = f"frame_{idx:06d}_{os.path.basename(obj.object_name)}"
+                full_key = obj.object_name
+
+                try:
+                    stat = minio_client.stat_object(bucket, full_key)
+                    file_size = stat.size
+                    created_at = stat.last_modified.isoformat() if stat.last_modified else datetime.utcnow().isoformat()
+                except Exception as e:
+                    print(f"Không stat được {full_key}: {e}")
+                    file_size = 0
+                    created_at = datetime.utcnow().isoformat()
+
+                platform = "pexels" if "pexels" in full_key.lower() else "youtube" if "youtube" in full_key.lower() else "camera"
+                scene_type = "day"
+
+                metadata_list.append({
+                    "object_name": full_key,
+                    "bucket": bucket,  # bucket frame thật
+                    "platform": platform,
+                    "scene_type": scene_type,
+                    "file_size": file_size,
+                    "created_at": created_at,
+                    "video_id": full_key.split("_")[0].split("/")[-1] if "_" in full_key else "unknown",
+                })
+
+                safe_name = f"frame_{idx:06d}_{os.path.basename(full_key)}"
                 local_path = os.path.join(local_root, safe_name)
                 try:
-                    minio_client.fget_object(bucket, obj.object_name, local_path)
+                    minio_client.fget_object(bucket, full_key, local_path)
                     local_paths.append(local_path)
                 except Exception as e:
-                    print(f"Skip frame {obj.object_name}: {e}")
+                    print(f"Skip {full_key}: {e}")
+                    metadata_list.pop()
 
             type_str = ""
             frame_source = "bucket_direct"
 
-        # ── 2. Xử lý bucket video qua metadata MongoDB ──────────────────────────
+        # 2. VIDEO BUCKET (từ metadata MongoDB)
         else:
             print(f"Chế độ VIDEO BUCKET: Query MongoDB với prefix '{prefix}'")
-
-            query = {}
-            if bucket:
-                query["storage_refs.bucket"] = bucket
+            query = {"storage_refs.bucket": bucket}
             if prefix:
                 query["storage_refs.key"] = {"$regex": f"^{prefix}", "$options": "i"}
 
-            cursor = db['downloaded_videos'].find(query).limit(MAX_VIDEOS)
+            cursor = db["downloaded_videos"].find(query).limit(MAX_VIDEOS)
             videos = list(cursor)
 
-            # Fallback nếu cần
             if not videos and prefix:
-                print("→ Fallback dùng file_path")
                 query_fallback = {"file_path": {"$regex": f"^{prefix}", "$options": "i"}}
                 if bucket:
                     query_fallback["storage_refs.bucket"] = bucket
-                cursor = db['downloaded_videos'].find(query_fallback).limit(MAX_VIDEOS)
+                cursor = db["downloaded_videos"].find(query_fallback).limit(MAX_VIDEOS)
                 videos = list(cursor)
 
             if not videos:
                 return {"success": False, "message": "Không tìm thấy video nào phù hợp"}
 
-            print(f"✓ Tìm thấy {len(videos)} video")
-
             selected_frame_keys = []
-            total_frames_available = 0
-
             for doc in videos:
                 storage = doc.get("storage_refs", {})
                 frames_bucket = storage.get("frames_bucket")
                 frame_keys = storage.get("frame_keys", [])
+                if frame_keys and frames_bucket:
+                    selected_frame_keys.extend([(frames_bucket, key) for key in frame_keys])
 
-                if not frame_keys or not frames_bucket:
-                    continue
+            selected_frame_keys = selected_frame_keys[:MAX_TOTAL_FRAMES]
 
-                selected_frame_keys.extend([(frames_bucket, key) for key in frame_keys])
-                total_frames_available += len(frame_keys)
+            for idx, (f_bucket, full_key) in enumerate(selected_frame_keys):
+                try:
+                    stat = minio_client.stat_object(f_bucket, full_key)
+                    file_size = stat.size
+                    created_at = stat.last_modified.isoformat() if stat.last_modified else datetime.utcnow().isoformat()
+                except:
+                    file_size = 0
+                    created_at = datetime.utcnow().isoformat()
 
-                if len(selected_frame_keys) >= MAX_TOTAL_FRAMES:
-                    selected_frame_keys = selected_frame_keys[:MAX_TOTAL_FRAMES]
-                    break
+                platform = doc.get("platform", "youtube")
+                scene_type = "day"
 
-            if not selected_frame_keys:
-                return {"success": False, "message": "Không tìm thấy frame nào trong metadata"}
+                metadata_list.append({
+                    "object_name": full_key,
+                    "bucket": f_bucket,  # bucket frame thật (dataset/frames)
+                    "platform": platform,
+                    "scene_type": scene_type,
+                    "file_size": file_size,
+                    "created_at": created_at,
+                    "video_id": doc.get("video_id", full_key.split("_")[0].split("/")[-1] if "_" in full_key else "unknown"),
+                })
 
-            print(f"→ Đã chọn {len(selected_frame_keys)} frame (tổng có sẵn ~{total_frames_available})")
-
-            for idx, (f_bucket, key) in enumerate(selected_frame_keys):
-                safe_name = f"frame_{idx:06d}_{os.path.basename(key)}"
+                safe_name = f"frame_{idx:06d}_{os.path.basename(full_key)}"
                 local_path = os.path.join(local_root, safe_name)
                 try:
-                    minio_client.fget_object(f_bucket, key, local_path)
+                    minio_client.fget_object(f_bucket, full_key, local_path)
                     local_paths.append(local_path)
                 except Exception as e:
-                    print(f"Skip frame {key}: {e}")
+                    print(f"Skip {full_key} in {f_bucket}: {e}")
+                    metadata_list.pop()
 
             type_str = "FRAME ẢNH (từ metadata video)"
             frame_source = "metadata"
@@ -142,7 +164,7 @@ def generate_scatter_for_prefix(
 
         print(f"✓ Đã tải thành công {len(local_paths)} frame ({type_str})")
 
-        # ── Tính đặc trưng ──────────────────────────────────────────────────────
+        # Tính đặc trưng
         data = {
             "frame_index": [],
             "mean_brightness": [],
@@ -150,6 +172,13 @@ def generate_scatter_for_prefix(
             "edge_density": [],
             "frame_diff_energy": [],
             "brightness_flicker": [],
+            "object_name": [],
+            "platform": [],
+            "scene_type": [],
+            "file_size": [],
+            "created_at": [],
+            "video_id": [],
+            "bucket": [],
         }
 
         prev_gray = None
@@ -168,7 +197,6 @@ def generate_scatter_for_prefix(
 
             diff_energy = 0.0
             flicker = 0.0
-
             if prev_gray is not None:
                 diff = cv2.absdiff(gray, prev_gray)
                 diff_energy = float(np.mean(diff)) * 8.0
@@ -181,33 +209,51 @@ def generate_scatter_for_prefix(
             data["frame_diff_energy"].append(diff_energy)
             data["brightness_flicker"].append(flicker)
 
+            meta = metadata_list[i] if i < len(metadata_list) else {}
+            data["object_name"].append(meta.get("object_name", f"frame_{i:06d}.png"))
+            data["platform"].append(meta.get("platform", "unknown"))
+            data["scene_type"].append(meta.get("scene_type", "day"))
+            data["file_size"].append(meta.get("file_size", 0))
+            data["created_at"].append(meta.get("created_at", datetime.utcnow().isoformat()))
+            data["video_id"].append(meta.get("video_id", "unknown"))
+            data["bucket"].append(meta.get("bucket", bucket))  # bucket frame thật
+
             prev_gray = gray.copy()
             prev_brightness = brightness
 
         if len(data["frame_index"]) < 5:
             return {"success": False, "message": f"Chỉ xử lý được {len(data['frame_index'])} frame hợp lệ"}
 
-        # ── Chuẩn bị dữ liệu cho Chart.js (không vẽ nữa) ───────────────────────
+        # Chuẩn bị scatter_data
         scatter_pairs = [
-            ("mean_brightness",     "laplacian_variance",  "Độ sáng trung bình",          "Độ nét"),
-            ("laplacian_variance",  "edge_density",        "Độ nét", "Mật độ cạnh"),
-            ("mean_brightness",     "brightness_flicker",  "Độ sáng",                     "Độ nhấp nháy độ sáng"),
-            ("frame_diff_energy",   "edge_density",        "Năng lượng thay đổi frame",   "Mật độ cạnh"),
+            ("mean_brightness", "laplacian_variance", "Độ sáng trung bình", "Độ nét"),
+            ("laplacian_variance", "edge_density", "Độ nét", "Mật độ cạnh"),
+            ("mean_brightness", "brightness_flicker", "Độ sáng", "Độ nhấp nháy độ sáng"),
+            ("frame_diff_energy", "edge_density", "Năng lượng thay đổi frame", "Mật độ cạnh"),
         ]
 
         scatter_data = []
-
         for x_key, y_key, x_label, y_label in scatter_pairs:
             scatter_data.append({
                 "x_key": x_key,
                 "y_key": y_key,
                 "x_label": x_label,
                 "y_label": y_label,
-                "title": f"{x_label} vs {y_label}  ({type_str})",
+                "title": f"{x_label} vs {y_label} ({type_str})",
                 "data": {
                     "x": data[x_key],
-                    "y": data[y_key]
-                }
+                    "y": data[y_key],
+                    "frame_index": data["frame_index"],
+                    "object_name": data["object_name"],
+                    "mean_brightness": data["mean_brightness"],
+                    "laplacian_variance": data["laplacian_variance"],
+                    "platform": data["platform"],
+                    "scene_type": data["scene_type"],
+                    "file_size": data["file_size"],
+                    "created_at": data["created_at"],
+                    "video_id": data["video_id"],
+                    "bucket": data["bucket"],  # trả bucket frame thật cho từng frame
+                },
             })
 
         elapsed = time.time() - start_time
@@ -218,7 +264,7 @@ def generate_scatter_for_prefix(
             "type": "frame",
             "scatter_data": scatter_data,
             "frame_count": len(local_paths),
-            "frame_source": frame_source
+            "frame_source": frame_source,
         }
 
     except Exception as e:

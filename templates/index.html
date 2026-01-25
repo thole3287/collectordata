@@ -820,7 +820,8 @@
                             <!-- Kết quả Boxplot bằng Chart.js -->
                             <div x-show="!loading && success" class="space-y-12 animate-fade-in">
                                 <template x-for="(box, index) in boxplotData" :key="index">
-                                    <div class="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100" style="width: 1000px; margin: auto; margin-top: 50px;">
+                                    <div class="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100"
+                                        style="width: 1000px; margin: auto; margin-top: 50px;">
                                         <div
                                             class="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-5 border-b flex justify-between items-center">
                                             <h4 class="text-xl font-bold text-gray-800" x-text="box.label"></h4>
@@ -846,6 +847,87 @@
                                 <i class="fas fa-exclamation-triangle text-red-500 text-6xl mb-6"></i>
                                 <p class="text-2xl font-bold text-red-600 mb-4" x-text="message || 'Có lỗi xảy ra'"></p>
                                 <p class="text-gray-600">Vui lòng thử lại hoặc kiểm tra log server</p>
+                            </div>
+                            <!-- Outlier Detail Modal -->
+                            <div x-show="showOutlierModal" @click="closeOutlierModal()" x-cloak
+                                class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                                <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden" @click.stop>
+                                    <!-- Header -->
+                                    <div
+                                        class="bg-gradient-to-r from-blue-600 to-blue-800 px-6 py-4 text-white flex justify-between items-center">
+                                        <h3 class="text-lg font-semibold">Chi tiết Outlier</h3>
+                                        <button @click="closeOutlierModal()" class="text-white hover:text-gray-200">
+                                            <i class="fas fa-times text-xl"></i>
+                                        </button>
+                                    </div>
+
+                                    <!-- Body -->
+                                    <div class="p-6 space-y-6 text-gray-800">
+                                        <!-- Thông tin chung -->
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <span class="text-sm text-gray-500 block">Đặc trưng</span>
+                                                <span class="font-medium" x-text="selectedOutlier?.label || '-'"></span>
+                                            </div>
+                                            <div>
+                                                <span class="text-sm text-gray-500 block">Giá trị</span>
+                                                <span class="font-bold text-blue-600"
+                                                    x-text="selectedOutlier?.value?.toFixed(2) || '-'"></span>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <span class="text-sm text-gray-500 block">Tên file</span>
+                                            <span class="font-mono text-sm break-all"
+                                                x-text="selectedOutlier?.filename || 'Không xác định'"></span>
+                                        </div>
+
+                                        <div>
+                                            <span class="text-sm text-gray-500 block">Bucket / Key</span>
+                                            <span class="font-mono text-sm break-all text-gray-700"
+                                                x-text="`${selectedOutlier?.bucket || '-'}/${selectedOutlier?.key || '-'}`"></span>
+                                        </div>
+
+                                        <!-- Preview ảnh nếu là frame -->
+                                        <!-- Preview ảnh nếu có URL (ưu tiên cao nhất) -->
+                                        <template x-if="outlierImageUrl">
+                                            <div
+                                                class="border border-gray-200 rounded-lg overflow-hidden bg-gray-50 mt-4">
+                                                <div
+                                                    class="p-3 bg-gray-100 text-sm font-medium text-gray-700 flex items-center gap-2">
+                                                    <i class="fas fa-image text-blue-500"></i>
+                                                    Preview Frame
+                                                </div>
+                                                <div class="relative min-h-[200px] flex items-center justify-center">
+                                                    <div x-show="outlierFrameLoading"
+                                                        class="absolute inset-0 flex items-center justify-center bg-black/20">
+                                                        <i class="fas fa-spinner fa-spin text-blue-600 text-4xl"></i>
+                                                    </div>
+                                                    <img :src="outlierImageUrl"
+                                                        class="max-w-full max-h-80 object-contain"
+                                                        @load="outlierFrameLoading = false"
+                                                        @error="outlierFrameLoading = false; outlierImageUrl = '/static/placeholder-error.png' || null">
+                                                </div>
+                                            </div>
+                                        </template>
+
+                                        <!-- Nếu không có preview (fallback) -->
+                                        <template x-if="!outlierImageUrl">
+                                            <div class="text-center py-6 text-gray-500 border-t border-gray-200 mt-4">
+                                                <i class="fas fa-exclamation-triangle text-4xl mb-3 opacity-70"></i><br>
+                                                Không tải được preview hoặc đây không phải file ảnh
+                                            </div>
+                                        </template>
+                                    </div>
+
+                                    <!-- Footer -->
+                                    <div class="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
+                                        <button @click="closeOutlierModal()"
+                                            class="px-5 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition">
+                                            Đóng
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -948,7 +1030,8 @@
                             <!-- Kết quả Scatter Charts (Chart.js) -->
                             <div x-show="!loading && success" class="space-y-12 animate-fade-in">
                                 <template x-for="(chartInfo, index) in scatterData" :key="index">
-                                    <div class="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 " style="width: 1000px; margin: auto; margin-top: 50px;">
+                                    <div class="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 "
+                                        style="width: 1000px; margin: auto; margin-top: 50px;">
                                         <div
                                             class="bg-gradient-to-r from-green-50 to-emerald-50 px-6 py-5 border-b flex justify-between items-center">
                                             <h4 class="text-xl font-bold text-gray-800" x-text="chartInfo.title"></h4>
@@ -974,6 +1057,138 @@
                                 <i class="fas fa-exclamation-triangle text-red-500 text-6xl mb-6"></i>
                                 <p class="text-2xl font-bold text-red-600 mb-4" x-text="message || 'Có lỗi xảy ra'"></p>
                                 <p class="text-gray-600">Vui lòng thử lại hoặc kiểm tra log server</p>
+                            </div>
+                        </div>
+
+                        <!-- Modal xem frame khi click point trên scatter -->
+                        <div x-show="showScatterFrameModal" @click="showScatterFrameModal = false" x-cloak
+                            class="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                            <div class="relative max-w-6xl w-full bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]"
+                                @click.stop>
+
+                                <!-- Close Button -->
+                                <button @click="showScatterFrameModal = false"
+                                    class="absolute top-4 right-4 z-10 bg-white/10 hover:bg-black/20 text-gray-800 md:text-white rounded-full p-2 transition-colors">
+                                    <i class="fas fa-times text-xl"></i>
+                                </button>
+                                <div class="w-full md:w-3/4 bg-black flex items-center justify-center relative">
+
+                                    <template x-if="frameLoading">
+                                        <div class="text-white text-2xl flex flex-col items-center gap-4">
+                                            <i class="fas fa-spinner fa-spin text-5xl"></i>
+                                            <span>Đang tải frame...</span>
+                                        </div>
+                                    </template>
+                                    <img x-show="!frameLoading && selectedScatterFrameUrl"
+                                        :src="selectedScatterFrameUrl"
+                                        class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+                                        alt="Selected Frame" />
+                                </div>
+
+
+                                <!-- Data Passport bên phải -->
+                                <div class="w-full md:w-1/4 bg-white p-6 overflow-y-auto border-l border-gray-100">
+                                    <!-- Header -->
+
+                                    <div class="mb-6 pb-4 border-b border-gray-100">
+                                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">DATA
+                                            PASSPORT</h3>
+
+                                        <h2 class="text-2xl font-bold text-gray-900 break-words"
+                                            x-text="selectedScatterFrame?.video_name || 'Unknown Frame'"></h2>
+
+                                        <!-- Badges -->
+                                        <div class="flex flex-wrap gap-2 mt-3">
+
+                                            <span
+                                                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                                :class="{
+                            'bg-red-100 text-red-800': selectedScatterFrame?.platform === 'youtube',
+                            'bg-green-100 text-green-800': selectedScatterFrame?.platform === 'pexels',
+                            'bg-blue-100 text-blue-800': selectedScatterFrame?.platform === 'camera'
+                        }">
+                                                <i class="fas fa-circle text-[8px] mr-1.5 opacity-60"></i>
+                                                <span
+                                                    x-text="(selectedScatterFrame?.platform || 'unknown').toUpperCase()"></span>
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Technical Specs -->
+                                    <div class="mb-6">
+                                        <h4 class="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                                            <i class="fas fa-microchip text-blue-500"></i> Technical Specs
+                                        </h4>
+                                        <div class="bg-gray-50 rounded-lg p-3 text-sm space-y-2">
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-500">Resource ID</span>
+                                                <span class="font-mono text-xs"
+                                                    x-text="selectedScatterFrame?.id || 'N/A'"></span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-500">File Size</span>
+                                                <span class="font-medium"
+                                                    x-text="formatFileSize(selectedScatterFrame?.file_size) || '0 B'"></span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-500">Video ID</span>
+                                                <span class="font-mono text-xs"
+                                                    x-text="selectedScatterFrame?.video_id || 'N/A'"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Temporal Data -->
+                                    <div class="mb-6">
+                                        <h4 class="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                                            <i class="fas fa-clock text-green-500"></i> Temporal Data
+                                        </h4>
+                                        <div class="bg-gray-50 rounded-lg p-3 text-sm space-y-2">
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-500">Extracted At</span>
+                                                <span class="font-medium"
+                                                    x-text="formatDateTime(selectedScatterFrame?.created_at) || 'N/A'"></span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-500">Frame Index</span>
+                                                <span class="font-bold text-blue-600"
+                                                    x-text="selectedScatterFrame?.frame_index || 'N/A'"></span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-500">Original Frame No.</span>
+                                                <span class="font-medium"
+                                                    x-text="selectedScatterFrame?.original_frame_no || '-'"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Storage Reference -->
+                                    <div class="mb-6">
+                                        <h4 class="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                                            <i class="fas fa-hdd text-purple-500"></i> Storage Reference
+                                        </h4>
+                                        <div
+                                            class="bg-gray-50 rounded-lg p-3 text-xs space-y-2 font-mono text-gray-600 break-all">
+                                            <div>
+                                                <span class="text-gray-400">Bucket:</span>
+                                                <span x-text="selectedScatterFrame?.storage_bucket || 'N/A'"></span>
+                                            </div>
+                                            <div>
+                                                <span class="text-gray-400">Key:</span>
+                                                <span x-text="selectedScatterFrame?.storage_key || 'N/A'"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Download Button -->
+                                    <div class="mt-8 pt-4 border-t border-gray-100">
+                                        <a :href="selectedScatterFrameUrl" target="_blank" download
+                                            class="w-full bg-gray-900 hover:bg-black text-white font-medium py-3 rounded-lg flex items-center justify-center gap-2 transition">
+                                            <i class="fas fa-download"></i>
+                                            Download Master File
+                                        </a>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1386,8 +1601,7 @@
                                             <!-- Preview -->
                                             <div
                                                 class="w-32 h-20 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0 mr-4 border border-gray-200 relative shadow-sm">
-                                                <img :src="group.preview_image"
-                                                    class="w-full h-full object-cover">
+                                                <img :src="group.preview_image" class="w-full h-full object-cover">
                                                 <div
                                                     class="absolute bottom-1 right-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded backdrop-blur-sm">
                                                     <i class="fas fa-images mr-1"></i><span
@@ -1721,9 +1935,6 @@
                             </div>
                         </div>
                     </div>
-
-
-
                 </div>
         </div>
 
@@ -1777,410 +1988,6 @@
                 }
                 originalError.apply(console, args);
             };
-        </script>
-        <script>
-            function boxplotTab() {
-                return {
-                    loading: false,
-                    success: false,
-                    generatedOnce: false,
-                    message: '',
-                    resultType: 'frame',
-                    buckets: [],
-                    subPrefixes: [],
-                    selectedBucket: '',
-                    currentPrefix: '',
-                    currentPath: [],
-                    boxplotData: [],
-                    charts: [],
-
-                    async init() {
-                        await this.loadBuckets();
-                        if (this.buckets.length > 0) {
-                            this.selectedBucket = this.buckets[0];
-                            await this.loadSubPrefixes();
-                        }
-                    },
-
-                    resetPath() {
-                        this.currentPrefix = '';
-                        this.currentPath = [];
-                    },
-
-                    async loadBuckets() {
-                        try {
-                            const res = await fetch("/api/minio/buckets");
-                            const json = await res.json();
-                            this.buckets = json.success && json.buckets?.length ? json.buckets : ["frames"];
-                            console.log("Buckets loaded:", this.buckets);
-                        } catch (err) {
-                            console.error("Lỗi load buckets:", err);
-                            this.buckets = ["frames"];
-                        }
-                    },
-
-                    async loadSubPrefixes() {
-                        if (!this.selectedBucket) return;
-                        this.loading = true;
-                        try {
-                            let url = `/api/minio/subprefixes?bucket=${encodeURIComponent(this.selectedBucket)}`;
-                            if (this.currentPrefix) url += `&prefix=${encodeURIComponent(this.currentPrefix)}`;
-                            const res = await fetch(url);
-                            const json = await res.json();
-                            this.subPrefixes = json.success ? json.subprefixes : [];
-                            console.log("Subprefixes:", this.subPrefixes);
-                        } catch (err) {
-                            console.error("Lỗi load subprefixes:", err);
-                            this.subPrefixes = [];
-                        } finally {
-                            this.loading = false;
-                        }
-                    },
-
-                    enterFolder(folder) {
-                        const clean = folder.replace(/\/$/, '');
-                        this.currentPath.push(clean);
-                        this.currentPrefix = this.currentPath.join('/') + '/';
-                        this.loadSubPrefixes();
-                    },
-
-                    goUpOneLevel() {
-                        if (!this.currentPath.length) return;
-                        this.currentPath.pop();
-                        this.currentPrefix = this.currentPath.length ? this.currentPath.join('/') + '/' : '';
-                        this.loadSubPrefixes();
-                    },
-
-                    goToLevel(idx) {
-                        this.currentPath = this.currentPath.slice(0, idx + 1);
-                        this.currentPrefix = this.currentPath.length ? this.currentPath.join('/') + '/' : '';
-                        this.loadSubPrefixes();
-                    },
-
-                    goToRoot() {
-                        this.resetPath();
-                        this.loadSubPrefixes();
-                    },
-
-                    async generateBoxplot() {
-                        if (this.loading || !this.selectedBucket) return;
-                        this.loading = true;
-                        this.generatedOnce = true;
-                        this.success = false;
-                        this.boxplotData = [];
-                        this.message = '';
-                        this.destroyAllCharts();
-
-                        try {
-                            const res = await fetch("/api/boxplots/generate", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                    bucket: this.selectedBucket,
-                                    prefix: this.currentPrefix || ""
-                                })
-                            });
-                            const json = await res.json();
-                            console.log("Backend response:", json); // ← Debug quan trọng
-
-                            if (json.success) {
-                                this.success = true;
-                                this.message = json.message;
-                                this.resultType = json.type || 'frame';
-                                this.boxplotData = json.boxplot_data || [];
-                                console.log("Boxplot data received:", this.boxplotData);
-                                this.$nextTick(() => this.renderAllCharts());
-                            } else {
-                                this.message = json.message || "Lỗi từ server";
-                                console.warn("Backend error:", json.message);
-                            }
-                        } catch (err) {
-                            console.error("Lỗi gọi API:", err);
-                            this.message = "Lỗi kết nối server";
-                        } finally {
-                            this.loading = false;
-                        }
-                    },
-
-                    renderAllCharts() {
-                        if (!this.boxplotData.length) {
-                            console.warn("Không có dữ liệu boxplot để vẽ");
-                            return;
-                        }
-
-                        this.boxplotData.forEach((info, idx) => {
-                            const canvas = document.getElementById(`boxChart${idx}`);
-                            if (!canvas) return;
-
-                            console.log(`Vẽ boxplot ${idx}: ${info.label} - ${info.values.length} giá trị`);
-
-                            const chart = new Chart(canvas, {
-                                type: 'boxplot',
-                                data: {
-                                    labels: [info.label],
-                                    datasets: [{
-                                        label: info.label,
-                                        data: [info.values],
-                                        backgroundColor: 'rgba(54, 162, 235, 0.4)',
-                                        borderColor: 'rgba(54, 162, 235, 1)',
-                                        borderWidth: 2,
-                                        outlierColor: '#ff6384',
-                                        outlierRadius: 5,
-                                        padding: 10
-                                    }]
-                                },
-                                options: {
-                                    responsive: true,
-                                    maintainAspectRatio: false,
-                                    plugins: {
-                                        legend: { display: false },
-                                        tooltip: {
-                                            callbacks: {
-                                                title: () => info.label,
-                                                label: (context) => {
-                                                    const s = info.stats;
-                                                    return [
-                                                        `Số lượng: ${s.count}`,
-                                                        `Trung bình: ${s.mean.toFixed(2)}`,
-                                                        `Trung vị: ${s.median.toFixed(2)}`,
-                                                        `Q1/Q3: ${s.q1.toFixed(2)} / ${s.q3.toFixed(2)}`,
-                                                        `Min/Max: ${s.min.toFixed(2)} / ${s.max.toFixed(2)}`,
-                                                        `Outliers: ${s.outliers.length}`
-                                                    ];
-                                                }
-                                            }
-                                        }
-                                    },
-                                    scales: {
-                                        y: {
-                                            title: { display: true, text: "Giá trị", font: { size: 14 } },
-                                            grid: { color: 'rgba(0,0,0,0.05)' }
-                                        }
-                                    }
-                                }
-                            });
-
-                            this.charts[idx] = chart;
-                        });
-                    },
-
-                    resetChartZoom(index) {
-                        if (this.charts[index]) this.charts[index].resetZoom();
-                    },
-
-                    destroyAllCharts() {
-                        this.charts.forEach(chart => chart?.destroy());
-                        this.charts = [];
-                    }
-                }
-            }
-        </script>
-        <script>
-            function scatterTab() {
-                return {
-                    loading: false,
-                    success: false,
-                    generatedOnce: false,
-                    message: '',
-                    resultType: 'frame',
-
-                    buckets: [],
-                    subPrefixes: [],
-                    selectedBucket: '',
-                    currentPrefix: '',
-                    currentPath: [],
-
-                    scatterData: [],          // Dữ liệu thô từ backend
-                    charts: [],               // Lưu instance Chart.js
-
-                    async init() {
-                        console.log("Scatter module khởi động");
-                        await this.loadBuckets();
-                        if (this.buckets.length > 0) {
-                            this.selectedBucket = this.buckets[0];
-                            await this.loadSubPrefixes();
-                        }
-                    },
-
-                    resetPath() {
-                        this.currentPrefix = '';
-                        this.currentPath = [];
-                        this.subPrefixes = [];
-                    },
-
-                    async loadBuckets() {
-                        try {
-                            const res = await fetch("/api/minio/buckets");
-                            const json = await res.json();
-                            this.buckets = json.success && json.buckets?.length ? json.buckets : ["frames"];
-                        } catch (err) {
-                            console.error("Lỗi load buckets:", err);
-                            this.buckets = ["frames"];
-                        }
-                    },
-
-                    async loadSubPrefixes() {
-                        if (!this.selectedBucket) return;
-                        this.loading = true;
-
-                        try {
-                            let url = `/api/minio/subprefixes?bucket=${encodeURIComponent(this.selectedBucket)}`;
-                            if (this.currentPrefix) url += `&prefix=${encodeURIComponent(this.currentPrefix)}`;
-
-                            const res = await fetch(url);
-                            const json = await res.json();
-
-                            if (json.success) {
-                                this.subPrefixes = json.subprefixes || [];
-                            } else {
-                                this.subPrefixes = [];
-                                this.message = json.message || "Không tải được thư mục";
-                            }
-                        } catch (err) {
-                            console.error(err);
-                            this.subPrefixes = [];
-                        } finally {
-                            this.loading = false;
-                        }
-                    },
-
-                    enterFolder(folder) {
-                        const clean = folder.replace(/\/$/, '');
-                        this.currentPath.push(clean);
-                        this.currentPrefix = this.currentPath.join('/') + '/';
-                        this.loadSubPrefixes();
-                    },
-
-                    goUpOneLevel() {
-                        if (this.currentPath.length === 0) return;
-                        this.currentPath.pop();
-                        this.currentPrefix = this.currentPath.length ? this.currentPath.join('/') + '/' : '';
-                        this.loadSubPrefixes();
-                    },
-
-                    goToLevel(index) {
-                        this.currentPath = this.currentPath.slice(0, index + 1);
-                        this.currentPrefix = this.currentPath.length ? this.currentPath.join('/') + '/' : '';
-                        this.loadSubPrefixes();
-                    },
-
-                    goToRoot() {
-                        this.resetPath();
-                        this.loadSubPrefixes();
-                    },
-
-                    async generateScatter() {
-                        if (this.loading || !this.selectedBucket) return;
-
-                        this.loading = true;
-                        this.generatedOnce = true;
-                        this.success = false;
-                        this.scatterData = [];
-                        this.message = '';
-                        this.$nextTick(() => this.destroyAllCharts());
-
-                        try {
-                            const res = await fetch("/api/scatters/generate", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                    bucket: this.selectedBucket,
-                                    prefix: this.currentPrefix || ""
-                                })
-                            });
-
-                            const json = await res.json();
-
-                            if (json.success) {
-                                this.success = true;
-                                this.message = json.message;
-                                this.resultType = json.type || 'frame';
-                                this.scatterData = json.scatter_data || [];
-
-                                this.$nextTick(() => this.renderAllCharts());
-                            } else {
-                                this.message = json.message || "Lỗi từ server";
-                            }
-                        } catch (err) {
-                            console.error("Lỗi generateScatter:", err);
-                            this.message = "Lỗi kết nối hoặc xử lý dữ liệu";
-                        } finally {
-                            this.loading = false;
-                        }
-                    },
-
-                    renderAllCharts() {
-                        this.scatterData.forEach((info, idx) => {
-                            const canvas = document.getElementById(`scatterChart${idx}`);
-                            if (!canvas) return;
-
-                            const ctx = canvas.getContext('2d');
-
-                            const chart = new Chart(ctx, {
-                                type: 'scatter',
-                                data: {
-                                    datasets: [{
-                                        label: info.title,
-                                        data: info.data.x.map((x, i) => ({ x, y: info.data.y[i] })),
-                                        backgroundColor: 'rgba(45, 212, 191, 0.7)',
-                                        borderColor: 'white',
-                                        pointBorderWidth: 1,
-                                        pointRadius: 5,
-                                        pointHoverRadius: 8,
-                                    }]
-                                },
-                                options: {
-                                    responsive: true,
-                                    maintainAspectRatio: false,
-                                    plugins: {
-                                        tooltip: {
-                                            callbacks: {
-                                                title: function (tooltipItems) {
-                                                    // Chỉ hiển thị label ngắn gọn
-                                                    return tooltipItems[0].dataset.label.split('  (')[0]; // cắt bỏ phần sau dấu "  ("
-                                                },
-                                                label: function (context) {
-                                                    return `x: ${context.parsed.x.toFixed(2)}, y: ${context.parsed.y.toFixed(2)}`;
-                                                }
-                                            }
-                                        },
-                                        legend: {
-                                            labels: {
-                                                generateLabels: function (chart) {
-                                                    return chart.data.datasets.map((ds, i) => ({
-                                                        text: ds.label.split('  (')[0], // cắt ngắn label trong legend
-                                                        fillStyle: ds.backgroundColor,
-                                                        strokeStyle: ds.borderColor,
-                                                        hidden: !chart.isDatasetVisible(i),
-                                                        index: i
-                                                    }));
-                                                }
-                                            }
-                                        }
-                                    },
-                                    scales: {
-                                        x: { title: { display: true, text: info.x_label, font: { size: 14 } }, grid: { color: 'rgba(0,0,0,0.05)' } },
-                                        y: { title: { display: true, text: info.y_label, font: { size: 14 } }, grid: { color: 'rgba(0,0,0,0.05)' } }
-                                    }
-                                }
-                            });
-
-                            this.charts[idx] = chart;
-                        });
-                    },
-
-                    resetChartZoom(index) {
-                        if (this.charts[index]) {
-                            this.charts[index].resetZoom();
-                        }
-                    },
-
-                    destroyAllCharts() {
-                        this.charts.forEach(chart => chart?.destroy());
-                        this.charts = [];
-                    }
-                }
-            }
         </script>
 </body>
 
