@@ -157,6 +157,9 @@ function app() {
         previewDebounceTimer: null,
         previewDetectedProfile: null, // New state for info
 
+        showOutlierModal: false,
+        selectedOutlier: null,
+
         formatFileSize(bytes) {
             if (!bytes) return '0 B';
             const k = 1024;
@@ -1843,4 +1846,641 @@ function app() {
     };
 }
 
+function boxplotTab() {
+    return {
+        loading: false,
+        success: false,
+        generatedOnce: false,
+        message: '',
+        resultType: 'frame',
+        buckets: [],
+        subPrefixes: [],
+        selectedBucket: '',
+        currentPrefix: '',
+        currentPath: [],
+        boxplotData: [],
+        charts: [],
 
+        outlierFrameLoading: false,
+        outlierImageUrl: null,
+
+        async init() {
+            await this.loadBuckets();
+            if (this.buckets.length > 0) {
+                this.selectedBucket = this.buckets[0];
+                await this.loadSubPrefixes();
+            }
+        },
+
+        resetPath() {
+            this.currentPrefix = '';
+            this.currentPath = [];
+        },
+
+        async loadBuckets() {
+            try {
+                const res = await fetch("/api/minio/buckets");
+                const json = await res.json();
+                this.buckets = json.success && json.buckets?.length ? json.buckets : ["frames"];
+                console.log("Buckets loaded:", this.buckets);
+            } catch (err) {
+                console.error("Lỗi load buckets:", err);
+                this.buckets = ["frames"];
+            }
+        },
+
+        async loadSubPrefixes() {
+            if (!this.selectedBucket) return;
+            this.loading = true;
+            try {
+                let url = `/api/minio/subprefixes?bucket=${encodeURIComponent(this.selectedBucket)}`;
+                if (this.currentPrefix) url += `&prefix=${encodeURIComponent(this.currentPrefix)}`;
+                const res = await fetch(url);
+                const json = await res.json();
+                this.subPrefixes = json.success ? json.subprefixes : [];
+                console.log("Subprefixes:", this.subPrefixes);
+            } catch (err) {
+                console.error("Lỗi load subprefixes:", err);
+                this.subPrefixes = [];
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        enterFolder(folder) {
+            const clean = folder.replace(/\/$/, '');
+            this.currentPath.push(clean);
+            this.currentPrefix = this.currentPath.join('/') + '/';
+            this.loadSubPrefixes();
+        },
+
+        goUpOneLevel() {
+            if (!this.currentPath.length) return;
+            this.currentPath.pop();
+            this.currentPrefix = this.currentPath.length ? this.currentPath.join('/') + '/' : '';
+            this.loadSubPrefixes();
+        },
+
+        goToLevel(idx) {
+            this.currentPath = this.currentPath.slice(0, idx + 1);
+            this.currentPrefix = this.currentPath.length ? this.currentPath.join('/') + '/' : '';
+            this.loadSubPrefixes();
+        },
+
+        goToRoot() {
+            this.resetPath();
+            this.loadSubPrefixes();
+        },
+
+        async generateBoxplot() {
+            if (this.loading || !this.selectedBucket) return;
+            this.loading = true;
+            this.generatedOnce = true;
+            this.success = false;
+            this.boxplotData = [];
+            this.message = '';
+            this.destroyAllCharts();
+
+            try {
+                const res = await fetch("/api/boxplots/generate", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        bucket: this.selectedBucket,
+                        prefix: this.currentPrefix || ""
+                    })
+                });
+                const json = await res.json();
+                console.log("Backend response:", json); // ← Debug quan trọng
+
+                if (json.success) {
+                    this.success = true;
+                    this.message = json.message;
+                    this.resultType = json.type || 'frame';
+                    this.boxplotData = json.boxplot_data || [];
+                    console.log("Boxplot data received:", this.boxplotData);
+                    this.$nextTick(() => this.renderAllCharts());
+                } else {
+                    this.message = json.message || "Lỗi từ server";
+                    console.warn("Backend error:", json.message);
+                }
+            } catch (err) {
+                console.error("Lỗi gọi API:", err);
+                this.message = "Lỗi kết nối server";
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        renderAllCharts() {
+            if (!this.boxplotData.length) {
+                console.warn("Không có dữ liệu boxplot để vẽ");
+                return;
+            }
+
+            const self = this;
+
+            this.destroyAllCharts();
+
+            this.boxplotData.forEach((info, idx) => {
+                const canvas = document.getElementById(`boxChart${idx}`);
+                if (!canvas) return;
+
+                const outlierPoints = (info.outliers_with_meta || []).map((o, i) => ({
+                    x: 0,
+                    y: o.value,
+                    outlierIndex: i,
+                    metadata: o.metadata
+                }));
+
+                const chart = new Chart(canvas, {
+                    type: 'bar',
+                    data: {
+                        labels: [info.label],
+                        datasets: [
+                            {
+                                label: info.label,
+                                type: 'boxplot',
+                                data: [info.values],
+                                backgroundColor: 'rgba(54, 162, 235, 0.3)',
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                borderWidth: 2,
+                                outlierColor: '#ff6384',
+                                outlierRadius: 0,
+                                padding: 10,
+                                stats: info.stats  // ← ĐÃ THÊM → tooltip sẽ lấy được stats
+                            },
+                            {
+                                type: 'scatter',
+                                label: 'Outliers',
+                                data: outlierPoints,
+                                backgroundColor: '#ff6384',
+                                pointRadius: 6,
+                                pointHoverRadius: 10,
+                                pointBorderColor: '#fff',
+                                pointBorderWidth: 1.5,
+                                parsing: false
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: { display: false },
+                            y: { title: { display: true, text: "Giá trị" } }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                enabled: true,
+                                backgroundColor: 'rgba(15, 23, 42, 0.96)',
+                                titleColor: '#f8fafc',
+                                bodyColor: '#cbd5e1',
+                                borderColor: '#475569',
+                                borderWidth: 1,
+                                cornerRadius: 10,
+                                padding: 14,
+                                titleFont: { size: 15, weight: '600' },
+                                bodyFont: { size: 13 },
+                                displayColors: false,
+                                callbacks: {
+                                    title: function (tooltipItems) {
+                                        const outlier = tooltipItems[0].raw;
+                                        const meta = outlier.metadata || {};
+                                        return meta.filename || 'Chi tiết Outlier';
+                                    },
+
+                                    label: function (context) {
+                                        const p = context.raw;
+                                        const meta = p.metadata || {};
+
+                                        // SỬA Ở ĐÂY: Lấy stats từ dataset boxplot (luôn là datasets[0])
+                                        const boxDataset = context.chart.data.datasets[0];
+                                        const stats = boxDataset?.stats || {};
+
+                                        const lines = [];
+
+                                        // THỐNG KÊ BOXPLOT (an toàn)
+                                        lines.push(`Đặc trưng: ${context.chart.data.labels[0] || '?'}`);
+                                        lines.push(`Tổng số mẫu: ${stats.count ?? '?'}`);
+                                        lines.push(`Mean: ${stats.mean?.toFixed(2) ?? '?'}`);
+                                        lines.push(`Median: ${stats.median?.toFixed(2) ?? '?'}`);
+                                        lines.push(`Q1: ${stats.q1?.toFixed(2) ?? '?'}`);
+                                        lines.push(`Q3: ${stats.q3?.toFixed(2) ?? '?'}`);
+                                        lines.push(`Min / Max: ${stats.min?.toFixed(2) ?? '?'} – ${stats.max?.toFixed(2) ?? '?'}`);
+                                        lines.push(`Số outlier: ${stats.outlier_count ?? stats.outliers?.length ?? '?'}`);
+
+                                        // THÔNG TIN OUTLIER/FRAME
+                                        lines.push('────────────────────────');
+                                        lines.push(`Giá trị outlier: ${p.y?.toFixed(2) ?? '?'}`);
+                                        lines.push(`File: ${meta.filename || 'unknown'}`);
+
+                                        if (meta.bucket && meta.key) {
+                                            const shortPath = meta.key.split('/').slice(-2).join('/');
+                                        }
+
+                                        if (meta.platform) lines.push(`Nguồn: ${meta.platform}`);
+                                        if (meta.scene_type) lines.push(`Cảnh: ${meta.scene_type}`);
+
+                                        return lines;
+                                    }
+                                }
+                            }
+                        },
+                        onClick: function (event, elements) {
+                            console.log("Chart click event fired", { elements: elements.length });
+
+                            if (!elements.length) return;
+
+                            const element = elements[0];
+                            const datasetIndex = element.datasetIndex;
+                            const index = element.index;
+
+                            if (datasetIndex === 1) {
+                                const outlier = outlierPoints[index];
+
+                                if (outlier && outlier.metadata) {
+                                    console.log("Clicked outlier:", outlier);
+
+                                    self.openOutlierModal({
+                                        feature: info.feature,
+                                        label: info.label,
+                                        value: outlier.y,
+                                        filename: outlier.metadata.filename || 'unknown',
+                                        path: outlier.metadata.local_path || outlier.metadata.path || 'unknown',
+                                        bucket: outlier.metadata.bucket || self.selectedBucket,
+                                        key: outlier.metadata.key || 'unknown'
+                                    });
+                                }
+                            }
+                        }
+                    }
+                });
+
+                this.charts[idx] = chart;
+            });
+        },
+
+        openOutlierModal(outlier) {
+            console.log("openOutlierModal được gọi:", outlier);
+
+            this.selectedOutlier = outlier;
+
+            // Lấy filename hoặc key để kiểm tra extension
+            const filename = outlier.filename || outlier.metadata?.filename || '';
+            const key = outlier.key || outlier.metadata?.key || '';
+            const fileExt = (filename || key).toLowerCase();
+
+            // Kiểm tra nếu là ảnh (frame)
+            const isImage = fileExt.endsWith('.png') ||
+                fileExt.endsWith('.jpg') ||
+                fileExt.endsWith('.jpeg');
+
+            if (isImage) {
+                const bucket = outlier.bucket || outlier.metadata?.bucket || this.selectedBucket;
+                const keyToUse = outlier.key || outlier.metadata?.key;
+
+                if (bucket && keyToUse) {
+                    this.outlierImageUrl = `/api/image-proxy?bucket=${encodeURIComponent(bucket)}&key=${encodeURIComponent(keyToUse)}`;
+                    this.outlierFrameLoading = true;
+
+                    // Preload để biết load xong
+                    const img = new Image();
+                    img.onload = () => {
+                        console.log("Ảnh preview load thành công:", this.outlierImageUrl);
+                        this.outlierFrameLoading = false;
+                    };
+                    img.onerror = () => {
+                        console.error("Load preview thất bại:", this.outlierImageUrl);
+                        this.outlierFrameLoading = false;
+                        this.outlierImageUrl = null; // fallback nếu lỗi
+                    };
+                    img.src = this.outlierImageUrl;
+                } else {
+                    console.warn("Thiếu bucket hoặc key để tạo preview");
+                    this.outlierImageUrl = null;
+                    this.outlierFrameLoading = false;
+                }
+            } else {
+                // Không phải ảnh → coi như video hoặc unknown
+                console.log("Không phải file ảnh:", fileExt);
+                this.outlierImageUrl = null;
+                this.outlierFrameLoading = false;
+            }
+
+            this.showOutlierModal = true;
+        },
+
+        closeOutlierModal() {
+            console.log("closeOutlierModal được gọi");
+            this.showOutlierModal = false;
+            this.selectedOutlier = null;
+            this.outlierImageUrl = null;
+            this.outlierFrameLoading = false;
+        },
+
+        resetChartZoom(index) {
+            if (this.charts[index]) this.charts[index].resetZoom();
+        },
+
+        destroyAllCharts() {
+            this.charts.forEach(chart => chart?.destroy());
+            this.charts = [];
+        }
+    }
+}
+
+function scatterTab() {
+    return {
+        showScatterFrameModal: false,
+        selectedScatterFrameUrl: null,
+        selectedScatterFrame: null,
+        frameLoading: false,
+
+        loading: false,
+        success: false,
+        generatedOnce: false,
+        message: '',
+        resultType: 'frame',
+        buckets: [],
+        subPrefixes: [],
+        selectedBucket: '',
+        currentPrefix: '',
+        currentPath: [],
+        scatterData: [],
+        charts: [],
+
+        async init() {
+            console.log("Scatter module khởi động");
+            await this.loadBuckets();
+            if (this.buckets.length > 0) {
+                this.selectedBucket = this.buckets[0];
+                await this.loadSubPrefixes();
+            }
+        },
+
+        resetPath() {
+            this.currentPrefix = '';
+            this.currentPath = [];
+            this.subPrefixes = [];
+        },
+
+        async loadBuckets() {
+            try {
+                const res = await fetch("/api/minio/buckets");
+                const json = await res.json();
+                this.buckets = json.success && json.buckets?.length ? json.buckets : ["dataset"];
+            } catch (err) {
+                console.error("Lỗi load buckets:", err);
+                this.buckets = ["dataset"];
+            }
+        },
+
+        async loadSubPrefixes() {
+            if (!this.selectedBucket) return;
+            this.loading = true;
+            try {
+                let url = `/api/minio/subprefixes?bucket=${encodeURIComponent(this.selectedBucket)}`;
+                if (this.currentPrefix) url += `&prefix=${encodeURIComponent(this.currentPrefix)}`;
+                const res = await fetch(url);
+                const json = await res.json();
+                if (json.success) {
+                    this.subPrefixes = json.subprefixes || [];
+                } else {
+                    this.subPrefixes = [];
+                    this.message = json.message || "Không tải được thư mục";
+                }
+            } catch (err) {
+                console.error(err);
+                this.subPrefixes = [];
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        enterFolder(folder) {
+            const clean = folder.replace(/\/$/, '');
+            this.currentPath.push(clean);
+            this.currentPrefix = this.currentPath.join('/') + '/';
+            this.loadSubPrefixes();
+        },
+
+        goUpOneLevel() {
+            if (this.currentPath.length === 0) return;
+            this.currentPath.pop();
+            this.currentPrefix = this.currentPath.length ? this.currentPath.join('/') + '/' : '';
+            this.loadSubPrefixes();
+        },
+
+        goToLevel(index) {
+            this.currentPath = this.currentPath.slice(0, index + 1);
+            this.currentPrefix = this.currentPath.length ? this.currentPath.join('/') + '/' : '';
+            this.loadSubPrefixes();
+        },
+
+        goToRoot() {
+            this.resetPath();
+            this.loadSubPrefixes();
+        },
+
+        async generateScatter() {
+            if (this.loading || !this.selectedBucket) return;
+            this.loading = true;
+            this.generatedOnce = true;
+            this.success = false;
+            this.scatterData = [];
+            this.message = '';
+            this.$nextTick(() => this.destroyAllCharts());
+
+            try {
+                const res = await fetch("/api/scatters/generate", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        bucket: this.selectedBucket,
+                        prefix: this.currentPrefix || ""
+                    })
+                });
+
+                const json = await res.json();
+
+                if (!res.ok || !json.success) {
+                    this.message = json.message || "Lỗi từ server khi tạo scatter";
+                    console.error("API scatter error:", json);
+                    return;
+                }
+
+                this.success = true;
+                this.message = json.message;
+                this.resultType = json.type || 'frame';
+                this.scatterData = json.scatter_data || [];
+
+                // Debug: In ra dữ liệu mẫu từ backend
+                if (this.scatterData.length > 0 && this.scatterData[0].data?.object_name?.length > 0) {
+                    console.log("Sample object_name từ backend:", this.scatterData[0].data.object_name[0]);
+                    console.log("Sample bucket từ backend:", this.scatterData[0].data.bucket?.[0] || "Không có bucket");
+                    console.log("Current prefix frontend:", this.currentPrefix);
+                }
+
+                this.$nextTick(() => this.renderAllCharts());
+            } catch (err) {
+                console.error("Lỗi gọi API scatter:", err);
+                this.message = "Lỗi kết nối hoặc xử lý dữ liệu";
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        renderAllCharts() {
+            this.scatterData.forEach((info, idx) => {
+                const canvas = document.getElementById(`scatterChart${idx}`);
+                if (!canvas) return;
+
+                const pointData = info.data.x.map((x, i) => ({
+                    x: x,
+                    y: info.data.y[i],
+                    frameIdx: info.data.frame_index?.[i] ?? i,
+                    objectName: info.data.object_name?.[i] ?? null,
+                    platform: info.data.platform?.[i] ?? 'unknown',
+                    scene_type: info.data.scene_type?.[i] ?? 'day',
+                    file_size: info.data.file_size?.[i] ?? 0,
+                    created_at: info.data.created_at?.[i] ?? null,
+                    video_id: info.data.video_id?.[i] ?? 'unknown',
+                    bucket: info.data.bucket?.[i] ?? null  // ← THÊM FIELD BUCKET TỪ BACKEND
+                }));
+
+                const chart = new Chart(canvas.getContext('2d'), {
+                    type: 'scatter',
+                    data: {
+                        datasets: [{
+                            label: `${info.title} (${pointData.length} frames)`,
+                            data: pointData,
+                            backgroundColor: 'rgba(45, 212, 191, 0.7)',
+                            borderColor: 'white',
+                            pointBorderWidth: 1,
+                            pointRadius: 5,
+                            pointHoverRadius: 9,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            tooltip: {
+                                enabled: true,
+                                callbacks: {
+                                    label: function (context) {
+                                        const p = context.raw;
+                                        const meta = p.metadata || {};
+
+                                        // LẤY STATS TỪ DATASET BOXPLOT (dataset[0])
+                                        const boxDataset = context.chart.data.datasets[0];
+                                        const stats = boxDataset.stats || {};
+
+                                        const lines = [];
+
+                                        // THỐNG KÊ BOXPLOT (an toàn)
+                                        lines.push(`Đặc trưng: ${context.chart.data.labels[0] || '?'}`);
+                                        lines.push(`Tổng số mẫu: ${stats.count ?? '?'}`);
+                                        lines.push(`Mean: ${stats.mean?.toFixed(2) ?? '?'}`);
+                                        lines.push(`Median: ${stats.median?.toFixed(2) ?? '?'}`);
+                                        lines.push(`Q1: ${stats.q1?.toFixed(2) ?? '?'}`);
+                                        lines.push(`Q3: ${stats.q3?.toFixed(2) ?? '?'}`);
+                                        lines.push(`Min / Max: ${stats.min?.toFixed(2) ?? '?'} – ${stats.max?.toFixed(2) ?? '?'}`);
+                                        lines.push(`Số outlier: ${stats.outlier_count ?? stats.outliers?.length ?? '?'}`);
+
+                                        // THÔNG TIN OUTLIER/FRAME
+                                        lines.push('────────────────────────');
+                                        lines.push(`Giá trị outlier: ${p.y?.toFixed(2) ?? '?'}`);
+                                        lines.push(`File: ${meta.filename || 'unknown'}`);
+
+                                        if (meta.bucket && meta.key) {
+                                            const shortPath = meta.key.split('/').slice(-2).join('/');
+                                            lines.push(`Vị trí: ${meta.bucket}/${shortPath}`);
+                                        }
+
+                                        if (meta.platform) lines.push(`Nguồn: ${meta.platform}`);
+                                        if (meta.scene_type) lines.push(`Cảnh: ${meta.scene_type}`);
+
+                                        return lines;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { title: { display: true, text: info.x_label } },
+                            y: { title: { display: true, text: info.y_label } }
+                        },
+                        onClick: (event, elements) => {
+                            if (elements.length === 0) return;
+                            const p = pointData[elements[0].index];
+
+                            let key = p.objectName;
+                            if (!key) {
+                                key = `frame_${String(p.frameIdx).padStart(6, '0')}.png`;
+                            }
+
+                            // Bucket từ backend (ưu tiên), fallback selectedBucket
+                            const frameBucket = p.bucket || this.selectedBucket;
+
+                            // Debug chi tiết
+                            console.log("DEBUG p.bucket:", {
+                                p_bucket_raw: p.bucket,
+                                selectedBucket: this.selectedBucket,
+                                frameBucket_final: frameBucket
+                            });
+
+                            // KHÔNG ghép currentPrefix nữa (backend trả full key đúng)
+                            let finalKey = key.replace(/\/{2,}/g, '/');
+
+                            const imageUrl = `/api/image-proxy?bucket=${encodeURIComponent(frameBucket)}&key=${encodeURIComponent(finalKey)}`;
+
+                            this.selectedScatterFrame = {
+                                image_url: imageUrl,
+                                video_name: finalKey.split('/').pop() || `Frame ${p.frameIdx + 1}`,
+                                platform: p.platform,
+                                scene_type: p.scene_type,
+                                video_id: p.video_id || 'unknown',
+                                frame_index: p.frameIdx + 1,
+                                storage_bucket: frameBucket,
+                                storage_key: finalKey,
+                            };
+
+                            this.selectedScatterFrameUrl = imageUrl;
+                            this.frameLoading = true;
+                            this.showScatterFrameModal = true;
+
+                            const img = new Image();
+                            img.onload = () => this.frameLoading = false;
+                            img.onerror = () => {
+                                this.frameLoading = false;
+                                console.error("Load thất bại:", { bucket: frameBucket, key: finalKey });
+                                alert(`Không tải frame.\nBucket: ${frameBucket}\nKey: ${finalKey}`);
+                            };
+                            img.src = imageUrl;
+                        },
+                    }
+                });
+
+                this.charts[idx] = chart;
+            });
+        },
+
+        resetChartZoom(index) {
+            if (this.charts[index]) this.charts[index].resetZoom();
+        },
+
+        destroyAllCharts() {
+            this.charts.forEach(chart => chart?.destroy());
+            this.charts = [];
+        },
+
+        closeScatterModal() {
+            this.showScatterFrameModal = false;
+            this.selectedScatterFrameUrl = null;
+            this.selectedScatterFrame = null;
+            this.frameLoading = false;
+        }
+    };
+}

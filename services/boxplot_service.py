@@ -6,13 +6,17 @@ import os
 import shutil
 import time
 import traceback
-import random # Added back just in case, though might not be used in new logic if we list all recursive
-from services.minio_service import get_minio_client, list_objects_recursive, download_object # Assuming these are available now
+from services.minio_service import (
+    get_minio_client,
+    list_objects_recursive,
+    download_object,
+)
 
 # Cấu hình
 MAX_SAMPLES = 400
 TEMP_DIR = "downloads/temp_boxplot"
-FRAMES_BUCKET_NAMES = ["frames", "dataset", "camera-images"] 
+FRAMES_BUCKET_NAMES = ["dataset"]
+
 
 def generate_boxplot_for_prefix(
     bucket: str,
@@ -20,8 +24,7 @@ def generate_boxplot_for_prefix(
     local_root: str = TEMP_DIR,
 ) -> dict:
     """
-    Tạo dữ liệu boxplot từ bucket/prefix, dùng chung logic MinIO từ minio_service.
-    Trả dữ liệu thô cho Chart.js (không vẽ base64 nữa).
+    Tạo dữ liệu boxplot từ bucket/prefix, hỗ trợ outliers với metadata để click xem chi tiết.
     """
     start_time = time.time()
     print(f"🚀 Boxplot - Bucket: {bucket} | Prefix: '{prefix}'")
@@ -30,49 +33,63 @@ def generate_boxplot_for_prefix(
         os.makedirs(local_root, exist_ok=True)
         client = get_minio_client()
 
-        # Chuẩn hóa prefix
         if prefix:
-            prefix = prefix.strip().rstrip('/') + '/'
+            prefix = prefix.strip().rstrip("/") + "/"
 
         local_paths = []
+        metadata_list = []
         type_str = ""
         source_info = ""
 
-        # ── List objects dùng hàm chung ────────────────────────────────────────
         print(f"Listing recursive với prefix: '{prefix}'")
         all_objects = list_objects_recursive(client, bucket, prefix)
 
         if not all_objects:
-            return {"success": False, "message": f"Không tìm thấy object nào trong {bucket}/{prefix.rstrip('/')}"}
+            return {
+                "success": False,
+                "message": f"Không tìm thấy object nào trong {bucket}/{prefix.rstrip('/')}",
+            }
 
-        is_frame_bucket = bucket in FRAMES_BUCKET_NAMES or 'frame' in bucket.lower()
+        is_frame_bucket = bucket in FRAMES_BUCKET_NAMES or "frame" in bucket.lower()
 
         valid_items = []
         for obj in all_objects:
             key = obj.object_name
-            if key.endswith("/"): continue
+            if key.endswith("/"):
+                continue
 
             lower_key = key.lower()
             if is_frame_bucket:
-                if lower_key.endswith(('.png', '.jpg', '.jpeg')):
+                if lower_key.endswith((".png", ".jpg", ".jpeg")):
                     valid_items.append((bucket, key))
             else:
-                # Video hoặc media
-                if any(lower_key.endswith(ext) for ext in ('.mp4', '.avi', '.mov', '.mkv', '.webm')):
+                if any(
+                    lower_key.endswith(ext)
+                    for ext in (".mp4", ".avi", ".mov", ".mkv", ".webm")
+                ):
                     valid_items.append((bucket, key))
 
         print(f"→ Tìm thấy {len(valid_items)} file hợp lệ")
 
-        # Giới hạn số lượng
         valid_items = valid_items[:MAX_SAMPLES]
 
-        # Tải về local dùng hàm chung
         for idx, (bkt, key) in enumerate(valid_items):
             filename = os.path.basename(key)
             safe_name = f"item_{idx:06d}_{filename}"
             local_path = os.path.join(local_root, safe_name)
+
             if download_object(client, bkt, key, local_path):
                 local_paths.append(local_path)
+                metadata_list.append(
+                    {
+                        "filename": filename,
+                        "local_path": local_path,
+                        "bucket": bkt,
+                        "key": key,
+                        "index": idx,
+                        "is_frame": is_frame_bucket,
+                    }
+                )
             else:
                 print(f"Skip tải {key}")
 
@@ -84,13 +101,20 @@ def generate_boxplot_for_prefix(
 
         print(f"✓ Đã tải {len(local_paths)} {type_str} (nguồn: {source_info})")
 
-        # ── Tính đặc trưng ───────────────────────────────────────────────────── 
+        # ── Tính đặc trưng ─────────────────────────────────────────────────────
         data = {}
         features = []
         feature_names_vn = {}
 
         if type_str.startswith("VIDEO"):
-            features = ["duration", "bitrate", "frame_rate", "width", "height", "file_size_mb"]
+            features = [
+                "duration",
+                "bitrate",
+                "frame_rate",
+                "width",
+                "height",
+                "file_size_mb",
+            ]
             feature_names_vn = {
                 "duration": "Thời lượng (giây)",
                 "bitrate": "Bitrate ước tính (kbps)",
@@ -99,12 +123,24 @@ def generate_boxplot_for_prefix(
                 "height": "Chiều cao (px)",
                 "file_size_mb": "Kích thước file (MB)",
             }
-            data = {f: [] for f in features}
+        else:
+            features = ["brightness", "contrast", "blur", "noise_level", "edge_density"]
+            feature_names_vn = {
+                "brightness": "Độ sáng trung bình",
+                "contrast": "Độ tương phản",
+                "blur": "Độ mờ (Laplacian variance)",
+                "noise_level": "Mức nhiễu",
+                "edge_density": "Mật độ cạnh",
+            }
 
-            for path in local_paths:
-                try:
+        data = {f: [] for f in features}
+
+        for path in local_paths:
+            try:
+                if type_str.startswith("VIDEO"):
                     cap = cv2.VideoCapture(path)
-                    if not cap.isOpened(): continue
+                    if not cap.isOpened():
+                        continue
                     fps = cap.get(cv2.CAP_PROP_FPS) or 0
                     frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0
                     duration = frame_count / fps if fps > 0 else 0
@@ -120,34 +156,23 @@ def generate_boxplot_for_prefix(
                     data["height"].append(height)
                     data["file_size_mb"].append(size_mb)
                     cap.release()
-                except Exception as e:
-                    print(f"Skip video analysis {path}: {e}")
-        else:
-            features = ["brightness", "contrast", "blur", "noise_level", "edge_density"]
-            feature_names_vn = {
-                "brightness": "Độ sáng trung bình",
-                "contrast": "Độ tương phản",
-                "blur": "Độ mờ (Laplacian variance)",
-                "noise_level": "Mức nhiễu",
-                "edge_density": "Mật độ cạnh",
-            }
-            data = {f: [] for f in features}
-
-            for path in local_paths:
-                try:
+                else:
                     img = cv2.imread(path)
-                    if img is None: continue
+                    if img is None:
+                        continue
                     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
                     data["brightness"].append(float(np.mean(gray)))
                     data["contrast"].append(float(np.std(gray)))
                     data["blur"].append(float(cv2.Laplacian(gray, cv2.CV_64F).var()))
-                    blurred = cv2.GaussianBlur(gray, (5,5), 0)
+                    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
                     data["noise_level"].append(float(np.std(gray - blurred)))
                     edges = cv2.Canny(gray, 100, 200)
-                    data["edge_density"].append(float(np.sum(edges > 0) / edges.size if edges.size > 0 else 0))
-                except Exception as e:
-                    print(f"Skip frame analysis {path}: {e}")
+                    data["edge_density"].append(
+                        float(np.sum(edges > 0) / edges.size if edges.size > 0 else 0)
+                    )
+            except Exception as e:
+                print(f"Skip analysis {path}: {e}")
 
         # ── Chuẩn bị dữ liệu cho Chart.js ─────────────────────────────────────
         boxplot_data = []
@@ -155,41 +180,87 @@ def generate_boxplot_for_prefix(
 
         for feat in valid_features:
             values = [v for v in data[feat] if not np.isnan(v) and not np.isinf(v)]
+            print(
+                f"Feature {feat}: len(values) = {len(values)}, sample values: {values[:5] if values else '[]'}"
+            )  # Debug
+
             if len(values) < 3:
+                print(f"Skip {feat} vì ít dữ liệu")
                 continue
 
-            q1, q3 = np.percentile(values, [25, 75])
-            iqr = q3 - q1
-            outliers = [v for v in values if v < (q1 - 1.5 * iqr) or v > (q3 + 1.5 * iqr)]
+            # Tính percentile an toàn
+            q1 = np.percentile(values, 25) if len(values) >= 4 else None
+            q3 = np.percentile(values, 75) if len(values) >= 4 else None
+            iqr = q3 - q1 if q1 is not None and q3 is not None else None
+
+            # Tính các thống kê khác an toàn
+            try:
+                min_val = float(np.min(values))
+                max_val = float(np.max(values))
+                mean_val = float(np.mean(values))
+                median_val = float(np.median(values))
+            except Exception as calc_err:
+                print(f"Lỗi tính stats cho {feat}: {calc_err}")
+                min_val = max_val = mean_val = median_val = None
+
+            outliers_with_meta = []
+            if iqr is not None:
+                lower_bound = q1 - 1.5 * iqr
+                upper_bound = q3 + 1.5 * iqr
+                for i, v in enumerate(values):
+                    if v < lower_bound or v > upper_bound:
+                        outliers_with_meta.append(
+                            {
+                                "value": float(v),
+                                "metadata": (
+                                    metadata_list[i]
+                                    if i < len(metadata_list)
+                                    else {
+                                        "filename": "unknown",
+                                        "bucket": bucket,
+                                        "key": "unknown",
+                                    }
+                                ),
+                            }
+                        )
 
             stats = {
-                "min": float(np.min(values)),
-                "q1": float(q1),
-                "median": float(np.median(values)),
-                "q3": float(q3),
-                "max": float(np.max(values)),
-                "mean": float(np.mean(values)),
+                "min": min_val,
+                "q1": float(q1) if q1 is not None else None,
+                "median": median_val,
+                "q3": float(q3) if q3 is not None else None,
+                "max": max_val,
+                "mean": mean_val,
                 "count": len(values),
-                "outliers": outliers
+                "outliers": [o["value"] for o in outliers_with_meta],
+                "outlier_count": len(outliers_with_meta),  # Để frontend dễ dùng
             }
 
-            boxplot_data.append({
-                "feature": feat,
-                "label": feature_names_vn.get(feat, feat),
-                "values": values,
-                "stats": stats
-            })
+            print(f"Stats cuối cùng cho {feat}: {stats}")  # Debug quan trọng
+
+            boxplot_data.append(
+                {
+                    "feature": feat,
+                    "label": feature_names_vn.get(feat, feat),
+                    "values": values,
+                    "stats": stats,
+                    "outliers_with_meta": outliers_with_meta,
+                }
+            )
 
         elapsed = time.time() - start_time
 
         if not boxplot_data:
-            return {"success": False, "message": "Không có đặc trưng nào đủ dữ liệu để vẽ boxplot"}
+            return {
+                "success": False,
+                "message": "Không có đặc trưng nào đủ dữ liệu để vẽ boxplot",
+            }
 
         return {
             "success": True,
             "message": f"Đã xử lý {len(local_paths)} {type_str} – {len(boxplot_data)} boxplot ({elapsed:.1f}s)",
             "type": "frame" if type_str.startswith("FRAME") else "video",
-            "boxplot_data": boxplot_data
+            "boxplot_data": boxplot_data,
         }
 
     except Exception as e:
