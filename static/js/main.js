@@ -1367,7 +1367,8 @@ function app() {
             this.vizData.by_keyword.forEach(kw => {
                 keywordMap[kw.keyword] = {
                     count: kw.count,
-                    platforms: kw.platforms || []
+                    platforms: kw.platforms || [],
+                    frame_count: kw.frame_count || 0
                 };
             });
 
@@ -1406,8 +1407,9 @@ function app() {
                 hover: function (item, dimension, event) {
                     if (item) {
                         const keyword = item[0];
-                        const keywordData = keywordMap[keyword] || { count: 0, platforms: [] };
+                        const keywordData = keywordMap[keyword] || { count: 0, platforms: [], frame_count: 0 };
                         const count = keywordData.count;
+                        const frameCount = keywordData.frame_count || 0;
                         const platforms = keywordData.platforms || [];
 
                         // Format platform display
@@ -1425,11 +1427,11 @@ function app() {
                         tooltip.innerHTML = `
                             <div style="font-weight: bold; margin-bottom: 4px;">${keyword}</div>
                             <div style="font-size: 12px; opacity: 0.9;">${count} video(s)</div>
+                            <div style="font-size: 12px; opacity: 0.9; color: #FCD34D;">${frameCount} frame(s)</div>
                             ${platformText}
                         `;
-                        tooltip.style.left = (event.pageX + 15) + 'px';
-                        tooltip.style.top = (event.pageY - 50) + 'px';
-                        canvas.style.cursor = 'pointer';
+                        tooltip.style.left = (event.pageX + 15) + 'px'; // Fix tooltip position relative to page
+                        tooltip.style.top = (event.pageY) + 'px';       // Fix tooltip position relative to page
                     } else {
                         tooltip.style.display = 'none';
                         canvas.style.cursor = 'default';

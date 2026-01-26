@@ -59,6 +59,43 @@ def get_visualization_data():
                 'count': r['count'], 
                 'platforms': r['platforms']
             })
+
+        # --- NEW: Calculate Frame Counts per Keyword ---
+        try:
+            # 1. Aggregate frames count by video_id
+            pipeline_frames = [
+                {'$group': {'_id': '$video_id', 'count': {'$sum': 1}}}
+            ]
+            frame_counts_map = {str(r['_id']): r['count'] for r in frames_collection.aggregate(pipeline_frames)}
+            
+            # 2. Get VideoID -> Keyword mapping
+            videos_cursor = collection.find({'keyword': {'$ne': None}}, {'video_id': 1, 'keyword': 1})
+            
+            keyword_frame_counts = {}
+            for video in videos_cursor:
+                vid = str(video.get('video_id'))
+                kw_raw = video.get('keyword', '')
+                if not kw_raw: continue
+                
+                # Clean keyword
+                kw_clean = kw_raw.split('||')[0].strip() if '||' in kw_raw else kw_raw.strip()
+                
+                # Get count for this video
+                cnt = frame_counts_map.get(vid, 0)
+                
+                # Accumulate
+                if cnt > 0:
+                    keyword_frame_counts[kw_clean] = keyword_frame_counts.get(kw_clean, 0) + cnt
+            
+            # 3. Update by_keyword list
+            for item in by_keyword:
+                item['frame_count'] = keyword_frame_counts.get(item['keyword'], 0)
+                
+        except Exception as e:
+            print(f"[WARN] Error calculating frame counts for keywords: {e}")
+            # Non-critical, continue without frame counts
+            pass
+        # ---------------------------------------------
         
         # 3. Resolution
         pipeline_res = [
