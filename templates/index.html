@@ -11,6 +11,8 @@
     <script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/toastify-js@1.12.0/src/toastify.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js@1.12.0/src/toastify.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@sgratzl/chartjs-chart-boxplot"></script>
     <style>
         [x-cloak] {
             display: none !important;
@@ -204,10 +206,12 @@
                                 </div>
                                 <div class="flex items-center justify-between pt-3 border-t border-gray-100 mt-3">
                                     <span class="text-gray-700 font-medium">Resize 640x640</span>
-                                    <button @click="settings.profiles[activeProfile].resize_640 = !settings.profiles[activeProfile].resize_640; debouncePreview()" 
+                                    <button
+                                        @click="settings.profiles[activeProfile].resize_640 = !settings.profiles[activeProfile].resize_640; debouncePreview()"
                                         :class="settings.profiles[activeProfile].resize_640 ? 'bg-indigo-600' : 'bg-gray-200'"
                                         class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none">
-                                        <span aria-hidden="true" :class="settings.profiles[activeProfile].resize_640 ? 'translate-x-5' : 'translate-x-0'"
+                                        <span aria-hidden="true"
+                                            :class="settings.profiles[activeProfile].resize_640 ? 'translate-x-5' : 'translate-x-0'"
                                             class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
                                     </button>
                                 </div>
@@ -215,7 +219,8 @@
 
                             <!-- Profile Selector -->
                             <div class="mb-6">
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Cấu hình cho (Profile)</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Cấu hình cho
+                                    (Profile)</label>
                                 <div class="flex rounded-md shadow-sm" role="group">
                                     <button type="button" @click="activeProfile = 'day'; debouncePreview()"
                                         :class="activeProfile === 'day' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
@@ -241,9 +246,11 @@
                                 <div>
                                     <label class="flex justify-between text-sm font-medium text-gray-700 mb-2">
                                         <span>Tương phản cục bộ (CLAHE Limit)</span>
-                                        <span class="text-blue-600" x-text="settings.profiles[activeProfile].clahe_clip_limit"></span>
+                                        <span class="text-blue-600"
+                                            x-text="settings.profiles[activeProfile].clahe_clip_limit"></span>
                                     </label>
-                                    <input type="range" min="0" max="8.0" step="0.1" x-model.number="settings.profiles[activeProfile].clahe_clip_limit" 
+                                    <input type="range" min="0" max="8.0" step="0.1"
+                                        x-model.number="settings.profiles[activeProfile].clahe_clip_limit"
                                         @input="debouncePreview()"
                                         class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                                     <div class="flex justify-between text-xs text-gray-400 mt-1">
@@ -255,9 +262,11 @@
                                 <div>
                                     <label class="flex justify-between text-sm font-medium text-gray-700 mb-2">
                                         <span>Gamma (Sáng/Tối)</span>
-                                        <span class="text-blue-600" x-text="settings.profiles[activeProfile].gamma"></span>
+                                        <span class="text-blue-600"
+                                            x-text="settings.profiles[activeProfile].gamma"></span>
                                     </label>
-                                    <input type="range" min="0.5" max="2.0" step="0.01" x-model.number="settings.profiles[activeProfile].gamma"
+                                    <input type="range" min="0.5" max="2.0" step="0.01"
+                                        x-model.number="settings.profiles[activeProfile].gamma"
                                         @input="debouncePreview()"
                                         class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                                     <div class="flex justify-between text-xs text-gray-400 mt-1">
@@ -269,9 +278,11 @@
                                 <div>
                                     <label class="flex justify-between text-sm font-medium text-gray-700 mb-2">
                                         <span>Độ Tương Phản (Contrast)</span>
-                                        <span class="text-blue-600" x-text="settings.profiles[activeProfile].contrast_scale"></span>
+                                        <span class="text-blue-600"
+                                            x-text="settings.profiles[activeProfile].contrast_scale"></span>
                                     </label>
-                                    <input type="range" min="0.5" max="2.0" step="0.01" x-model.number="settings.profiles[activeProfile].contrast_scale"
+                                    <input type="range" min="0.5" max="2.0" step="0.01"
+                                        x-model.number="settings.profiles[activeProfile].contrast_scale"
                                         @input="debouncePreview()"
                                         class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                                 </div>
@@ -280,9 +291,11 @@
                                 <div>
                                     <label class="flex justify-between text-sm font-medium text-gray-700 mb-2">
                                         <span>Độ Bão Hòa (Saturation)</span>
-                                        <span class="text-blue-600" x-text="settings.profiles[activeProfile].saturation_scale"></span>
+                                        <span class="text-blue-600"
+                                            x-text="settings.profiles[activeProfile].saturation_scale"></span>
                                     </label>
-                                    <input type="range" min="0" max="2.0" step="0.01" x-model.number="settings.profiles[activeProfile].saturation_scale"
+                                    <input type="range" min="0" max="2.0" step="0.01"
+                                        x-model.number="settings.profiles[activeProfile].saturation_scale"
                                         @input="debouncePreview()"
                                         class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                                 </div>
@@ -291,18 +304,22 @@
                                 <div>
                                     <label class="flex justify-between text-sm font-medium text-gray-700 mb-2">
                                         <span>Khử Nhiễu (Denoise Strength)</span>
-                                        <span class="text-blue-600" x-text="settings.profiles[activeProfile].denoise_strength"></span>
+                                        <span class="text-blue-600"
+                                            x-text="settings.profiles[activeProfile].denoise_strength"></span>
                                     </label>
-                                    <input type="range" min="0" max="10" step="0.1" x-model.number="settings.profiles[activeProfile].denoise_strength"
+                                    <input type="range" min="0" max="10" step="0.1"
+                                        x-model.number="settings.profiles[activeProfile].denoise_strength"
                                         @input="debouncePreview()"
                                         class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                                 </div>
 
                                 <!-- Target Brightness -->
                                 <div>
-                                     <label class="block text-sm font-medium text-gray-700 mb-2">Độ Sáng Mục Tiêu (Optional)</label>
-                                     <input type="number" x-model.number="settings.profiles[activeProfile].mean_intensity" placeholder="e.g. 128"
-                                        @input="debouncePreview()"
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Độ Sáng Mục Tiêu
+                                        (Optional)</label>
+                                    <input type="number"
+                                        x-model.number="settings.profiles[activeProfile].mean_intensity"
+                                        placeholder="e.g. 128" @input="debouncePreview()"
                                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                                     <p class="text-xs text-gray-500 mt-1">Để trống nếu không muốn ép độ sáng về giá trị
                                         cố định.</p>
@@ -330,10 +347,11 @@
                                 Xem Trước (Live Preview)
                             </h3>
 
-                            <div x-show="previewDetectedProfile" class="mb-4 bg-blue-50 text-blue-800 px-4 py-2 rounded-lg text-sm flex items-center justify-between">
+                            <div x-show="previewDetectedProfile"
+                                class="mb-4 bg-blue-50 text-blue-800 px-4 py-2 rounded-lg text-sm flex items-center justify-between">
                                 <span>
                                     <i class="fas fa-magic mr-2"></i>
-                                    Phát hiện ngữ cảnh: 
+                                    Phát hiện ngữ cảnh:
                                     <strong class="uppercase" x-text="previewDetectedProfile"></strong>
                                 </span>
                                 <span class="text-xs text-blue-600">(Đang áp dụng profile này)</span>
@@ -767,234 +785,466 @@
                     <!-- Boxplot - luôn hiển thị trong tab visualization, không dùng x-show boxplot -->
                     <div x-data="boxplotTab()" x-init="init()" x-cloak class="mt-8">
                         <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-                            <h3 class="text-2xl font-bold text-gray-800 mb-8 flex items-center gap-3 pb-4 border-b">
-                                <i class="fas fa-chart-bar text-red-600 text-3xl"></i>
+                            <h3 class="text-lg font-bold text-gray-800 flex items-center gap-3 pb-4">
                                 Biểu đồ Boxplot
                             </h3>
 
+                            <!-- Controls -->
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Chọn Bucket</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Bucket</label>
                                     <select x-model="selectedBucket"
-                                        @change="loadSubPrefixes(); selectedSubPrefix = ''; generateBoxplot()"
-                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
-                                        <option value="" disabled selected>--- Chọn bucket ---</option>
-                                        <template x-for="bucket in buckets" :key="bucket">
+                                        @change="resetPath(); loadSubPrefixes(); generateBoxplot()"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="" disabled selected>── Chọn bucket ──</option>
+                                        <template x-for="bucket in buckets">
                                             <option :value="bucket" x-text="bucket"></option>
                                         </template>
                                     </select>
                                 </div>
 
-                                <div x-show="subPrefixes.length > 0">
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Chọn nguồn (prefix cấp
-                                        1)</label>
-                                    <select x-model="selectedSubPrefix" @change="updatePrefix(); generateBoxplot()"
-                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
-                                        <option value="">Toàn bộ bucket</option>
-                                        <template x-for="sub in subPrefixes" :key="sub">
-                                            <option :value="sub" x-text="sub"></option>
-                                        </template>
-                                    </select>
-                                </div>
-
-                                <div x-show="subPrefixes.length === 0 && selectedBucket"
-                                    class="col-span-full md:col-span-2 lg:col-span-3">
+                                <!-- Breadcrumb -->
+                                <div x-show="selectedBucket" class="col-span-full lg:col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                                        <i class="fas fa-route text-indigo-600"></i> Đường dẫn hiện tại
+                                    </label>
                                     <div
-                                        class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center text-blue-800">
-                                        <i class="fas fa-info-circle mr-2"></i>
-                                        Phân tích <strong>toàn bộ bucket</strong>: <span class="font-semibold"
-                                            x-text="selectedBucket"></span>
+                                        class="flex flex-wrap items-center gap-2.5 bg-gradient-to-r from-gray-50 to-gray-100 py-2 px-4 rounded-xl border border-gray-200 shadow-inner">
+                                        <button @click="goToRoot()"
+                                            class="px-3 py-0.5 bg-white rounded-lg shadow-sm hover:bg-gray-100 text-blue-600 font-medium flex items-center gap-2">
+                                            <i class="fas fa-home"></i> Root
+                                        </button>
+                                        <template x-for="(crumb, idx) in currentPath">
+                                            <div class="flex items-center">
+                                                <span class="text-gray-400 mx-1">›</span>
+                                                <button @click="goToLevel(idx)"
+                                                    class="px-3 py-0.5 bg-white rounded-lg shadow-sm hover:bg-gray-100 text-blue-700 font-medium hover:underline">
+                                                    <span x-text="crumb"></span>
+                                                </button>
+                                            </div>
+                                        </template>
+                                        <template x-if="currentPath.length > 0">
+                                            <button @click="goUpOneLevel()"
+                                                class="ml-auto px-4 py-0.5 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 transition flex items-center gap-2 text-sm font-medium">
+                                                <i class="fas fa-arrow-up"></i> Lên 1 cấp
+                                            </button>
+                                        </template>
                                     </div>
                                 </div>
                             </div>
 
+                            <!-- Thư mục con -->
+                            <div x-show="subPrefixes.length > 0 && !loading" class="mb-10">
+                                <label class="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                                    <i class="fas fa-folder-open text-amber-600"></i> Thư mục con (click để vào)
+                                </label>
+                                <div
+                                    class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                                    <template x-for="folder in subPrefixes">
+                                        <button @click="enterFolder(folder)"
+                                            class="group relative bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-lg hover:border-amber-400 transition-all duration-300 transform hover:-translate-y-1">
+                                            <div class="flex flex-col items-center text-center gap-2">
+                                                <div
+                                                    class="text-4xl text-amber-500 group-hover:text-amber-600 transition-colors">
+                                                    <i class="fas fa-folder"></i>
+                                                </div>
+                                                <span class="text-sm font-medium text-gray-800 truncate w-full"
+                                                    x-text="folder.replace('/', '')"></span>
+                                            </div>
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <!-- Nút Tạo -->
                             <div class="text-center mb-10">
-                                <button @click="generateBoxplot()" :disabled="loading || !selectedBucket" class="inline-flex items-center gap-3 px-12 py-4 bg-gradient-to-r from-blue-600 to-blue-700 
-                           hover:from-blue-700 hover:to-blue-800 text-white font-bold text-lg rounded-xl 
-                           shadow-lg transform transition-all hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300
-                           disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
+                                <button @click="generateBoxplot()" :disabled="loading || !selectedBucket"
+                                    class="inline-flex items-center gap-3 px-12 py-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold text-lg rounded-xl shadow-lg transform transition-all hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed">
                                     <i x-show="!loading" class="fas fa-sync-alt"></i>
                                     <i x-show="loading" class="fas fa-spinner fa-spin"></i>
                                     <span x-text="loading ? 'Đang xử lý...' : 'Tạo Boxplot'"></span>
                                 </button>
                             </div>
 
+                            <!-- Loading -->
                             <div x-show="loading" class="text-center py-20">
                                 <i class="fas fa-circle-notch fa-spin text-blue-600 text-6xl mb-6"></i>
-                                <p class="text-xl text-gray-700 font-medium">
-                                    Đang phân tích <strong x-text="selectedSource || 'dữ liệu'"></strong>...
-                                </p>
+                                <p class="text-xl font-medium text-gray-700">Đang phân tích <strong
+                                        x-text="currentPrefix || '(toàn bộ bucket)'"></strong>...</p>
                             </div>
 
-                            <div x-show="!loading && success" class="animate-fade-in mt-8">
-                                <!-- Danh sách boxplot xếp ngang (1 hàng, scroll nếu cần) -->
-                                <div class="overflow-x-auto pb-6">
-                                    <div class="flex flex-nowrap gap-8 min-w-max">
-                                        <template x-for="(imgSrc, index) in boxplotImages" :key="index">
-                                            <div class="flex-shrink-0 w-96 bg-white rounded-xl shadow-md overflow-hidden border border-gray-200 
-                           cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-300"
-                                                @click="openBoxplotModal(imgSrc, featureLabels[index] || 'Đặc trưng ' + (index + 1))">
-                                                <h4 class="text-xl font-semibold text-center py-4 bg-gray-50 border-b"
-                                                    x-text="featureLabels[index] || 'Đặc trưng ' + (index + 1)"></h4>
-                                                <div class="p-4">
-                                                    <img :src="imgSrc"
-                                                        class="w-full h-auto max-h-[480px] object-contain rounded-lg shadow-inner"
-                                                        alt="Boxplot" loading="lazy" />
+                            <!-- Kết quả Boxplot bằng Chart.js -->
+                            <div x-show="!loading && success" class="space-y-12 animate-fade-in">
+                                <template x-for="(box, index) in boxplotData" :key="index">
+                                    <div class="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100"
+                                        style="width: 1000px; margin: auto; margin-top: 50px;">
+                                        <div
+                                            class="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-5 border-b flex justify-between items-center">
+                                            <h4 class="text-xl font-bold text-gray-800" x-text="box.label"></h4>
+                                            <button @click="resetChartZoom(index)"
+                                                class="px-4 py-2 bg-white text-blue-700 rounded-lg hover:bg-blue-50 transition text-sm font-medium flex items-center gap-2 shadow-sm">
+                                                <i class="fas fa-sync-alt"></i> Reset Zoom
+                                            </button>
+                                        </div>
+                                        <div class="p-6">
+                                            <canvas :id="'boxChart' + index" class="w-full h-[420px]"></canvas>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                <div x-show="boxplotData.length === 0" class="text-center py-16 text-gray-500">
+                                    <i class="fas fa-chart-bar text-6xl mb-4 opacity-50"></i>
+                                    <p class="text-lg">Không có dữ liệu boxplot để hiển thị</p>
+                                </div>
+                            </div>
+
+                            <!-- Error -->
+                            <div x-show="!loading && !success && generatedOnce" class="text-center py-20">
+                                <i class="fas fa-exclamation-triangle text-red-500 text-6xl mb-6"></i>
+                                <p class="text-2xl font-bold text-red-600 mb-4" x-text="message || 'Có lỗi xảy ra'"></p>
+                                <p class="text-gray-600">Vui lòng thử lại hoặc kiểm tra log server</p>
+                            </div>
+                            <!-- Outlier Detail Modal -->
+                            <div x-show="showOutlierModal" @click="closeOutlierModal()" x-cloak
+                                class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                                <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden" @click.stop>
+                                    <!-- Header -->
+                                    <div
+                                        class="bg-gradient-to-r from-blue-600 to-blue-800 px-6 py-4 text-white flex justify-between items-center">
+                                        <h3 class="text-lg font-semibold">Chi tiết Outlier</h3>
+                                        <button @click="closeOutlierModal()" class="text-white hover:text-gray-200">
+                                            <i class="fas fa-times text-xl"></i>
+                                        </button>
+                                    </div>
+
+                                    <!-- Body -->
+                                    <div class="p-6 space-y-6 text-gray-800">
+                                        <!-- Thông tin chung -->
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <span class="text-sm text-gray-500 block">Đặc trưng</span>
+                                                <span class="font-medium" x-text="selectedOutlier?.label || '-'"></span>
+                                            </div>
+                                            <div>
+                                                <span class="text-sm text-gray-500 block">Giá trị</span>
+                                                <span class="font-bold text-blue-600"
+                                                    x-text="selectedOutlier?.value?.toFixed(2) || '-'"></span>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <span class="text-sm text-gray-500 block">Tên file</span>
+                                            <span class="font-mono text-sm break-all"
+                                                x-text="selectedOutlier?.filename || 'Không xác định'"></span>
+                                        </div>
+
+                                        <div>
+                                            <span class="text-sm text-gray-500 block">Bucket / Key</span>
+                                            <span class="font-mono text-sm break-all text-gray-700"
+                                                x-text="`${selectedOutlier?.bucket || '-'}/${selectedOutlier?.key || '-'}`"></span>
+                                        </div>
+
+                                        <!-- Preview ảnh nếu là frame -->
+                                        <!-- Preview ảnh nếu có URL (ưu tiên cao nhất) -->
+                                        <template x-if="outlierImageUrl">
+                                            <div
+                                                class="border border-gray-200 rounded-lg overflow-hidden bg-gray-50 mt-4">
+                                                <div
+                                                    class="p-3 bg-gray-100 text-sm font-medium text-gray-700 flex items-center gap-2">
+                                                    <i class="fas fa-image text-blue-500"></i>
+                                                    Preview Frame
+                                                </div>
+                                                <div class="relative min-h-[200px] flex items-center justify-center">
+                                                    <div x-show="outlierFrameLoading"
+                                                        class="absolute inset-0 flex items-center justify-center bg-black/20">
+                                                        <i class="fas fa-spinner fa-spin text-blue-600 text-4xl"></i>
+                                                    </div>
+                                                    <img :src="outlierImageUrl"
+                                                        class="max-w-full max-h-80 object-contain"
+                                                        @load="outlierFrameLoading = false"
+                                                        @error="outlierFrameLoading = false; outlierImageUrl = '/static/placeholder-error.png' || null">
                                                 </div>
                                             </div>
                                         </template>
 
-                                        <!-- Placeholder nếu không có ảnh -->
-                                        <div x-show="boxplotImages.length === 0"
-                                            class="flex-shrink-0 w-96 text-center py-16 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-300">
-                                            <i class="fas fa-image text-6xl mb-4 opacity-50"></i>
-                                            <p class="text-lg">Không có boxplot nào được tạo</p>
+                                        <!-- Nếu không có preview (fallback) -->
+                                        <template x-if="!outlierImageUrl">
+                                            <div class="text-center py-6 text-gray-500 border-t border-gray-200 mt-4">
+                                                <i class="fas fa-exclamation-triangle text-4xl mb-3 opacity-70"></i><br>
+                                                Không tải được preview hoặc đây không phải file ảnh
+                                            </div>
+                                        </template>
+                                    </div>
+
+                                    <!-- Footer -->
+                                    <div class="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
+                                        <button @click="closeOutlierModal()"
+                                            class="px-5 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition">
+                                            Đóng
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div x-data="scatterTab()" x-init="init()" x-cloak class="mt-16">
+                        <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+                            <h3 class="text-lg font-bold text-gray-800 flex items-center gap-3 pb-4">
+                                Biểu đồ Phân Tán
+                            </h3>
+
+                            <!-- Controls -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                                <!-- Bucket -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                                        <i class="fas fa-database text-blue-600"></i> Bucket
+                                    </label>
+                                    <select x-model="selectedBucket" @change="resetPath(); loadSubPrefixes()"
+                                        class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all shadow-sm hover:shadow">
+                                        <option value="" disabled>── Chọn bucket ──</option>
+                                        <template x-for="b in buckets">
+                                            <option :value="b" x-text="b"></option>
+                                        </template>
+                                    </select>
+                                </div>
+
+                                <!-- Breadcrumb -->
+                                <div x-show="selectedBucket" class="col-span-full lg:col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                                        <i class="fas fa-route text-indigo-600"></i> Đường dẫn hiện tại
+                                    </label>
+                                    <div
+                                        class="flex flex-wrap items-center gap-2.5 bg-gradient-to-r from-gray-50 to-gray-100 py-2 px-4 rounded-xl border border-gray-200 shadow-inner">
+                                        <button @click="goToRoot()"
+                                            class="px-3 py-0.5 bg-white rounded-lg shadow-sm hover:bg-gray-100 transition text-blue-600 font-medium flex items-center gap-2">
+                                            <i class="fas fa-home"></i> Root
+                                        </button>
+
+                                        <template x-for="(crumb, idx) in currentPath">
+                                            <div class="flex items-center">
+                                                <span class="text-gray-400 mx-1">›</span>
+                                                <button @click="goToLevel(idx)"
+                                                    class="px-3 py-0.5 bg-white rounded-lg shadow-sm hover:bg-gray-100 transition text-blue-700 font-medium hover:underline">
+                                                    <span x-text="crumb"></span>
+                                                </button>
+                                            </div>
+                                        </template>
+
+                                        <template x-if="currentPath.length > 0">
+                                            <button @click="goUpOneLevel()"
+                                                class="ml-auto px-4 py-0.5 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 transition flex items-center gap-2 text-sm font-medium">
+                                                <i class="fas fa-arrow-up"></i> Quay lại 1 cấp
+                                            </button>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Thư mục con -->
+                            <div x-show="subPrefixes.length > 0 && !loading" class="mb-10">
+                                <label class="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                                    <i class="fas fa-folder-open text-amber-600"></i> Thư mục con (click để vào)
+                                </label>
+                                <div
+                                    class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                                    <template x-for="folder in subPrefixes">
+                                        <button @click="enterFolder(folder)"
+                                            class="group relative bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-lg hover:border-green-400 transition-all duration-300 transform hover:-translate-y-1">
+                                            <div class="flex flex-col items-center text-center gap-2">
+                                                <div
+                                                    class="text-4xl text-amber-500 group-hover:text-amber-600 transition-colors">
+                                                    <i class="fas fa-folder"></i>
+                                                </div>
+                                                <span class="text-sm font-medium text-gray-800 truncate w-full"
+                                                    x-text="folder.replace('/', '')"></span>
+                                            </div>
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <!-- Nút Generate -->
+                            <div class="text-center mb-10">
+                                <button @click="generateScatter()" :disabled="loading || !selectedBucket"
+                                    class="inline-flex items-center gap-3 px-10 py-4 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white font-bold text-lg rounded-xl shadow-lg transform transition-all hover:scale-105 focus:outline-none focus:ring-4 focus:ring-green-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100">
+                                    <i x-show="!loading" class="fas fa-magic"></i>
+                                    <i x-show="loading" class="fas fa-spinner fa-spin"></i>
+                                    <span x-text="loading ? 'Đang phân tích...' : 'Tạo Scatter Plots'"></span>
+                                </button>
+                            </div>
+
+                            <!-- Loading -->
+                            <div x-show="loading" class="text-center py-20">
+                                <div class="inline-block">
+                                    <i class="fas fa-circle-notch fa-spin text-green-600 text-6xl mb-6"></i>
+                                    <p class="text-xl font-medium text-gray-700">Đang xử lý dữ liệu...</p>
+                                    <p class="text-sm text-gray-500 mt-2">Có thể mất vài giây tùy số lượng frame</p>
+                                </div>
+                            </div>
+
+                            <!-- Kết quả Scatter Charts (Chart.js) -->
+                            <div x-show="!loading && success" class="space-y-12 animate-fade-in">
+                                <template x-for="(chartInfo, index) in scatterData" :key="index">
+                                    <div class="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 "
+                                        style="width: 1000px; margin: auto; margin-top: 50px;">
+                                        <div
+                                            class="bg-gradient-to-r from-green-50 to-emerald-50 px-6 py-5 border-b flex justify-between items-center">
+                                            <h4 class="text-xl font-bold text-gray-800" x-text="chartInfo.title"></h4>
+                                            <button @click="resetChartZoom(index)"
+                                                class="px-4 py-2 bg-white text-green-700 rounded-lg hover:bg-green-50 transition text-sm font-medium flex items-center gap-2 shadow-sm">
+                                                <i class="fas fa-sync-alt"></i> Reset Zoom
+                                            </button>
+                                        </div>
+                                        <div class="p-6">
+                                            <canvas :id="'scatterChart' + index" class="w-full h-[500px]"></canvas>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-                            <!-- Modal phóng to boxplot -->
-                            <div x-show="showBoxplotModal" @click.away="showBoxplotModal = false" x-cloak
-                                class="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                                <div class="relative max-w-5xl w-full bg-white rounded-2xl shadow-2xl overflow-hidden"
-                                    @click.stop>
-                                    <!-- Nút đóng -->
-                                    <button @click="showBoxplotModal = false"
-                                        class="absolute top-4 right-4 z-10 bg-white/80 hover:bg-white text-gray-800 rounded-full p-3 transition-colors shadow-md">
-                                        <i class="fas fa-times text-xl"></i>
-                                    </button>
+                                </template>
 
-                                    <!-- Tiêu đề -->
-                                    <div class="bg-gray-100 px-8 py-5 border-b">
-                                        <h3 class="text-2xl font-bold text-gray-800"
-                                            x-text="selectedBoxplotLabel || 'Boxplot chi tiết'"></h3>
-                                        <p class="text-sm text-gray-600 mt-1"
-                                            x-text="'Loại dữ liệu: ' + (resultType === 'video' ? 'VIDEO' : 'FRAME ẢNH')">
-                                        </p>
-                                    </div>
-
-                                    <!-- Nội dung ảnh phóng to -->
-                                    <div class="p-6 bg-gray-50 max-h-[80vh] overflow-auto">
-                                        <img :src="selectedBoxplotSrc"
-                                            class="w-full h-auto object-contain rounded-lg shadow-xl mx-auto"
-                                            alt="Boxplot phóng to" />
-                                    </div>
+                                <div x-show="scatterData.length === 0" class="text-center py-16 text-gray-500">
+                                    <i class="fas fa-chart-scatter text-6xl mb-4 opacity-50"></i>
+                                    <p class="text-lg">Không có dữ liệu scatter để hiển thị</p>
                                 </div>
                             </div>
 
+                            <!-- Error -->
                             <div x-show="!loading && !success && generatedOnce" class="text-center py-20">
                                 <i class="fas fa-exclamation-triangle text-red-500 text-6xl mb-6"></i>
                                 <p class="text-2xl font-bold text-red-600 mb-4" x-text="message || 'Có lỗi xảy ra'"></p>
                                 <p class="text-gray-600">Vui lòng thử lại hoặc kiểm tra log server</p>
                             </div>
                         </div>
-                    </div>
-                    <div x-data="scatterTab()" x-init="init()" x-cloak class="mt-16">
-                        <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-                            <h3 class="text-2xl font-bold text-gray-800 mb-8 flex items-center gap-3 pb-4 border-b">
-                                <i class="fas fa-chart-scatter text-green-600 text-3xl"></i>
-                                Biểu Đồ Phân Tán (Scatter)
-                            </h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Chọn Bucket</label>
-                                    <select x-model="selectedBucket"
-                                        @change="loadSubPrefixes(); selectedSubPrefix = ''; generateScatter()"
-                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base">
-                                        <option value="" disabled selected>--- Chọn bucket ---</option>
-                                        <template x-for="bucket in buckets" :key="bucket">
-                                            <option :value="bucket" x-text="bucket"></option>
-                                        </template>
-                                    </select>
-                                </div>
-                                <div x-show="subPrefixes.length > 0">
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Chọn nguồn (prefix cấp
-                                        1)</label>
-                                    <select x-model="selectedSubPrefix" @change="updatePrefix(); generateScatter()"
-                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base">
-                                        <option value="">Toàn bộ bucket</option>
-                                        <template x-for="sub in subPrefixes" :key="sub">
-                                            <option :value="sub" x-text="sub"></option>
-                                        </template>
-                                    </select>
-                                </div>
-                                <div x-show="subPrefixes.length === 0 && selectedBucket"
-                                    class="col-span-full md:col-span-2 lg:col-span-3">
-                                    <div
-                                        class="bg-green-50 border border-green-200 rounded-lg p-4 text-center text-green-800">
-                                        <i class="fas fa-info-circle mr-2"></i>
-                                        Phân tích <strong>toàn bộ bucket</strong>: <span class="font-semibold"
-                                            x-text="selectedBucket"></span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="text-center mb-10">
-                                <button @click="generateScatter()" :disabled="loading || !selectedBucket" class="inline-flex items-center gap-3 px-12 py-4 bg-gradient-to-r from-green-600 to-green-700
-                       hover:from-green-700 hover:to-green-800 text-white font-bold text-lg rounded-xl
-                       shadow-lg transform transition-all hover:scale-105 focus:outline-none focus:ring-4 focus:ring-green-300
-                       disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
-                                    <i x-show="!loading" class="fas fa-sync-alt"></i>
-                                    <i x-show="loading" class="fas fa-spinner fa-spin"></i>
-                                    <span x-text="loading ? 'Đang xử lý...' : 'Tạo Scatter Plots'"></span>
+
+                        <!-- Modal xem frame khi click point trên scatter -->
+                        <div x-show="showScatterFrameModal" @click="showScatterFrameModal = false" x-cloak
+                            class="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                            <div class="relative max-w-6xl w-full bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]"
+                                @click.stop>
+
+                                <!-- Close Button -->
+                                <button @click="showScatterFrameModal = false"
+                                    class="absolute top-4 right-4 z-10 bg-white/10 hover:bg-black/20 text-gray-800 md:text-white rounded-full p-2 transition-colors">
+                                    <i class="fas fa-times text-xl"></i>
                                 </button>
-                            </div>
-                            <div x-show="loading" class="text-center py-20">
-                                <i class="fas fa-circle-notch fa-spin text-green-600 text-6xl mb-6"></i>
-                                <p class="text-xl text-gray-700 font-medium">
-                                    Đang phân tích <strong x-text="selectedSource || 'dữ liệu'"></strong>...
-                                </p>
-                            </div>
-                            <div x-show="!loading && success" class="animate-fade-in space-y-10 mt-8">
-                                <div class="overflow-x-auto pb-6">
-                                    <div class="flex flex-nowrap gap-8 min-w-max">
-                                        <template x-for="(imgSrc, index) in scatterImages" :key="index">
-                                            <div class="flex-shrink-0 w-96 bg-white rounded-xl shadow-md overflow-hidden border border-gray-200 
-                                   cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-300"
-                                                @click="openScatterModal(imgSrc, featureLabels[index] || 'Scatter ' + (index + 1))">
-                                                <h4 class="text-xl font-semibold text-center py-4 bg-gray-50 border-b"
-                                                    x-text="featureLabels[index] || 'Scatter ' + (index + 1)"></h4>
-                                                <div class="p-4">
-                                                    <img :src="imgSrc"
-                                                        class="w-full h-auto max-h-[480px] object-contain rounded-lg shadow-inner"
-                                                        alt="Scatter Plot" loading="lazy" />
-                                                </div>
-                                            </div>
-                                        </template>
-                                        <div x-show="scatterImages.length === 0"
-                                            class="flex-shrink-0 w-96 text-center py-16 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-300">
-                                            <i class="fas fa-chart-scatter text-6xl mb-4 opacity-50"></i>
-                                            <p class="text-lg">Không có scatter plot nào được tạo</p>
+                                <div class="w-full md:w-3/4 bg-black flex items-center justify-center relative">
+
+                                    <template x-if="frameLoading">
+                                        <div class="text-white text-2xl flex flex-col items-center gap-4">
+                                            <i class="fas fa-spinner fa-spin text-5xl"></i>
+                                            <span>Đang tải frame...</span>
+                                        </div>
+                                    </template>
+                                    <img x-show="!frameLoading && selectedScatterFrameUrl"
+                                        :src="selectedScatterFrameUrl"
+                                        class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+                                        alt="Selected Frame" />
+                                </div>
+
+
+                                <!-- Data Passport bên phải -->
+                                <div class="w-full md:w-1/4 bg-white p-6 overflow-y-auto border-l border-gray-100">
+                                    <!-- Header -->
+
+                                    <div class="mb-6 pb-4 border-b border-gray-100">
+                                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">DATA
+                                            PASSPORT</h3>
+
+                                        <h2 class="text-2xl font-bold text-gray-900 break-words"
+                                            x-text="selectedScatterFrame?.video_name || 'Unknown Frame'"></h2>
+
+                                        <!-- Badges -->
+                                        <div class="flex flex-wrap gap-2 mt-3">
+
+                                            <span
+                                                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                                :class="{
+                            'bg-red-100 text-red-800': selectedScatterFrame?.platform === 'youtube',
+                            'bg-green-100 text-green-800': selectedScatterFrame?.platform === 'pexels',
+                            'bg-blue-100 text-blue-800': selectedScatterFrame?.platform === 'camera'
+                        }">
+                                                <i class="fas fa-circle text-[8px] mr-1.5 opacity-60"></i>
+                                                <span
+                                                    x-text="(selectedScatterFrame?.platform || 'unknown').toUpperCase()"></span>
+                                            </span>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-                            <!-- Modal phóng to scatter (tương tự boxplot modal) -->
-                            <div x-show="showScatterModal" @click.away="closeScatterModal()" x-cloak
-                                class="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                                <div class="relative max-w-5xl w-full bg-white rounded-2xl shadow-2xl overflow-hidden"
-                                    @click.stop>
-                                    <button @click="closeScatterModal()"
-                                        class="absolute top-4 right-4 z-10 bg-white/80 hover:bg-white text-gray-800 rounded-full p-3 transition-colors shadow-md">
-                                        <i class="fas fa-times text-xl"></i>
-                                    </button>
-                                    <div class="bg-gray-100 px-8 py-5 border-b">
-                                        <h3 class="text-2xl font-bold text-gray-800"
-                                            x-text="selectedScatterLabel || 'Scatter Plot chi tiết'"></h3>
-                                        <p class="text-sm text-gray-600 mt-1"
-                                            x-text="'Loại dữ liệu: ' + (resultType === 'video' ? 'VIDEO' : 'FRAME ẢNH')">
-                                        </p>
+
+                                    <!-- Technical Specs -->
+                                    <div class="mb-6">
+                                        <h4 class="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                                            <i class="fas fa-microchip text-blue-500"></i> Technical Specs
+                                        </h4>
+                                        <div class="bg-gray-50 rounded-lg p-3 text-sm space-y-2">
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-500">Resource ID</span>
+                                                <span class="font-mono text-xs"
+                                                    x-text="selectedScatterFrame?.id || 'N/A'"></span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-500">File Size</span>
+                                                <span class="font-medium"
+                                                    x-text="formatFileSize(selectedScatterFrame?.file_size) || '0 B'"></span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-500">Video ID</span>
+                                                <span class="font-mono text-xs"
+                                                    x-text="selectedScatterFrame?.video_id || 'N/A'"></span>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="p-6 bg-gray-50 max-h-[80vh] overflow-auto flex justify-center">
-                                        <img :src="selectedScatterSrc"
-                                            class="max-w-full max-h-[70vh] object-contain rounded-lg shadow-xl"
-                                            alt="Scatter Plot phóng to" />
+
+                                    <!-- Temporal Data -->
+                                    <div class="mb-6">
+                                        <h4 class="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                                            <i class="fas fa-clock text-green-500"></i> Temporal Data
+                                        </h4>
+                                        <div class="bg-gray-50 rounded-lg p-3 text-sm space-y-2">
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-500">Extracted At</span>
+                                                <span class="font-medium"
+                                                    x-text="formatDateTime(selectedScatterFrame?.created_at) || 'N/A'"></span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-500">Frame Index</span>
+                                                <span class="font-bold text-blue-600"
+                                                    x-text="selectedScatterFrame?.frame_index || 'N/A'"></span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-500">Original Frame No.</span>
+                                                <span class="font-medium"
+                                                    x-text="selectedScatterFrame?.original_frame_no || '-'"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Storage Reference -->
+                                    <div class="mb-6">
+                                        <h4 class="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                                            <i class="fas fa-hdd text-purple-500"></i> Storage Reference
+                                        </h4>
+                                        <div
+                                            class="bg-gray-50 rounded-lg p-3 text-xs space-y-2 font-mono text-gray-600 break-all">
+                                            <div>
+                                                <span class="text-gray-400">Bucket:</span>
+                                                <span x-text="selectedScatterFrame?.storage_bucket || 'N/A'"></span>
+                                            </div>
+                                            <div>
+                                                <span class="text-gray-400">Key:</span>
+                                                <span x-text="selectedScatterFrame?.storage_key || 'N/A'"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Download Button -->
+                                    <div class="mt-8 pt-4 border-t border-gray-100">
+                                        <a :href="selectedScatterFrameUrl" target="_blank" download
+                                            class="w-full bg-gray-900 hover:bg-black text-white font-medium py-3 rounded-lg flex items-center justify-center gap-2 transition">
+                                            <i class="fas fa-download"></i>
+                                            Download Master File
+                                        </a>
                                     </div>
                                 </div>
-                            </div>
-                            <div x-show="!loading && !success && generatedOnce" class="text-center py-20">
-                                <i class="fas fa-exclamation-triangle text-red-500 text-6xl mb-6"></i>
-                                <p class="text-2xl font-bold text-red-600 mb-4" x-text="message || 'Có lỗi xảy ra'"></p>
-                                <p class="text-gray-600">Vui lòng thử lại hoặc kiểm tra log server</p>
                             </div>
                         </div>
                     </div>
@@ -1398,7 +1648,8 @@
 
                             <!-- GROUPED VIEW -->
                             <div x-show="!galleryLoading && galleryMode === 'grouped'" class="space-y-4">
-                                <template x-for="(group, idx) in galleryGroups" :key="group.video_id ? (group.video_id + '_' + idx) : idx">
+                                <template x-for="(group, idx) in galleryGroups"
+                                    :key="group.video_id ? (group.video_id + '_' + idx) : idx">
                                     <div
                                         class="border border-gray-200 rounded-lg scale-100 hover:scale-[1.005] transition-transform overflow-hidden font-sans">
                                         <!-- Header -->
@@ -1799,278 +2050,6 @@
                 }
                 originalError.apply(console, args);
             };
-        </script>
-        <script>
-            function boxplotTab() {
-                return {
-                    loading: false,
-                    success: false,
-                    generatedOnce: false,
-                    message: '',
-                    resultType: 'frame',
-                    buckets: [],
-                    subPrefixes: [],
-                    selectedBucket: '',
-                    selectedSubPrefix: '',
-                    selectedSource: '',
-
-                    // Hỗ trợ nhiều boxplot
-                    boxplotImages: [],
-                    featureLabels: [],
-
-                    // Modal phóng to
-                    showBoxplotModal: false,
-                    selectedBoxplotSrc: '',
-                    selectedBoxplotLabel: '',
-
-                    async init() {
-                        console.log("Boxplot module khởi động");
-                        await this.loadBuckets();
-                        if (this.buckets.length > 0) {
-                            this.selectedBucket = this.buckets[0];
-                            // await this.generateBoxplot();  // Bật nếu muốn tự động tạo lần đầu
-                        }
-                    },
-
-                    async loadBuckets() {
-                        try {
-                            const res = await fetch("/api/boxplots/buckets");
-                            const json = await res.json();
-                            if (json.success && json.buckets?.length) {
-                                this.buckets = json.buckets;
-                            } else {
-                                this.buckets = ["frames"];
-                            }
-                            await this.loadSubPrefixes();
-                        } catch (err) {
-                            console.error("Lỗi load buckets:", err);
-                            this.buckets = ["frames"];
-                        }
-                    },
-
-                    async loadSubPrefixes() {
-                        if (!this.selectedBucket) return;
-                        try {
-                            const res = await fetch(`/api/boxplots/subprefixes?bucket=${encodeURIComponent(this.selectedBucket)}`);
-                            const json = await res.json();
-                            this.subPrefixes = json.success ? (json.subprefixes || []) : [];
-                        } catch (err) {
-                            console.error("Lỗi load subprefixes:", err);
-                            this.subPrefixes = [];
-                        }
-                    },
-
-                    updatePrefix() {
-                        this.selectedSource = this.selectedSubPrefix || this.selectedBucket;
-                    },
-
-                    async generateBoxplot() {
-                        if (this.loading || !this.selectedBucket) return;
-
-                        this.updatePrefix();
-                        this.loading = true;
-                        this.generatedOnce = true;
-                        this.success = false;
-
-                        // Reset dữ liệu cũ
-                        this.boxplotImages = [];
-                        this.featureLabels = [];
-                        this.message = '';
-                        this.closeBoxplotModal();  // Đóng modal nếu đang mở
-
-                        try {
-                            const res = await fetch("/api/boxplots/generate", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                    bucket: this.selectedBucket,
-                                    prefix: this.selectedSubPrefix || ""
-                                })
-                            });
-
-                            if (!res.ok) {
-                                throw new Error(`HTTP error! status: ${res.status}`);
-                            }
-
-                            const json = await res.json();
-
-                            if (json.success) {
-                                this.success = true;
-                                this.message = json.message || "Hoàn tất phân tích";
-                                this.resultType = json.type || 'frame';
-
-                                // Xử lý danh sách nhiều boxplot
-                                if (json.images_base64 && Array.isArray(json.images_base64) && json.images_base64.length > 0) {
-                                    this.boxplotImages = json.images_base64;
-                                    this.featureLabels = json.feature_labels || json.images_base64.map((_, i) => `Đặc trưng ${i + 1}`);
-                                    console.log(`Đã nhận ${this.boxplotImages.length} boxplot riêng lẻ`);
-                                }
-                                // Fallback cho image_base64 cũ
-                                else if (json.image_base64) {
-                                    this.boxplotImages = [json.image_base64];
-                                    this.featureLabels = ["Tất cả đặc trưng"];
-                                    console.warn("Backend trả image_base64 cũ → fallback");
-                                } else {
-                                    this.message += " (không nhận được ảnh boxplot nào)";
-                                }
-                            } else {
-                                this.message = json.message || "Lỗi từ server";
-                                console.warn("API trả success=false:", json.message);
-                            }
-                        } catch (err) {
-                            console.error("Lỗi khi gọi generateBoxplot:", err);
-                            this.message = "Lỗi kết nối hoặc xử lý dữ liệu";
-                        } finally {
-                            this.loading = false;
-                        }
-                    },
-
-                    // Hàm mở modal khi click vào boxplot
-                    openBoxplotModal(src, label) {
-                        this.selectedBoxplotSrc = src;
-                        this.selectedBoxplotLabel = label;
-                        this.showBoxplotModal = true;
-                        document.body.style.overflow = 'hidden';  // Ngăn scroll nền
-                    },
-
-                    // Hàm đóng modal
-                    closeBoxplotModal() {
-                        this.showBoxplotModal = false;
-                        this.selectedBoxplotSrc = '';
-                        this.selectedBoxplotLabel = '';
-                        document.body.style.overflow = '';  // Khôi phục scroll
-                    }
-                }
-            }
-        </script>
-        <script>
-            function scatterTab() {
-                return {
-                    loading: false,
-                    success: false,
-                    generatedOnce: false,
-                    message: '',
-                    resultType: 'frame',
-                    buckets: [],
-                    subPrefixes: [],
-                    selectedBucket: '',
-                    selectedSubPrefix: '',
-                    selectedSource: '',
-
-                    scatterImages: [],
-                    featureLabels: [],
-
-                    showScatterModal: false,
-                    selectedScatterSrc: '',
-                    selectedScatterLabel: '',
-
-                    async init() {
-                        console.log("Scatter module khởi động");
-                        await this.loadBuckets();
-                        if (this.buckets.length > 0) {
-                            this.selectedBucket = this.buckets[0];
-                        }
-                    },
-
-                    async loadBuckets() {
-                        try {
-                            const res = await fetch("/api/boxplots/buckets");  // Dùng chung endpoint buckets với boxplot
-                            const json = await res.json();
-                            if (json.success && json.buckets?.length) {
-                                this.buckets = json.buckets;
-                            } else {
-                                this.buckets = ["frames"];
-                            }
-                            await this.loadSubPrefixes();
-                        } catch (err) {
-                            console.error("Lỗi load buckets:", err);
-                            this.buckets = ["frames"];
-                        }
-                    },
-
-                    async loadSubPrefixes() {
-                        if (!this.selectedBucket) return;
-                        try {
-                            const res = await fetch(`/api/boxplots/subprefixes?bucket=${encodeURIComponent(this.selectedBucket)}`);  // Dùng chung endpoint
-                            const json = await res.json();
-                            this.subPrefixes = json.success ? (json.subprefixes || []) : [];
-                        } catch (err) {
-                            console.error("Lỗi load subprefixes:", err);
-                            this.subPrefixes = [];
-                        }
-                    },
-
-                    updatePrefix() {
-                        this.selectedSource = this.selectedSubPrefix || this.selectedBucket;
-                    },
-
-                    async generateScatter() {
-                        if (this.loading || !this.selectedBucket) return;
-
-                        this.updatePrefix();
-                        this.loading = true;
-                        this.generatedOnce = true;
-                        this.success = false;
-
-                        this.scatterImages = [];
-                        this.featureLabels = [];
-                        this.message = '';
-                        this.closeScatterModal();
-
-                        try {
-                            const res = await fetch("/api/scatters/generate", {  // Endpoint mới
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                    bucket: this.selectedBucket,
-                                    prefix: this.selectedSubPrefix || ""
-                                })
-                            });
-
-                            if (!res.ok) {
-                                throw new Error(`HTTP error! status: ${res.status}`);
-                            }
-
-                            const json = await res.json();
-
-                            if (json.success) {
-                                this.success = true;
-                                this.message = json.message || "Hoàn tất phân tích scatter";
-                                this.resultType = json.type || 'frame';
-
-                                if (json.images_base64 && Array.isArray(json.images_base64) && json.images_base64.length > 0) {
-                                    this.scatterImages = json.images_base64;
-                                    this.featureLabels = json.feature_labels || json.images_base64.map((_, i) => `Scatter ${i + 1}`);
-                                    console.log(`Đã nhận ${this.scatterImages.length} scatter plots`);
-                                } else {
-                                    this.message += " (không nhận được scatter plot nào)";
-                                }
-                            } else {
-                                this.message = json.message || "Lỗi từ server";
-                            }
-                        } catch (err) {
-                            console.error("Lỗi khi gọi generateScatter:", err);
-                            this.message = "Lỗi kết nối hoặc xử lý dữ liệu";
-                        } finally {
-                            this.loading = false;
-                        }
-                    },
-
-                    openScatterModal(src, label) {
-                        this.selectedScatterSrc = src;
-                        this.selectedScatterLabel = label;
-                        this.showScatterModal = true;
-                        document.body.style.overflow = 'hidden';
-                    },
-
-                    closeScatterModal() {
-                        this.showScatterModal = false;
-                        this.selectedScatterSrc = '';
-                        this.selectedScatterLabel = '';
-                        document.body.style.overflow = '';
-                    }
-                }
-            }
         </script>
 </body>
 
