@@ -403,7 +403,7 @@ def download_by_keyword(keyword, num_videos=1):
             video_id = entry.get("id")
             video_title = entry.get("title", "")
             
-            # --- RESOLUTION CHECK ---
+            # --- RESOLUTION CHECK (PRE-DOWNLOAD) ---
             v_width = entry.get('width')
             v_height = entry.get('height')
             if v_width and v_height:
@@ -440,6 +440,19 @@ def download_by_keyword(keyword, num_videos=1):
                 
                 video_info = extract_video_info(video_info_dict, keyword=keyword)
                 if video_info:
+                    # --- POST-DOWNLOAD RESOLUTION CHECK ---
+                    final_width = video_info.get('width')
+                    final_height = video_info.get('height')
+                    if final_width and final_height and (final_width < MIN_RESOLUTION or final_height < MIN_RESOLUTION):
+                        print(f"  ❌ Đã tải nhưng độ phân giải quá thấp ({final_width}x{final_height}). Xóa file.")
+                        # Remove file
+                        if video_info.get('file_path') and os.path.exists(video_info['file_path']):
+                            try:
+                                os.remove(video_info['file_path'])
+                            except:
+                                pass
+                        continue
+
                     # Lưu vào database (Sẽ check Hash lần 2 bên trong hàm này)
                     if save_to_database(video_info, download_method='keyword'):
                         downloaded_videos.append(video_info)
@@ -460,7 +473,7 @@ def download_by_keyword(keyword, num_videos=1):
         return []
 
 # ==================== TẢI VIDEO THEO URL ====================
-def download_by_url(url):
+def download_by_url(url, bypass_keyword_check=False):
     """
     Tải video trực tiếp từ URL YouTube
     
@@ -490,14 +503,59 @@ def download_by_url(url):
                     print(f"  ❌ Bỏ qua video. Độ phân giải quá thấp: {v_width}x{v_height} (Min: {MIN_RESOLUTION}x{MIN_RESOLUTION})")
                     return None
             
+            # --- KEYWORD VERIFICATION ---
+            matched_keyword = None
+            if not bypass_keyword_check:
+                print("  ℹ Đang kiểm tra từ khóa phù hợp với tiêu đề...")
+                title = info.get('title', '')
+                
+                # Get active keywords from DB
+                active_keywords = get_keywords_from_db(active_only=True)
+                
+                for kw in active_keywords:
+                    regex_str = kw.get('keyword', '')
+                    # If regex has '||', take the second part
+                    if '||' in regex_str:
+                        parts = regex_str.split('||')
+                        if len(parts) >= 2:
+                            regex_str = parts[1].strip()
+                    
+                    try:
+                        if re.search(regex_str, title, re.IGNORECASE):
+                            matched_keyword = kw.get('keyword')
+                            print(f"  ✓ Tiêu đề khớp với keyword: '{matched_keyword}'")
+                            break
+                    except:
+                        pass
+                
+                if not matched_keyword:
+                    # STRICT MODE: If no keyword matches, reject download?
+                    # "keyword title có mới cho vào hệ thống, cái này ưu tiên cho cào auto"
+                    # Implies we enforce this check.
+                    print(f"  ❌ Bỏ qua video. Tiêu đề '{title}' không khớp với bất kỳ keyword nào.")
+                    return None
+            else:
+                print("  ℹ Đã bỏ qua kiểm tra keyword (Bypass Enabled).")
+            
             # Tải video
             print("  --> Đang tải video...")
             info = ydl.extract_info(url, download=True)
             
             # Trích xuất thông tin
-            video_info = extract_video_info(info, keyword=None)
+            video_info = extract_video_info(info, keyword=matched_keyword)
             
             if video_info:
+                # --- POST-DOWNLOAD RESOLUTION CHECK ---
+                final_width = video_info.get('width')
+                final_height = video_info.get('height')
+                if final_width and final_height and (final_width < MIN_RESOLUTION or final_height < MIN_RESOLUTION):
+                    print(f"  ❌ Đã tải nhưng độ phân giải quá thấp ({final_width}x{final_height}). Xóa file.")
+                    if video_info.get('file_path') and os.path.exists(video_info['file_path']):
+                        try:
+                            os.remove(video_info['file_path'])
+                        except:
+                            pass
+                    return None
                 # Lưu vào database
                 save_to_database(video_info, download_method='url')
                 print(f"\n--> Hoàn tất tải xuống video: {video_info['title']}")

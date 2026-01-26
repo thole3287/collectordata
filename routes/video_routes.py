@@ -89,6 +89,7 @@ def download_by_url_api():
     data = request.json
     urls = data.get('urls', [])
     platform = data.get('platform', 'youtube') # 'youtube' or 'pexels'
+    bypass_keyword_check = data.get('bypass_keyword_check', False)
     
     if not urls:
         return jsonify({'error': 'Vui lòng cung cấp ít nhất một URL'}), 400
@@ -110,6 +111,7 @@ def download_by_url_api():
                     if match:
                         video_id = match.group(1)
                         print(f"Downloading Pexels ID: {video_id}")
+                        # Pexels validation is already strict on resolution
                         pexels_service.download_video_by_id(video_id, api_key)
                     else:
                         print(f"Could not extract Pexels ID from {url}")
@@ -126,7 +128,7 @@ def download_by_url_api():
                     print(f"Skipping Pexels URL in YouTube mode: {url}")
                     continue
                     
-                video = yt.download_by_url(url.strip())
+                video = yt.download_by_url(url.strip(), bypass_keyword_check=bypass_keyword_check)
                 if video:
                     downloaded_videos.append(video)
             except Exception as e:

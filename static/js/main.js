@@ -6,6 +6,7 @@ function app() {
         activeTab: 'visualization',
         urlInput: '',
         urlDownloadPlatform: 'youtube', // New
+        bypassKeywordCheck: false, // New state for bypass checkbox
         keywordDownloadPlatform: 'youtube', // New
         selectedKeywordId: '',
         activeKeywords: [],
@@ -26,7 +27,8 @@ function app() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         urls,
-                        platform: this.urlDownloadPlatform
+                        platform: this.urlDownloadPlatform,
+                        bypass_keyword_check: this.bypassKeywordCheck
                     })
                 });
                 const data = await response.json();

@@ -426,8 +426,17 @@
                                         Nhập URL (mỗi URL một dòng)
                                     </label>
                                     <textarea x-model="urlInput" rows="6"
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
                                         :placeholder="urlDownloadPlatform === 'youtube' ? 'https://www.youtube.com/watch?v=...\nhttps://www.youtube.com/watch?v=...' : 'https://www.pexels.com/video/traffic-flow-12345/'"></textarea>
+
+                                    <div class="flex items-center mb-4">
+                                        <input id="bypass-keyword-check" type="checkbox" x-model="bypassKeywordCheck"
+                                            class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+                                        <label for="bypass-keyword-check"
+                                            class="ml-2 text-sm font-medium text-gray-900">
+                                            Bypass Keyword Verify (Không kiểm tra từ khóa)
+                                        </label>
+                                    </div>
                                 </div>
                                 <button type="submit" :disabled="!urlInput.trim() || downloading"
                                     class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2">
