@@ -8,6 +8,7 @@ import services.scene_analysis
 import shutil
 from datetime import datetime
 from services.image_enhancement import process_image, smart_process_image, load_settings
+import services.augmentation_service as augmentation_service
 
 import numpy as np
 
@@ -135,74 +136,85 @@ def extract_frames_from_folder(input_folder, output_root=None, progress_file_pat
                         # Apply current histogram as last saved (will be saved below)
                         last_saved_hist = curr_hist
                         
-                        # --- Image Enhancement Integration ---
-                        scene_type = 'day' # Default
+                        # --- AUGMENTATION (1 -> 5 images) ---
+                        # Generates Original + 4 Variants
+                        start_process_time = datetime.now()
+                        augmented_frames = augmentation_service.augment_image(resized_frame)
                         
-                        if should_enhance:
+                        for variant_idx, (aug_frame, suffix) in enumerate(augmented_frames):
+                            # --- Image Enhancement Integration ---
+                            # Enhance EACH variant individually (smart process handles resize if configured)
+                            scene_type = 'day' # Default
+                            processed_frame = aug_frame
+                            
+                            if should_enhance:
+                                try:
+                                    # Smart process returns (enhanced_img, detected_scene)
+                                    processed_frame, scene_type = smart_process_image(aug_frame, enhancement_settings)
+                                except Exception as e:
+                                    print(f"Error enhancing frame variant {suffix}: {e}")
+                                    # Fallback analysis
+                                    scene_type = analyze_scene_features(aug_frame)
+                            else:
+                                # Feature Extraction only
+                                scene_type = analyze_scene_features(aug_frame)
+                            
+                            # Convert to 16-bit PNG (scale up)
+                            if processed_frame is None: continue
+                            
+                            frame_16bit = processed_frame.astype(np.uint16) * 256
+                            
+                            # Save as .png with suffix
+                            # Format: video_fr00000.png, video_fr00000_rot15.png, etc.
+                            filename = f"{video_name}_fr{saved_count:05d}{suffix}.png"
+                            save_path = os.path.join(current_output_dir, filename)
+                            
+                            # Use cv2.imwrite for 16-bit PNG
+                            cv2.imwrite(save_path, frame_16bit)
+                            
+                            # --- MinIO & MongoDB Integration ---
                             try:
-                                # Smart process returns (enhanced_img, detected_scene)
-                                resized_frame, scene_type = smart_process_image(resized_frame, enhancement_settings)
-                            except Exception as e:
-                                print(f"Error enhancing frame: {e}")
-                                # Fallback analysis if enhancement failed
-                                scene_type = analyze_scene_features(resized_frame)
-                        else:
-                            # --- Feature Extraction for Scene Classification (if not enhanced) ---
-                            scene_type = analyze_scene_features(resized_frame)
-                        # -------------------------------------
-                        
-                        # Convert to 16-bit PNG (scale up)
-                        frame_16bit = resized_frame.astype(np.uint16) * 256
-                        
-                        # Save as .png
-                        filename = f"{video_name}_fr{saved_count:05d}.png"
-                        save_path = os.path.join(current_output_dir, filename)
-                        
-                        # Use cv2.imwrite for 16-bit PNG
-                        cv2.imwrite(save_path, frame_16bit)
-                        
-                        # --- MinIO & MongoDB Integration ---
-                        try:
-                            # 1. Upload to MinIO (as PNG)
-                            # User requested: dataset - platform - scene - video_name ...
-                            object_name = f"{platform}/{scene_type}/{video_name}/{filename}"
-                            upload_result = minio_service.upload_file(save_path, minio_service.MINIO_BUCKET_FRAMES, object_name)
-                            
-                            minio_key = None
-                            minio_url_path = None
-                            
-                            if upload_result['success']:
-                                minio_key = object_name
-                                minio_url_path = f"{minio_service.MINIO_BUCKET_FRAMES}/{minio_key}"
-                            
-                            # 2. Save Metadata to MongoDB
-                            db = db_service.get_db_connection()
-                            if db is not None:
-                                doc = {
-                                    'video_name': video_name,
-                                    'video_id': video_name, # Assuming filename is video_id for folder processing
-                                    'platform': platform,
-                                    'frame_index': saved_count,
-                                    'original_video_path': video_path,
-                                    'timestamp': datetime.now(),
-                                    'file_size': os.path.getsize(save_path),
-                                    'scene_type': scene_type,
-                                    'weather': scene_type, # Mirror scene_type
-                                    'created_at': datetime.now()
-                                }
+                                # 1. Upload to MinIO
+                                # User requested: dataset - platform - scene - video_name ...
+                                object_name = f"{platform}/{scene_type}/{video_name}/{filename}"
+                                upload_result = minio_service.upload_file(save_path, minio_service.MINIO_BUCKET_FRAMES, object_name)
                                 
-                                if minio_key:
-                                    doc['storage_refs'] = {
-                                        'bucket': minio_service.MINIO_BUCKET_FRAMES,
-                                        'key': minio_key
+                                minio_key = None
+                                minio_url_path = None
+                                
+                                if upload_result['success']:
+                                    minio_key = object_name
+                                    minio_url_path = f"{minio_service.MINIO_BUCKET_FRAMES}/{minio_key}"
+                                
+                                # 2. Save Metadata to MongoDB
+                                db = db_service.get_db_connection()
+                                if db is not None:
+                                    doc = {
+                                        'video_name': video_name,
+                                        'video_id': video_name,
+                                        'platform': platform,
+                                        'frame_index': saved_count, # Matches the source frame index
+                                        'variant': suffix if suffix else 'original', # Track variant type
+                                        'original_video_path': video_path,
+                                        'timestamp': datetime.now(),
+                                        'file_size': os.path.getsize(save_path),
+                                        'scene_type': scene_type,
+                                        'weather': scene_type,
+                                        'created_at': datetime.now()
                                     }
-                                    doc['minio_url_path'] = minio_url_path
-                                
-                                db['video_frames'].insert_one(doc)
-                                
-                        except Exception as e:
-                            print(f"Error saving frame metadata: {e}")
-                        # -----------------------------------
+                                    
+                                    if minio_key:
+                                        doc['storage_refs'] = {
+                                            'bucket': minio_service.MINIO_BUCKET_FRAMES,
+                                            'key': minio_key
+                                        }
+                                        doc['minio_url_path'] = minio_url_path
+                                    
+                                    db['video_frames'].insert_one(doc)
+                                    
+                            except Exception as e:
+                                print(f"Error saving frame metadata for {filename}: {e}")
+                            # -----------------------------------
                         
                         saved_count += 1
                     except Exception as e:

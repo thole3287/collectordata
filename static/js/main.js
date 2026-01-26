@@ -144,6 +144,7 @@ function app() {
         settings: {
             enabled_camera: false,
             enabled_video: false,
+            rotation_angle: 15,
             profiles: {
                 day: { mean_intensity: "", clahe_clip_limit: 1.0, gamma: 1.0, denoise_strength: 0, hue_shift: 0, saturation_scale: 1.0, contrast_scale: 1.0, resize_640: false },
                 night: { mean_intensity: "", clahe_clip_limit: 1.0, gamma: 1.2, denoise_strength: 3.0, hue_shift: 0, saturation_scale: 1.0, contrast_scale: 1.1, resize_640: false },
@@ -412,6 +413,7 @@ function app() {
                     this.settings = {
                         enabled_camera: data.enabled_camera || false,
                         enabled_video: data.enabled_video || false,
+                        rotation_angle: data.rotation_angle || 15,
                         profiles: data.profiles || this.settings.profiles // Load profiles or keep default
                     };
                 }

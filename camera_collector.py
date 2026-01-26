@@ -10,6 +10,7 @@ import services.minio_service as minio_service
 import services.database as db_service
 import services.scene_analysis as scene_analysis
 from services.image_enhancement import process_image, smart_process_image, load_settings
+import services.augmentation_service as augmentation_service
 
 
 logger = logging.getLogger(__name__)
@@ -186,73 +187,85 @@ class CameraCollector:
                     # --- IMAGE ENHANCEMENT ---
                     # Load settings (Note: In production might want to cache this to avoid reading file every second)
                     # For now invalid/missing file is handled by load_settings returning defaults
-                    # --- IMAGE ENHANCEMENT & SCENE ANALYSIS ---
-                    enhance_settings = load_settings()
-                    scene_type = 'day' # Default
+                    # --- AUGMENTATION (1 -> 5 images) ---
+                    # Generates Original + 4 Variants
+                    augmented_frames = augmentation_service.augment_image(img)
+                    
+                    saved_any = False
+                    
+                    for variant_idx, (aug_frame, suffix) in enumerate(augmented_frames):
+                        # --- IMAGE ENHANCEMENT ---
+                        enhance_settings = load_settings()
+                        scene_type = 'day' # Default
+                        processed_frame = aug_frame
 
-                    if enhance_settings.get('enabled_camera', False):
-                        try:
-                            # Smart Process (detects scene -> calls process_image)
-                            img, scene_type = smart_process_image(img, enhance_settings)
-                        except Exception as e:
-                            logger.error(f"Error enhancing camera image: {e}")
-                            # Fallback analysis
-                            scene_type = scene_analysis.analyze_scene_features(img)
-                    else:
-                        # Analysis only
-                        scene_type = scene_analysis.analyze_scene_features(img)
-                    # -------------------------
-
-                    # Cập nhật histogram mới nhất cho camera này (using the original image's histogram for consistency)
-                    self.last_camera_hists[camera_id] = curr_hist
-                    
-                    # --- Feature Extraction done above ---
-
-
-                    # Convert to 16-bit (scale 8-bit [0-255] to 16-bit [0-65535])
-                    img_16bit = img.astype(np.uint16) * 256
-                    
-                    # Ensure filename is .png
-                    filename_base = os.path.splitext(original_file_path)[0]
-                    file_path = f"{filename_base}.png"
-                    
-                    # Save as PNG 16-bit
-                    cv2.imwrite(file_path, img_16bit)
-                    
-                    file_size = os.path.getsize(file_path)
-                    
-                    # 3. Upload to MinIO
-                    should_upload_minio = os.getenv('UPLOAD_TO_MINIO', 'true').lower() == 'true'
-                    
-                    if should_upload_minio:
-                        now = datetime.now()
-                        # Key format: camera/YYYY/MM/DD/{camera_id}/{scene_type}/HH-MM-SS.png
-                        object_key = f"camera/{now.strftime('%Y/%m/%d')}/{camera_id}/{scene_type}/{os.path.basename(file_path)}"
-                        
-                        result = minio_service.upload_and_get_key(
-                            file_path=file_path,
-                            bucket_name=minio_service.MINIO_BUCKET_FRAMES, # Changed to frames bucket
-                            custom_path=object_key,
-                            content_type='image/png' # Changed to PNG
-                        )
-                        
-                        if result['success']:
-                            minio_key = result['key']
-                            # Auto delete local file if MinIO upload success
+                        if enhance_settings.get('enabled_camera', False):
                             try:
-                                os.remove(file_path)
+                                # Smart Process (detects scene -> calls process_image)
+                                processed_frame, scene_type = smart_process_image(aug_frame, enhance_settings)
                             except Exception as e:
-                                logger.warning(f"Failed to delete local file {file_path} after MinIO upload: {e}")
-                            
-                            # Update file_path to MinIO path for database storage
-                            file_path = f"{minio_service.MINIO_BUCKET_FRAMES}/{minio_key}"
+                                logger.error(f"Error enhancing camera image variant {suffix}: {e}")
+                                # Fallback analysis
+                                scene_type = scene_analysis.analyze_scene_features(aug_frame)
                         else:
-                            logger.warning(f"MinIO Upload Failed for {camera_id}")
+                            # Analysis only
+                            scene_type = scene_analysis.analyze_scene_features(aug_frame)
+                        # -------------------------
 
-                    # 4. Save Metadata
-                    camera_name = next((c.get('name', camera_id) for c in self.cameras if c['id'] == camera_id), camera_id)
-                    self.save_metadata_to_db(camera_id, camera_name, file_path, minio_key, file_size, scene_type)
-                    return True
+                        if processed_frame is None: continue
+
+                        # Cập nhật histogram mới nhất cho camera này (using the ORIGINAL image's histogram for consistency)
+                        if variant_idx == 0: # Only update once per collection cycle
+                            self.last_camera_hists[camera_id] = curr_hist
+                        
+                        # Convert to 16-bit
+                        img_16bit = processed_frame.astype(np.uint16) * 256
+                        
+                        # Generate filename with suffix
+                        filename_base = os.path.splitext(original_file_path)[0]
+                        file_path = f"{filename_base}{suffix}.png"
+                        
+                        # Save as PNG 16-bit
+                        cv2.imwrite(file_path, img_16bit)
+                        
+                        file_size = os.path.getsize(file_path)
+                        
+                        # 3. Upload to MinIO
+                        minio_key = None
+                        should_upload_minio = os.getenv('UPLOAD_TO_MINIO', 'true').lower() == 'true'
+                        
+                        if should_upload_minio:
+                            now = datetime.now()
+                            # Key format: camera/YYYY/MM/DD/{camera_id}/{scene_type}/HH-MM-SS_suffix.png
+                            object_key = f"camera/{now.strftime('%Y/%m/%d')}/{camera_id}/{scene_type}/{os.path.basename(file_path)}"
+                            
+                            result = minio_service.upload_and_get_key(
+                                file_path=file_path,
+                                bucket_name=minio_service.MINIO_BUCKET_FRAMES,
+                                custom_path=object_key,
+                                content_type='image/png'
+                            )
+                            
+                            if result['success']:
+                                minio_key = result['key']
+                                # Auto delete local file if MinIO upload success
+                                try:
+                                    os.remove(file_path)
+                                except Exception as e:
+                                    logger.warning(f"Failed to delete local file {file_path} after MinIO upload: {e}")
+                                
+                                # Update file_path to MinIO path for database storage
+                                file_path = f"{minio_service.MINIO_BUCKET_FRAMES}/{minio_key}"
+                            else:
+                                logger.warning(f"MinIO Upload Failed for {camera_id} variant {suffix}")
+
+                        # 4. Save Metadata
+                        camera_name = next((c.get('name', camera_id) for c in self.cameras if c['id'] == camera_id), camera_id)
+                        # Note: We might want to store 'variant' field in db, currently just relying on filename/path
+                        self.save_metadata_to_db(camera_id, camera_name, file_path, minio_key, file_size, scene_type)
+                        saved_any = True
+                        
+                    return saved_any
                 else:
                     logger.error(f"Failed to decode image for {camera_id}")
                     return False

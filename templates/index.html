@@ -217,6 +217,28 @@
                                 </div>
                             </div>
 
+                            <!-- Global Augmentation Settings -->
+                            <div class="mb-6 p-4 bg-purple-50 rounded-lg space-y-3">
+                                <h4 class="font-medium text-purple-800 flex items-center gap-2">
+                                    <i class="fas fa-sync-alt"></i> Augmentation
+                                </h4>
+                                <div>
+                                    <label class="flex justify-between text-sm font-medium text-gray-700 mb-2">
+                                        <span>Góc Xoay (Độ)</span>
+                                        <span class="text-purple-600" x-text="settings.rotation_angle"></span>
+                                    </label>
+                                    <input type="range" min="1" max="45" step="1"
+                                        x-model.number="settings.rotation_angle"
+                                        class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600">
+                                    <div class="flex justify-between text-xs text-gray-400 mt-1">
+                                        <span>1°</span><span>45°</span>
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-2">
+                                        Ảnh sẽ được xoay trái/phải ±<span x-text="settings.rotation_angle"></span>°.
+                                    </p>
+                                </div>
+                            </div>
+
                             <!-- Profile Selector -->
                             <div class="mb-6">
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Cấu hình cho
