@@ -76,7 +76,7 @@ services:
 
   worker:
     build: .
-    container_name: collectordata_worker
+
     restart: unless-stopped
     command: python worker.py
     volumes:

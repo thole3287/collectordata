@@ -1769,6 +1769,14 @@
                                                         <img :src="frame.image_url" loading="lazy"
                                                             class="w-full h-full object-cover">
 
+                                                        <!-- Variant Badge -->
+                                                        <div x-show="frame.variant && frame.variant !== 'original'"
+                                                            class="absolute top-1 left-1 px-1.5 py-0.5 rounded text-[10px] font-bold backdrop-blur-sm z-10 bg-purple-900/80 text-white border border-purple-500/30">
+                                                            <i class="fas fa-sync-alt text-[8px] mr-1"></i>
+                                                            <span
+                                                                x-text="frame.variant.replace('rotate_', 'Rot ').replace('flip_', 'Flip ')"></span>
+                                                        </div>
+
                                                         <!-- Scene Badge -->
                                                         <div class="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[10px] font-bold backdrop-blur-sm z-10"
                                                             :class="{

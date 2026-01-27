@@ -123,6 +123,7 @@ def get_frames_service(params):
                 'video_frame_number': doc.get('video_frame_number', 0),
                 'file_size': doc.get('file_size', 0),
                 'scene_type': doc.get('scene_type', 'day'), # Detected scene
+                'variant': doc.get('variant', 'original'),
                 'image_url': image_url,
                 'storage_bucket': doc.get('storage_refs', {}).get('bucket', ''),
                 'storage_key': doc.get('storage_refs', {}).get('key', ''),
