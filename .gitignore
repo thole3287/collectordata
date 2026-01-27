@@ -55,3 +55,7 @@ downloads/
 docker-compose.override.yml
 
 
+
+# MinIO Test Directories
+minio_downloaded_images/
+test_minio_results/

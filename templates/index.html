@@ -1608,6 +1608,21 @@
                                 <canvas id="galleryPlatformChart"></canvas>
                             </div>
                         </div>
+
+                        <!-- NEW: AI Model & Object Stats -->
+                        <div class="bg-white rounded-lg shadow-sm p-4 md:col-span-2">
+                            <h4 class="text-sm font-semibold text-gray-700 mb-3 border-b pb-2">Top Detected Objects</h4>
+                            <div class="h-64">
+                                <canvas id="galleryObjectChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg shadow-sm p-4 md:col-span-2">
+                            <h4 class="text-sm font-semibold text-gray-700 mb-3 border-b pb-2">Model Performance
+                                (Winner)</h4>
+                            <div class="h-64 relative">
+                                <canvas id="galleryModelChart"></canvas>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Main Gallery Content -->
@@ -1631,6 +1646,21 @@
                                         <option value="youtube">YouTube</option>
                                         <option value="pexels">Pexels</option>
                                         <option value="camera">Camera</option>
+                                    </select>
+                                    <div
+                                        class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                                        <i class="fas fa-chevron-down text-xs"></i>
+                                    </div>
+                                </div>
+
+                                <!-- Label Status Filter -->
+                                <div class="relative">
+                                    <select x-model="galleryFilterLabelStatus"
+                                        @change="galleryPage=1; loadGallery()"
+                                        class="appearance-none bg-gray-50 border border-gray-300 text-gray-700 py-2 px-4 pr-8 rounded-lg leading-tight focus:outline-none focus:bg-white focus:border-blue-500 text-sm">
+                                        <option value="all">Tất cả trạng thái</option>
+                                        <option value="labeled">Đã đánh nhãn</option>
+                                        <option value="unlabeled">Chưa đánh nhãn</option>
                                     </select>
                                     <div
                                         class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
@@ -2004,6 +2034,70 @@
                                         </div>
                                     </div>
 
+                                    <!-- AI Analysis Section -->
+                                    <div x-show="selectedGalleryFrame?.label_status === 'labeled'"
+                                        class="bg-blue-50/50 rounded-lg p-3 border border-blue-100">
+                                        <h4
+                                            class="text-sm font-semibold text-blue-900 mb-2 flex items-center justify-between">
+                                            <span class="flex items-center gap-2"><i
+                                                    class="fas fa-robot text-blue-600"></i> AI Analysis</span>
+                                            <span
+                                                class="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded uppercase"
+                                                x-text="selectedGalleryFrame?.winner_model"></span>
+                                        </h4>
+
+                                        <!-- Toggle Visualized -->
+                                        <div
+                                            class="flex items-center justify-between mb-3 bg-white p-2 rounded border border-blue-100">
+                                            <span class="text-xs text-gray-700 font-medium">Show Bounding Boxes</span>
+                                            <button @click="toggleVisualized()"
+                                                class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                                                :class="isVisualized ? 'bg-blue-600' : 'bg-gray-200'">
+                                                <span aria-hidden="true"
+                                                    class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                                                    :class="isVisualized ? 'translate-x-4' : 'translate-x-0'"></span>
+                                            </button>
+                                        </div>
+
+                                        <!-- Detection Stats -->
+                                        <div class="text-xs space-y-1 mb-3">
+                                            <template
+                                                x-for="(count, label) in selectedGalleryFrame?.label_summary || {}"
+                                                :key="label">
+                                                <div class="flex justify-between items-center">
+                                                    <span class="text-gray-600 capitalize" x-text="label"></span>
+                                                    <span
+                                                        class="font-bold text-gray-800 bg-white px-2 rounded shadow-sm border border-gray-100"
+                                                        x-text="count"></span>
+                                                </div>
+                                            </template>
+                                            <div x-show="!selectedGalleryFrame?.label_summary"
+                                                class="text-center text-gray-400 italic">No objects detected</div>
+                                        </div>
+
+                                        <!-- Raw Labels -->
+                                        <div x-data="{ showRaw: true }">
+                                            <button @click="showRaw = !showRaw"
+                                                class="text-[10px] text-blue-600 hover:text-blue-800 flex items-center gap-1 w-full justify-center py-1 bg-white rounded border border-blue-100 hover:bg-blue-50 transition-colors">
+                                                <i class="fas" :class="showRaw ? 'fa-chevron-up' : 'fa-code'"></i>
+                                                <span
+                                                    x-text="showRaw ? 'Hide Raw Labels' : 'View Raw Labels (.txt)'"></span>
+                                            </button>
+                                            <div x-show="showRaw" x-collapse class="mt-2">
+                                                <div class="relative">
+                                                    <pre class="text-[10px] font-mono bg-gray-900 text-green-400 p-2 rounded overflow-x-auto max-h-32"
+                                                        x-text="selectedGalleryFrame?.raw_labels || 'Loading...'"></pre>
+                                                    <button
+                                                        @click="navigator.clipboard.writeText(selectedGalleryFrame?.raw_labels)"
+                                                        class="absolute top-1 right-1 text-gray-500 hover:text-white p-1"
+                                                        title="Copy">
+                                                        <i class="far fa-copy"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <!-- Storage Info -->
                                     <div>
                                         <h4 class="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
@@ -2018,6 +2112,11 @@
                                             <div>
                                                 <span class="block text-gray-400 mb-0.5">Key</span>
                                                 <span x-text="selectedGalleryFrame?.storage_key || '-'"></span>
+                                            </div>
+                                            <div x-show="selectedGalleryFrame?.label_status === 'labeled'">
+                                                <span class="block text-gray-400 mb-0.5">Label Key</span>
+                                                <span
+                                                    x-text="selectedGalleryFrame?.storage_refs?.label_key || '-'"></span>
                                             </div>
                                         </div>
                                     </div>

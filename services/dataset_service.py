@@ -17,6 +17,7 @@ def get_frames_service(params):
         platform_filter = params.get('platform', '')
         search_query = params.get('search', '')
         video_id_filter = params.get('video_id', '')
+        label_status_filter = params.get('label_status', '')
 
         # distinct handling for Camera platform
         if platform_filter == 'camera':
@@ -30,6 +31,10 @@ def get_frames_service(params):
             # Filter by specific camera (video_id context)
             if video_id_filter:
                 query['camera_id'] = video_id_filter
+            
+            # Optional label_status filter (camera)
+            if label_status_filter and label_status_filter in ['labeled', 'unlabeled']:
+                query['label_status'] = label_status_filter
             
             # Count and Sort for Camera
             total_frames = db['camera_images'].count_documents(query)
@@ -47,6 +52,7 @@ def get_frames_service(params):
                 storage = doc.get('storage_refs', {})
                 bucket = storage.get('bucket', 'dataset')
                 key = storage.get('key', '')
+                vis_key = storage.get('visualized_key')
                 
                 # Construct Proxy URL
                 image_url = ""
@@ -65,8 +71,16 @@ def get_frames_service(params):
                     'frame_number': 0,
                     'video_frame_number': 0,
                     'file_size': doc.get('file_size', 0), # Might be missing
-                    'scene_type': 'day', # TODO: Add scene detection for camera images later
+                    'scene_type': doc.get('scene_type', 'day'),
                     'image_url': image_url,
+
+                    # AI Labeling Data (camera)
+                    'label_status': doc.get('label_status', 'unlabeled'),
+                    'winner_model': doc.get('winner_model', ''),
+                    'label_summary': doc.get('label_summary', {}),
+                    'visualized_url': f"/api/image-proxy?bucket={bucket}&key={vis_key}" if (bucket and vis_key) else None,
+                    'storage_refs': storage,
+
                     'storage_bucket': bucket,
                     'storage_key': key,
                     'created_at': doc.get('timestamp', datetime.now()).isoformat()
@@ -94,6 +108,10 @@ def get_frames_service(params):
                 {'video_name': {'$regex': search_query, '$options': 'i'}},
                 {'video_id': {'$regex': search_query, '$options': 'i'}}
             ]
+
+        # Optional label_status filter (video frames)
+        if label_status_filter and label_status_filter in ['labeled', 'unlabeled']:
+            query['label_status'] = label_status_filter
         
         # Sort by most recent
         cursor = db['video_frames'].find(query).sort('created_at', -1)
@@ -125,6 +143,14 @@ def get_frames_service(params):
                 'scene_type': doc.get('scene_type', 'day'), # Detected scene
                 'variant': doc.get('variant', 'original'),
                 'image_url': image_url,
+                
+                # AI Labeling Data
+                'label_status': doc.get('label_status', 'unlabeled'),
+                'winner_model': doc.get('winner_model', ''),
+                'label_summary': doc.get('label_summary', {}),
+                'visualized_url': f"/api/image-proxy?bucket={doc.get('storage_refs', {}).get('bucket', 'dataset')}&key={doc.get('storage_refs', {}).get('visualized_key', '')}" if doc.get('storage_refs', {}).get('visualized_key') else None,
+                'storage_refs': doc.get('storage_refs', {}), # Pass full refs for keys
+                
                 'storage_bucket': doc.get('storage_refs', {}).get('bucket', ''),
                 'storage_key': doc.get('storage_refs', {}).get('key', ''),
                 'created_at': doc.get('created_at', datetime.now()).isoformat()
@@ -329,6 +355,7 @@ def get_dataset_stats_service():
             platforms['camera'] = camera_count
         
         # 3. Collection Timeline (Last 7 days or groupings)
+        # 3. Collection Timeline (Last 7 days or groupings)
         # Helper to get timeline from a collection
         def get_timeline(coll, date_field):
             pipeline = [
@@ -371,10 +398,50 @@ def get_dataset_stats_service():
         # Convert back to list and sort
         timeline = [{"date": k, "count": v} for k, v in sorted(timeline_map.items())]
         
+        # 4. Model Performance (Winner Distribution)
+        pipeline_models = [
+            {"$match": {"label_status": "labeled"}},
+            {"$group": {"_id": "$winner_model", "count": {"$sum": 1}}}
+        ]
+        # Aggregate from both collections
+        video_models = list(collection.aggregate(pipeline_models))
+        camera_models = list(camera_collection.aggregate(pipeline_models))
+        
+        # Merge model stats
+        model_stats = {}
+        for item in video_models + camera_models:
+            key = item['_id'] or 'unknown'
+            model_stats[key] = model_stats.get(key, 0) + item['count']
+        
+        # 5. Object Distribution (Top 10 Objects)
+        pipeline_objects = [
+            {"$match": {"label_status": "labeled"}},
+            {"$unwind": "$detections"},
+            {"$group": {"_id": "$detections.label", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 10}
+        ]
+        
+        # Aggregate from both
+        video_objects = list(collection.aggregate(pipeline_objects))
+        camera_objects = list(camera_collection.aggregate(pipeline_objects))
+        
+        # Merge object stats
+        full_object_stats = {}
+        for item in video_objects + camera_objects:
+            key = item['_id']
+            full_object_stats[key] = full_object_stats.get(key, 0) + item['count']
+            
+        # Sort and take top 10
+        sorted_objects = sorted(full_object_stats.items(), key=lambda x: x[1], reverse=True)[:10]
+        object_stats = dict(sorted_objects)
+        
         return {
             'total_frames': total_frames,
             'platforms': platforms,
-            'timeline': timeline
+            'timeline': timeline,
+            'models': model_stats,
+            'objects': object_stats
         }
     except Exception as e:
         print(f"Error getting stats: {e}")

@@ -47,7 +47,8 @@ def get_frames():
         'per_page': request.args.get('per_page', 24, type=int),
         'platform': request.args.get('platform', '', type=str),
         'search': request.args.get('search', '', type=str),
-        'video_id': request.args.get('video_id', '', type=str)
+        'video_id': request.args.get('video_id', '', type=str),
+        'label_status': request.args.get('label_status', '', type=str),
     }
     
     result = dataset_service.get_frames_service(params)
@@ -103,4 +104,28 @@ def image_proxy():
         )
     except Exception as e:
         print(f"Proxy error for {bucket}/{key}: {e}")
+        return jsonify({"error": str(e)}), 404
+
+@dataset_bp.route('/api/dataset/label-content')
+def get_label_content():
+    """
+    Fetch raw text content of a label file from MinIO.
+    Query params: bucket, key
+    """
+    bucket = request.args.get('bucket')
+    key = request.args.get('key')
+    
+    if not bucket or not key:
+        return jsonify({"error": "Missing bucket or key"}), 400
+        
+    try:
+        client = minio_service.get_minio_client(internal=True)
+        response = client.get_object(bucket, key)
+        content = response.read().decode('utf-8')
+        response.close()
+        response.release_conn()
+        
+        return jsonify({"content": content})
+    except Exception as e:
+        print(f"Label fetch error for {bucket}/{key}: {e}")
         return jsonify({"error": str(e)}), 404

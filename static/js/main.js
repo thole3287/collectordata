@@ -126,6 +126,7 @@ function app() {
         galleryExpandedGroups: [], // [video_id, ...]
 
         galleryFrames: [],
+        galleryFilterLabelStatus: 'all', // all | labeled | unlabeled
         galleryPage: 1,
         galleryPerPage: 10, // Groups per page
         galleryTotalPages: 0,
@@ -133,6 +134,55 @@ function app() {
         galleryLoading: false,
         showGalleryModal: false,
         selectedGalleryFrame: null,
+        isVisualized: false, // New state for toggling AI view
+
+        toggleVisualized() {
+            if (!this.selectedGalleryFrame) return;
+            this.isVisualized = !this.isVisualized;
+
+            // Swap URL
+            if (this.isVisualized) {
+                if (this.selectedGalleryFrame.visualized_url) {
+                    // Swap to visualized
+                    this.selectedGalleryFrame._original_url = this.selectedGalleryFrame.image_url;
+                    this.selectedGalleryFrame.image_url = this.selectedGalleryFrame.visualized_url;
+                } else {
+                    this.showNotify("Không tìm thấy ảnh Visualized (có thể chưa xử lý xong)", "error");
+                    this.isVisualized = false;
+                }
+            } else {
+                // Revert to original
+                if (this.selectedGalleryFrame._original_url) {
+                    this.selectedGalleryFrame.image_url = this.selectedGalleryFrame._original_url;
+                }
+            }
+        },
+
+        async fetchRawLabels() {
+            if (!this.selectedGalleryFrame || this.selectedGalleryFrame.raw_labels) return;
+
+            const refs = this.selectedGalleryFrame.storage_refs || {};
+            if (!refs.label_key) {
+                this.selectedGalleryFrame.raw_labels = "No label file reference found.";
+                return;
+            }
+
+            this.selectedGalleryFrame.raw_labels = "Loading...";
+
+            try {
+                const url = `/api/dataset/label-content?bucket=${refs.bucket || 'dataset'}&key=${refs.label_key}`;
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (response.ok) {
+                    this.selectedGalleryFrame.raw_labels = data.content;
+                } else {
+                    this.selectedGalleryFrame.raw_labels = "Error loading labels: " + (data.error || "Unknown error");
+                }
+            } catch (e) {
+                this.selectedGalleryFrame.raw_labels = "Network error: " + e.message;
+            }
+        },
 
         // Gallery Dashboard State
         galleryStats: {},
@@ -256,6 +306,64 @@ function app() {
                         });
                     }
                 }
+                // 3. Object Stats Chart
+                const objEl = document.getElementById('galleryObjectChart');
+                if (objEl) {
+                    const existing = Chart.getChart(objEl);
+                    if (existing) existing.destroy();
+
+                    if (this.galleryStats.objects) {
+                        const data = this.galleryStats.objects;
+                        new Chart(objEl, {
+                            type: 'bar',
+                            data: {
+                                labels: Object.keys(data),
+                                datasets: [{
+                                    label: 'Count',
+                                    data: Object.values(data),
+                                    backgroundColor: '#8b5cf6',
+                                    borderRadius: 4
+                                }]
+                            },
+                            options: {
+                                indexAxis: 'y',
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { display: false } },
+                                scales: { x: { beginAtZero: true } }
+                            }
+                        });
+                    }
+                }
+
+                // 4. Model Stats Chart
+                const modelEl = document.getElementById('galleryModelChart');
+                if (modelEl) {
+                    const existing = Chart.getChart(modelEl);
+                    if (existing) existing.destroy();
+
+                    if (this.galleryStats.models) {
+                        const data = this.galleryStats.models;
+                        new Chart(modelEl, {
+                            type: 'bar',
+                            data: {
+                                labels: Object.keys(data),
+                                datasets: [{
+                                    label: 'Winner Count',
+                                    data: Object.values(data),
+                                    backgroundColor: ['#f472b6', '#22d3ee', '#a78bfa'],
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { display: false } },
+                                scales: { y: { beginAtZero: true } }
+                            }
+                        });
+                    }
+                }
+
             } catch (e) {
                 console.error("Error drawing interface:", e);
                 this.showNotify('Chart Error: ' + e.message, 'error');
@@ -322,7 +430,15 @@ function app() {
         async loadGroupFrames(videoId, platform = '') {
             try {
                 // Fetch up to 100 frames for preview in the group
-                const url = `/api/frames?video_id=${videoId}&per_page=100&platform=${platform || this.galleryFilterPlatform}`;
+                const params = new URLSearchParams({
+                    video_id: videoId,
+                    per_page: 100,
+                    platform: platform || this.galleryFilterPlatform,
+                });
+                if (this.galleryFilterLabelStatus && this.galleryFilterLabelStatus !== 'all') {
+                    params.append('label_status', this.galleryFilterLabelStatus);
+                }
+                const url = `/api/frames?${params.toString()}`;
                 const response = await fetch(url);
                 const data = await response.json();
                 if (response.ok) {
@@ -344,6 +460,9 @@ function app() {
                     platform: this.galleryFilterPlatform,
                     search: this.gallerySearchQuery
                 });
+                if (this.galleryFilterLabelStatus && this.galleryFilterLabelStatus !== 'all') {
+                    params.append('label_status', this.galleryFilterLabelStatus);
+                }
 
                 const response = await fetch(`/api/frames?${params}`);
                 const data = await response.json();
@@ -377,6 +496,19 @@ function app() {
         openGalleryModal(frame) {
             this.selectedGalleryFrame = frame;
             this.showGalleryModal = true;
+            // Reset toggle nhưng đồng bộ với checkbox mặc định
+            this.isVisualized = false;
+
+            // Auto fetch labels if available
+            if (frame.label_status === 'labeled') {
+                this.fetchRawLabels();
+
+                // Nếu checkbox "Show Bounding Boxes" đang mặc định bật trong template,
+                // tự động bật visualized khi có sẵn visualized_url để tránh phải tắt/bật lại
+                if (frame.visualized_url) {
+                    this.toggleVisualized();
+                }
+            }
         },
 
         // Missing state variables fixed
@@ -2340,8 +2472,17 @@ function scatterTab() {
 
         renderAllCharts() {
             this.scatterData.forEach((info, idx) => {
-                const canvas = document.getElementById(`scatterChart${idx}`);
+                const canvasId = `scatterChart${idx}`;
+                let canvas = document.getElementById(canvasId);
                 if (!canvas) return;
+
+                // Buộc reset tooltip cũ bằng cách clone và replace canvas
+                const parent = canvas.parentNode;
+                const newCanvas = canvas.cloneNode(true);
+                parent.replaceChild(newCanvas, canvas);
+                newCanvas.id = canvasId;  // giữ nguyên ID
+
+                const ctx = newCanvas.getContext('2d');
 
                 const pointData = info.data.x.map((x, i) => ({
                     x: x,
@@ -2353,10 +2494,10 @@ function scatterTab() {
                     file_size: info.data.file_size?.[i] ?? 0,
                     created_at: info.data.created_at?.[i] ?? null,
                     video_id: info.data.video_id?.[i] ?? 'unknown',
-                    bucket: info.data.bucket?.[i] ?? null  // ← THÊM FIELD BUCKET TỪ BACKEND
+                    bucket: info.data.bucket?.[i] ?? null
                 }));
 
-                const chart = new Chart(canvas.getContext('2d'), {
+                const chart = new Chart(ctx, {
                     type: 'scatter',
                     data: {
                         datasets: [{
@@ -2373,41 +2514,67 @@ function scatterTab() {
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                            },
                             tooltip: {
                                 enabled: true,
+                                backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                                titleFont: { size: 14, weight: 'bold' },
+                                bodyFont: { size: 13 },
+                                padding: 10,
+                                cornerRadius: 6,
                                 callbacks: {
+                                    title: function (tooltipItems) {
+                                        return tooltipItems[0].dataset.label || 'Chi tiết frame';
+                                    },
                                     label: function (context) {
                                         const p = context.raw;
-                                        const meta = p.metadata || {};
-
-                                        // LẤY STATS TỪ DATASET BOXPLOT (dataset[0])
-                                        const boxDataset = context.chart.data.datasets[0];
-                                        const stats = boxDataset.stats || {};
-
                                         const lines = [];
 
-                                        // THỐNG KÊ BOXPLOT (an toàn)
-                                        lines.push(`Đặc trưng: ${context.chart.data.labels[0] || '?'}`);
-                                        lines.push(`Tổng số mẫu: ${stats.count ?? '?'}`);
-                                        lines.push(`Mean: ${stats.mean?.toFixed(2) ?? '?'}`);
-                                        lines.push(`Median: ${stats.median?.toFixed(2) ?? '?'}`);
-                                        lines.push(`Q1: ${stats.q1?.toFixed(2) ?? '?'}`);
-                                        lines.push(`Q3: ${stats.q3?.toFixed(2) ?? '?'}`);
-                                        lines.push(`Min / Max: ${stats.min?.toFixed(2) ?? '?'} – ${stats.max?.toFixed(2) ?? '?'}`);
-                                        lines.push(`Số outlier: ${stats.outlier_count ?? stats.outliers?.length ?? '?'}`);
+                                        // Thông tin chính
+                                        lines.push(`Frame: ${p.frameIdx + 1}`);
+                                        lines.push(`Giá trị Y: ${p.y.toFixed(2)}`);
 
-                                        // THÔNG TIN OUTLIER/FRAME
-                                        lines.push('────────────────────────');
-                                        lines.push(`Giá trị outlier: ${p.y?.toFixed(2) ?? '?'}`);
-                                        lines.push(`File: ${meta.filename || 'unknown'}`);
-
-                                        if (meta.bucket && meta.key) {
-                                            const shortPath = meta.key.split('/').slice(-2).join('/');
-                                            lines.push(`Vị trí: ${meta.bucket}/${shortPath}`);
+                                        if (p.x !== undefined && !isNaN(p.x)) {
+                                            lines.push(`Giá trị X: ${p.x.toFixed(2)}`);
                                         }
 
-                                        if (meta.platform) lines.push(`Nguồn: ${meta.platform}`);
-                                        if (meta.scene_type) lines.push(`Cảnh: ${meta.scene_type}`);
+                                        // File & vị trí
+                                        let fileName = 'unknown';
+                                        if (p.objectName) {
+                                            fileName = p.objectName.split('/').pop();
+                                            lines.push(`File: ${fileName}`);
+                                        }
+
+                                        if (p.bucket && p.objectName) {
+                                            const shortPath = p.objectName.split('/').slice(-2).join('/');
+                                            lines.push(`Vị trí: ${p.bucket}/${shortPath}`);
+                                        } else if (p.bucket) {
+                                            lines.push(`Bucket: ${p.bucket}`);
+                                        }
+
+                                        // Metadata bổ sung
+                                        if (p.platform && p.platform !== 'unknown') {
+                                            lines.push(`Nguồn: ${p.platform}`);
+                                        }
+                                        if (p.scene_type && p.scene_type !== 'day') {
+                                            lines.push(`Cảnh: ${p.scene_type}`);
+                                        }
+                                        if (p.video_id && p.video_id !== 'unknown') {
+                                            lines.push(`Video ID: ${p.video_id}`);
+                                        }
+                                        if (p.file_size > 0) {
+                                            lines.push(`Kích thước: ${(p.file_size / 1024 / 1024).toFixed(2)} MB`);
+                                        }
+                                        if (p.created_at) {
+                                            const date = new Date(p.created_at);
+                                            lines.push(`Ngày tạo: ${date.toLocaleString('vi-VN', {
+                                                day: '2-digit', month: '2-digit', year: 'numeric',
+                                                hour: '2-digit', minute: '2-digit'
+                                            })}`);
+                                        }
 
                                         return lines;
                                     }
@@ -2415,8 +2582,14 @@ function scatterTab() {
                             }
                         },
                         scales: {
-                            x: { title: { display: true, text: info.x_label } },
-                            y: { title: { display: true, text: info.y_label } }
+                            x: {
+                                title: { display: true, text: info.x_label || 'Trục X' },
+                                grid: { color: 'rgba(255,255,255,0.1)' }
+                            },
+                            y: {
+                                title: { display: true, text: info.y_label || 'Trục Y' },
+                                grid: { color: 'rgba(255,255,255,0.1)' }
+                            }
                         },
                         onClick: (event, elements) => {
                             if (elements.length === 0) return;
@@ -2427,17 +2600,15 @@ function scatterTab() {
                                 key = `frame_${String(p.frameIdx).padStart(6, '0')}.png`;
                             }
 
-                            // Bucket từ backend (ưu tiên), fallback selectedBucket
                             const frameBucket = p.bucket || this.selectedBucket;
 
-                            // Debug chi tiết
-                            console.log("DEBUG p.bucket:", {
-                                p_bucket_raw: p.bucket,
-                                selectedBucket: this.selectedBucket,
-                                frameBucket_final: frameBucket
+                            console.log("Click frame:", {
+                                bucket: frameBucket,
+                                key: key,
+                                objectName: p.objectName,
+                                frameIdx: p.frameIdx
                             });
 
-                            // KHÔNG ghép currentPrefix nữa (backend trả full key đúng)
                             let finalKey = key.replace(/\/{2,}/g, '/');
 
                             const imageUrl = `/api/image-proxy?bucket=${encodeURIComponent(frameBucket)}&key=${encodeURIComponent(finalKey)}`;
@@ -2461,8 +2632,8 @@ function scatterTab() {
                             img.onload = () => this.frameLoading = false;
                             img.onerror = () => {
                                 this.frameLoading = false;
-                                console.error("Load thất bại:", { bucket: frameBucket, key: finalKey });
-                                alert(`Không tải frame.\nBucket: ${frameBucket}\nKey: ${finalKey}`);
+                                console.error("Load frame thất bại:", { bucket: frameBucket, key: finalKey });
+                                alert(`Không tải được frame.\nBucket: ${frameBucket}\nKey: ${finalKey}`);
                             };
                             img.src = imageUrl;
                         },
@@ -2478,7 +2649,18 @@ function scatterTab() {
         },
 
         destroyAllCharts() {
-            this.charts.forEach(chart => chart?.destroy());
+            this.charts.forEach((chart, idx) => {
+                if (chart) {
+                    chart.destroy();
+                }
+                const canvas = document.getElementById(`scatterChart${idx}`);
+                if (canvas) {
+                    const ctx = canvas.getContext('2d');
+                    if (ctx) {
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    }
+                }
+            });
             this.charts = [];
         },
 
