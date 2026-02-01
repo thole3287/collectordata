@@ -8,6 +8,7 @@ from datetime import datetime
 
 from services.minio_service import get_minio_client
 from services.database import get_db_connection
+from services.image_enhancement import resize_image
 
 # Cấu hình
 MAX_VIDEOS = 9999
@@ -189,6 +190,10 @@ def generate_scatter_for_prefix(
             if img is None:
                 continue
 
+            # Fix OpenCV error: Ensure all images are uniform size (640x640)
+            # This prevents "Sizes of input arguments do not match" in cv2.absdiff
+            img = resize_image(img, target_size=(640, 640))
+
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             brightness = float(np.mean(gray))
             lap_var = float(cv2.Laplacian(gray, cv2.CV_64F).var())
@@ -198,6 +203,7 @@ def generate_scatter_for_prefix(
             diff_energy = 0.0
             flicker = 0.0
             if prev_gray is not None:
+                # diff will work because both are 640x640
                 diff = cv2.absdiff(gray, prev_gray)
                 diff_energy = float(np.mean(diff)) * 8.0
                 flicker = abs(brightness - prev_brightness)
