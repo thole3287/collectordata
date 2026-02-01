@@ -43,41 +43,38 @@ graph TD
     
     %% Auto Collection Flow
     AC["Auto Collector Service"] -->|1. Tìm kiếm Video| API
-    AC -.->|Scan| YT
-    AC -.->|Scan| PX
     AC -->|2. Gửi Task Download| Kafka["Apache Kafka Message Queue"]
     Kafka -->|3. Phân phối Task| Worker["Worker Service (Scalable)"]
     
     %% Worker Processing
-    Worker -->|4. Download Video| DL["Downloader Module"]
+    Worker -->|4. Tìm kiếm & Download| DL["Downloader Module"]
+    DL -.->|Request| YT
+    DL -.->|Request| PX
     YT ==>|Stream/File| DL
     PX ==>|File| DL
     DL -->|5. Trích xuất Frame| EXT["Frame Extractor"]
     
     %% Data Processing Pipeline
-    %% Data Processing Pipeline
     subgraph DataProcessing ["Pipeline Xử Lý Thông Minh"]
         direction TB
-        Dedup["Deduplication (Histogram/Hash)"]
-        Augment["Image Augmentation (Rotate ±15°)"]
-        Filter["Smart Filter (Lọc Sáng/Mờ)"]
-        Enhance["Image Enhancer (Cải thiện ảnh)"]
+        Filter["Smart Filter (Lọc Sáng/Mờ/Trùng)"]
+        Augment["Augmentation (Xoay/Lật)"]
+        Enhance["Image Enhancer (Chỉnh sáng/Gamma/CLAHE)"]
+        Resize["Resizing (640x640)"]
         Analysis["Scene Analysis (Ngày/Đêm)"]
         Labeling["AI Labeling (YOLO/RT-DETR)"]
         
-        EXT -->|Raw Frames| Dedup
-        Dedup -->|Unique Frames| Augment
-        Augment -->|Augmented Frames| Filter
-        
-        APICam["Camera Collector Service"] -->|Snapshot| Filter
-        
-        Filter -->|Clean Frames| Enhance
-        Enhance -->|Enhanced| Analysis
+        EXT -->|Raw Frames| Filter
+        Filter -->|Clean Frames| Augment
+        Augment -->|Augmented Frames| Enhance
+        Enhance -->|Enhanced| Resize
+        Resize -->|Standardized| Analysis
         Analysis -->|Scene Tags| Labeling
     end
     
     %% Camera Flow Source
-    CCTV --> APICam
+    CCTV --> APICam["Camera Collector Service"]
+    APICam -->|Snapshot| Filter
     
     %% Storage
     Labeling -->|6. Upload Ảnh| MinIO[("MinIO Object Storage")]
