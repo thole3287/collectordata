@@ -67,11 +67,21 @@ def get_visualization_data():
                 {'$group': {'_id': '$video_id', 'count': {'$sum': 1}}}
             ]
             frame_counts_map = {str(r['_id']): r['count'] for r in frames_collection.aggregate(pipeline_frames)}
+
+            # --- NEW: Aggregate LABELED frames count by video_id ---
+            pipeline_labeled = [
+                {'$match': {'label_status': 'labeled'}},
+                {'$group': {'_id': '$video_id', 'count': {'$sum': 1}}}
+            ]
+            labeled_counts_map = {str(r['_id']): r['count'] for r in frames_collection.aggregate(pipeline_labeled)}
+            # -------------------------------------------------------
             
             # 2. Get VideoID -> Keyword mapping
             videos_cursor = collection.find({'keyword': {'$ne': None}}, {'video_id': 1, 'keyword': 1})
             
             keyword_frame_counts = {}
+            keyword_labeled_counts = {} # Store labeled counts
+            
             for video in videos_cursor:
                 vid = str(video.get('video_id'))
                 kw_raw = video.get('keyword', '')
@@ -82,14 +92,20 @@ def get_visualization_data():
                 
                 # Get count for this video
                 cnt = frame_counts_map.get(vid, 0)
+                l_cnt = labeled_counts_map.get(vid, 0) # Labeled count
                 
                 # Accumulate
                 if cnt > 0:
                     keyword_frame_counts[kw_clean] = keyword_frame_counts.get(kw_clean, 0) + cnt
+                
+                if l_cnt > 0:
+                    keyword_labeled_counts[kw_clean] = keyword_labeled_counts.get(kw_clean, 0) + l_cnt
             
             # 3. Update by_keyword list
             for item in by_keyword:
-                item['frame_count'] = keyword_frame_counts.get(item['keyword'], 0)
+                kw = item['keyword']
+                item['frame_count'] = keyword_frame_counts.get(kw, 0)
+                item['labeled_count'] = keyword_labeled_counts.get(kw, 0)
                 
         except Exception as e:
             print(f"[WARN] Error calculating frame counts for keywords: {e}")

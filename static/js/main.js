@@ -827,7 +827,7 @@ function app() {
             if (!this.vizData.by_keyword || this.vizData.by_keyword.length === 0) {
                 this.keywordsTableBody = `
                     <tr>
-                        <td colspan="4" class="px-6 py-4 text-center text-gray-500">
+                        <td colspan="5" class="px-6 py-4 text-center text-gray-500">
                             Chưa có dữ liệu. Vui lòng tải video trước!
                         </td>
                     </tr>
@@ -838,11 +838,17 @@ function app() {
             const total = this.vizData.by_keyword.reduce((sum, kw) => sum + kw.count, 0);
             this.keywordsTableBody = this.vizData.by_keyword.map((kw, index) => {
                 const percentage = total > 0 ? ((kw.count / total) * 100).toFixed(2) : 0;
+
+                // --- ADDED: Labeled Count Check ---
+                // Avoid displaying 0 if labeled_count is undefined/null
+                const labeledCount = (kw.labeled_count !== undefined && kw.labeled_count !== null) ? kw.labeled_count : 0;
+
                 return `
                     <tr class="hover:bg-gray-50">
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${index + 1}</td>
                         <td class="px-6 py-4 text-sm text-gray-900">${kw.keyword}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${kw.count}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-yellow-600 font-semibold">${labeledCount}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">
                             <div class="flex items-center">
                                 <div class="w-full bg-gray-200 rounded-full h-2 mr-2">
@@ -1504,7 +1510,8 @@ function app() {
                 keywordMap[kw.keyword] = {
                     count: kw.count,
                     platforms: kw.platforms || [],
-                    frame_count: kw.frame_count || 0
+                    frame_count: kw.frame_count || 0,
+                    labeled_count: kw.labeled_count || 0 // NEW
                 };
             });
 
@@ -1543,9 +1550,10 @@ function app() {
                 hover: function (item, dimension, event) {
                     if (item) {
                         const keyword = item[0];
-                        const keywordData = keywordMap[keyword] || { count: 0, platforms: [], frame_count: 0 };
+                        const keywordData = keywordMap[keyword] || { count: 0, platforms: [], frame_count: 0, labeled_count: 0 };
                         const count = keywordData.count;
                         const frameCount = keywordData.frame_count || 0;
+                        const labeledCount = keywordData.labeled_count || 0; // NEW
                         const platforms = keywordData.platforms || [];
 
                         // Format platform display
@@ -1564,6 +1572,7 @@ function app() {
                             <div style="font-weight: bold; margin-bottom: 4px;">${keyword}</div>
                             <div style="font-size: 12px; opacity: 0.9;">${count} video(s)</div>
                             <div style="font-size: 12px; opacity: 0.9; color: #FCD34D;">${frameCount} frame(s)</div>
+                            <div style="font-size: 12px; opacity: 0.9; color: #10B981;">${labeledCount} labeled</div>
                             ${platformText}
                         `;
                         tooltip.style.left = (event.pageX + 15) + 'px'; // Fix tooltip position relative to page
@@ -1580,7 +1589,7 @@ function app() {
             if (!this.vizData.by_keyword || this.vizData.by_keyword.length === 0) {
                 this.vizKeywordsTableBody = `
                     <tr>
-                        <td colspan="4" class="px-6 py-4 text-center text-gray-500">Chưa có dữ liệu</td>
+                        <td colspan="5" class="px-6 py-4 text-center text-gray-500">Chưa có dữ liệu</td>
                     </tr>
                 `;
                 return;
@@ -1589,11 +1598,14 @@ function app() {
             const total = this.vizData.by_keyword.reduce((sum, kw) => sum + kw.count, 0);
             this.vizKeywordsTableBody = this.vizData.by_keyword.map((kw, index) => {
                 const percentage = total > 0 ? ((kw.count / total) * 100).toFixed(2) : 0;
+                const labeledCount = (kw.labeled_count !== undefined && kw.labeled_count !== null) ? kw.labeled_count : 0;
+
                 return `
                     <tr class="hover:bg-gray-50">
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${index + 1}</td>
                         <td class="px-6 py-4 text-sm text-gray-900">${kw.keyword}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${kw.count}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-yellow-600 font-semibold">${labeledCount}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">
                             <div class="flex items-center">
                                 <div class="w-full bg-gray-200 rounded-full h-2 mr-2">
