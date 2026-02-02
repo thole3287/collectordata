@@ -237,6 +237,158 @@ function app() {
             }
         },
 
+        downloadChartData(type) {
+            let data = [];
+            let filename = '';
+            let headers = [];
+
+            if (type === 'trend') {
+                filename = 'trend_data.csv';
+                headers = ['Date', 'Count'];
+                if (this.galleryStats.timeline) {
+                    data = this.galleryStats.timeline.map(x => ({
+                        Date: x.date,
+                        Count: x.count
+                    }));
+                }
+            } else if (type === 'platform') {
+                filename = 'platform_data.csv';
+                headers = ['Platform', 'Count'];
+                if (this.galleryStats.platforms) {
+                    data = Object.entries(this.galleryStats.platforms).map(([k, v]) => ({
+                        Platform: k,
+                        Count: v
+                    }));
+                }
+            } else if (type === 'object') {
+                filename = 'object_data.csv';
+                headers = ['Object', 'Count'];
+                if (this.galleryStats.objects) {
+                    data = Object.entries(this.galleryStats.objects).map(([k, v]) => ({
+                        Object: k,
+                        Count: v
+                    }));
+                }
+            } else if (type === 'model') {
+                filename = 'model_data.csv';
+                headers = ['Model', 'Count'];
+                if (this.galleryStats.models) {
+                    data = Object.entries(this.galleryStats.models).map(([k, v]) => ({
+                        Model: k,
+                        Count: v
+                    }));
+                }
+            }
+
+            if (!data.length) {
+                this.showNotify('Không có dữ liệu để tải xuống', 'error');
+                return;
+            }
+
+            this.exportToCSV(data, headers, filename);
+        },
+
+        downloadVizChartData(type) {
+            let data = [];
+            let filename = '';
+            let headers = [];
+
+            if (type === 'platform') {
+                filename = 'platform_distribution.csv';
+                headers = ['Platform', 'Count'];
+                if (this.vizData.by_platform) {
+                    data = this.vizData.by_platform.map(x => ({
+                        Platform: x.platform,
+                        Count: x.count
+                    }));
+                }
+            } else if (type === 'method') {
+                filename = 'download_method.csv';
+                headers = ['Method', 'Count'];
+                if (this.vizData.by_method) {
+                    data = this.vizData.by_method.map(x => ({
+                        Method: x.method,
+                        Count: x.count
+                    }));
+                }
+            } else if (type === 'weather') {
+                filename = 'weather_distribution.csv';
+                headers = ['Weather', 'Count'];
+                if (this.vizData.by_weather) {
+                    data = this.vizData.by_weather.map(x => ({
+                        Weather: x.weather,
+                        Count: x.count
+                    }));
+                }
+            } else if (type === 'resolution') {
+                filename = 'resolution_distribution.csv';
+                headers = ['Resolution', 'Count'];
+                if (this.vizData.by_resolution) {
+                    data = this.vizData.by_resolution.map(x => ({
+                        Resolution: x.resolution,
+                        Count: x.count
+                    }));
+                }
+            } else if (type === 'duration') {
+                filename = 'duration_distribution.csv';
+                headers = ['Duration Range', 'Count'];
+                if (this.vizData.by_duration) {
+                    data = this.vizData.by_duration.map(x => ({
+                        'Duration Range': x.range,
+                        Count: x.count
+                    }));
+                }
+            } else if (type === 'time') {
+                filename = 'video_over_time.csv';
+                headers = ['Date', 'Count'];
+                if (this.vizData.by_date) {
+                    data = this.vizData.by_date.map(x => ({
+                        Date: x.date,
+                        Count: x.count
+                    }));
+                }
+            } else if (type === 'keyword') {
+                filename = 'keyword_wordcloud.csv';
+                headers = ['Keyword', 'Count', 'Platforms', 'Frame Count', 'Labeled Count'];
+                if (this.vizData.by_keyword) {
+                    data = this.vizData.by_keyword.map(x => ({
+                        Keyword: x.keyword,
+                        Count: x.count,
+                        Platforms: (x.platforms || []).join('; '),
+                        'Frame Count': x.frame_count || 0,
+                        'Labeled Count': x.labeled_count || 0
+                    }));
+                }
+            }
+
+            if (!data.length) {
+                this.showNotify('Không có dữ liệu để tải xuống', 'error');
+                return;
+            }
+
+            this.exportToCSV(data, headers, filename);
+        },
+        exportToCSV(data, headers, filename) {
+            const csvContent = [
+                headers.join(','),
+                ...data.map(row => headers.map(header => row[header]).join(','))
+            ].join('\n');
+
+            const blob = new Blob([csvContent], {
+                type: 'text/csv;charset=utf-8;'
+            });
+            const link = document.createElement('a');
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', filename);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        },
+
         drawGalleryInterface() {
             // Debug Notification
             this.showNotify('Executing Draw Interface...', 'info');

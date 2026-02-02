@@ -653,10 +653,15 @@
                                 <i class="fas fa-chart-bar text-blue-600"></i>
                                 Top Keywords (Theo Số Lượng Video)
                             </h3>
-                            <button @click="loadVisualization()"
-                                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
-                                <i class="fas fa-sync-alt"></i> Làm mới
-                            </button>
+                            <div class="flex gap-2">
+                                <button @click="downloadVizChartData('keyword')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-1" title="Download CSV">
+                                    <i class="fas fa-download"></i> CSV
+                                </button>
+                                <button @click="loadVisualization()"
+                                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
+                                    <i class="fas fa-sync-alt"></i> Làm mới
+                                </button>
+                            </div>
                         </div>
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200">
@@ -760,7 +765,12 @@
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                         <!-- Platform Distribution -->
                         <div class="bg-white rounded-lg shadow-md p-6">
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Phân Bố Theo Nền Tảng</h3>
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold text-gray-800">Phân Bố Theo Nền Tảng</h3>
+                                <button @click="downloadVizChartData('platform')" class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1" title="Download CSV">
+                                    <i class="fas fa-download"></i> CSV
+                                </button>
+                            </div>
                             <div class="h-80 relative">
                                 <canvas id="platformChart"></canvas>
                             </div>
@@ -768,7 +778,12 @@
 
                         <!-- Download Method -->
                         <div class="bg-white rounded-lg shadow-md p-6">
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Phương Thức Tải</h3>
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold text-gray-800">Phương Thức Tải</h3>
+                                <button @click="downloadVizChartData('method')" class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1" title="Download CSV">
+                                    <i class="fas fa-download"></i> CSV
+                                </button>
+                            </div>
                             <div class="h-80 relative">
                                 <canvas id="methodChart"></canvas>
                             </div>
@@ -776,7 +791,12 @@
 
                         <!-- Weather Distribution -->
                         <div class="bg-white rounded-lg shadow-md p-6">
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Phân Bố Thời Tiết (Scene)</h3>
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold text-gray-800">Phân Bố Thời Tiết (Scene)</h3>
+                                <button @click="downloadVizChartData('weather')" class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1" title="Download CSV">
+                                    <i class="fas fa-download"></i> CSV
+                                </button>
+                            </div>
                             <div class="h-80 relative">
                                 <canvas id="weatherChart"></canvas>
                             </div>
@@ -784,7 +804,12 @@
 
                         <!-- Resolution Distribution -->
                         <div class="bg-white rounded-lg shadow-md p-6">
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Phân Bố Độ Phân Giải</h3>
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold text-gray-800">Phân Bố Độ Phân Giải</h3>
+                                <button @click="downloadVizChartData('resolution')" class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1" title="Download CSV">
+                                    <i class="fas fa-download"></i> CSV
+                                </button>
+                            </div>
                             <div class="h-80 relative">
                                 <canvas id="resolutionChart"></canvas>
                             </div>
@@ -792,7 +817,12 @@
 
                         <!-- Duration Distribution -->
                         <div class="bg-white rounded-lg shadow-md p-6">
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Phân Bố Độ Dài Video</h3>
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold text-gray-800">Phân Bố Độ Dài Video</h3>
+                                <button @click="downloadVizChartData('duration')" class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1" title="Download CSV">
+                                    <i class="fas fa-download"></i> CSV
+                                </button>
+                            </div>
                             <div class="h-80 relative">
                                 <canvas id="durationChart"></canvas>
                             </div>
@@ -801,7 +831,12 @@
 
                     <!-- Keyword Word Cloud -->
                     <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Word Cloud - Từ Khóa</h3>
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-gray-800">Word Cloud - Từ Khóa</h3>
+                            <button @click="downloadVizChartData('keyword')" class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1" title="Download CSV">
+                                <i class="fas fa-download"></i> CSV
+                            </button>
+                        </div>
                         <p class="text-sm text-gray-500 mb-4">Hover vào từ khóa để xem số lượng video</p>
                         <div style="position: relative;">
                             <canvas id="wordcloud-canvas"></canvas>
@@ -810,8 +845,12 @@
 
                     <!-- Video Over Time -->
                     <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Video Theo Thời Gian (30 ngày gần nhất)
-                        </h3>
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-gray-800">Video Theo Thời Gian (30 ngày gần nhất)</h3>
+                            <button @click="downloadVizChartData('time')" class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1" title="Download CSV">
+                                <i class="fas fa-download"></i> CSV
+                            </button>
+                        </div>
                         <canvas id="timeChart"></canvas>
                     </div>
 
@@ -1596,8 +1635,12 @@
 
                         <!-- Charts -->
                         <div class="bg-white rounded-lg shadow-sm p-4 md:col-span-2">
-                            <h4 class="text-sm font-semibold text-gray-700 mb-3 border-b pb-2">Xu hướng thu thập (7 ngày
-                                qua)</h4>
+                            <div class="flex justify-between items-center mb-3 border-b pb-2">
+                                <h4 class="text-sm font-semibold text-gray-700">Xu hướng thu thập (7 ngày qua)</h4>
+                                <button @click="downloadChartData('trend')" class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1" title="Download CSV">
+                                    <i class="fas fa-download"></i> CSV
+                                </button>
+                            </div>
                             <div class="h-64">
                                 <canvas id="galleryTrendChart"></canvas>
                             </div>
@@ -1605,7 +1648,12 @@
 
                         <!-- Pie Chart -->
                         <div class="bg-white rounded-lg shadow-sm p-4">
-                            <h4 class="text-sm font-semibold text-gray-700 mb-3 border-b pb-2">Nguồn Dữ Liệu</h4>
+                            <div class="flex justify-between items-center mb-3 border-b pb-2">
+                                <h4 class="text-sm font-semibold text-gray-700">Nguồn Dữ Liệu</h4>
+                                <button @click="downloadChartData('platform')" class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1" title="Download CSV">
+                                    <i class="fas fa-download"></i> CSV
+                                </button>
+                            </div>
                             <div class="h-64 relative">
                                 <canvas id="galleryPlatformChart"></canvas>
                             </div>
@@ -1613,14 +1661,23 @@
 
                         <!-- NEW: AI Model & Object Stats -->
                         <div class="bg-white rounded-lg shadow-sm p-4 md:col-span-2">
-                            <h4 class="text-sm font-semibold text-gray-700 mb-3 border-b pb-2">Top Detected Objects</h4>
+                            <div class="flex justify-between items-center mb-3 border-b pb-2">
+                                <h4 class="text-sm font-semibold text-gray-700">Top Detected Objects</h4>
+                                <button @click="downloadChartData('object')" class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1" title="Download CSV">
+                                    <i class="fas fa-download"></i> CSV
+                                </button>
+                            </div>
                             <div class="h-64">
                                 <canvas id="galleryObjectChart"></canvas>
                             </div>
                         </div>
                         <div class="bg-white rounded-lg shadow-sm p-4 md:col-span-2">
-                            <h4 class="text-sm font-semibold text-gray-700 mb-3 border-b pb-2">Model Performance
-                                (Winner)</h4>
+                            <div class="flex justify-between items-center mb-3 border-b pb-2">
+                                <h4 class="text-sm font-semibold text-gray-700">Model Performance (Winner)</h4>
+                                <button @click="downloadChartData('model')" class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1" title="Download CSV">
+                                    <i class="fas fa-download"></i> CSV
+                                </button>
+                            </div>
                             <div class="h-64 relative">
                                 <canvas id="galleryModelChart"></canvas>
                             </div>
