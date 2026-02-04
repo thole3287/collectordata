@@ -64,7 +64,8 @@ def get_dataset_groups():
         'page': request.args.get('page', 1, type=int),
         'per_page': request.args.get('per_page', 20, type=int),
         'platform': request.args.get('platform', '', type=str),
-        'search': request.args.get('search', '', type=str)
+        'search': request.args.get('search', '', type=str),
+        'label_status': request.args.get('label_status', '', type=str)
     }
     
     result = dataset_service.get_dataset_groups_service(params)

@@ -664,7 +664,9 @@
                                 Top Keywords (Theo Số Lượng Video)
                             </h3>
                             <div class="flex gap-2">
-                                <button @click="downloadVizChartData('keyword')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-1" title="Download CSV">
+                                <button @click="downloadVizChartData('keyword')"
+                                    class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-1"
+                                    title="Download CSV">
                                     <i class="fas fa-download"></i> CSV
                                 </button>
                                 <button @click="loadVisualization()"
@@ -777,7 +779,9 @@
                         <div class="bg-white rounded-lg shadow-md p-6">
                             <div class="flex justify-between items-center mb-4">
                                 <h3 class="text-lg font-semibold text-gray-800">Phân Bố Theo Nền Tảng</h3>
-                                <button @click="downloadVizChartData('platform')" class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1" title="Download CSV">
+                                <button @click="downloadVizChartData('platform')"
+                                    class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1"
+                                    title="Download CSV">
                                     <i class="fas fa-download"></i> CSV
                                 </button>
                             </div>
@@ -790,7 +794,9 @@
                         <div class="bg-white rounded-lg shadow-md p-6">
                             <div class="flex justify-between items-center mb-4">
                                 <h3 class="text-lg font-semibold text-gray-800">Phương Thức Tải</h3>
-                                <button @click="downloadVizChartData('method')" class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1" title="Download CSV">
+                                <button @click="downloadVizChartData('method')"
+                                    class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1"
+                                    title="Download CSV">
                                     <i class="fas fa-download"></i> CSV
                                 </button>
                             </div>
@@ -803,7 +809,9 @@
                         <div class="bg-white rounded-lg shadow-md p-6">
                             <div class="flex justify-between items-center mb-4">
                                 <h3 class="text-lg font-semibold text-gray-800">Phân Bố Thời Tiết (Scene)</h3>
-                                <button @click="downloadVizChartData('weather')" class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1" title="Download CSV">
+                                <button @click="downloadVizChartData('weather')"
+                                    class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1"
+                                    title="Download CSV">
                                     <i class="fas fa-download"></i> CSV
                                 </button>
                             </div>
@@ -816,7 +824,9 @@
                         <div class="bg-white rounded-lg shadow-md p-6">
                             <div class="flex justify-between items-center mb-4">
                                 <h3 class="text-lg font-semibold text-gray-800">Phân Bố Độ Phân Giải</h3>
-                                <button @click="downloadVizChartData('resolution')" class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1" title="Download CSV">
+                                <button @click="downloadVizChartData('resolution')"
+                                    class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1"
+                                    title="Download CSV">
                                     <i class="fas fa-download"></i> CSV
                                 </button>
                             </div>
@@ -829,7 +839,9 @@
                         <div class="bg-white rounded-lg shadow-md p-6">
                             <div class="flex justify-between items-center mb-4">
                                 <h3 class="text-lg font-semibold text-gray-800">Phân Bố Độ Dài Video</h3>
-                                <button @click="downloadVizChartData('duration')" class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1" title="Download CSV">
+                                <button @click="downloadVizChartData('duration')"
+                                    class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1"
+                                    title="Download CSV">
                                     <i class="fas fa-download"></i> CSV
                                 </button>
                             </div>
@@ -843,7 +855,9 @@
                     <div class="bg-white rounded-lg shadow-md p-6 mb-6">
                         <div class="flex justify-between items-center mb-4">
                             <h3 class="text-lg font-semibold text-gray-800">Word Cloud - Từ Khóa</h3>
-                            <button @click="downloadVizChartData('keyword')" class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1" title="Download CSV">
+                            <button @click="downloadVizChartData('keyword')"
+                                class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1"
+                                title="Download CSV">
                                 <i class="fas fa-download"></i> CSV
                             </button>
                         </div>
@@ -857,7 +871,9 @@
                     <div class="bg-white rounded-lg shadow-md p-6 mb-6">
                         <div class="flex justify-between items-center mb-4">
                             <h3 class="text-lg font-semibold text-gray-800">Video Theo Thời Gian (30 ngày gần nhất)</h3>
-                            <button @click="downloadVizChartData('time')" class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1" title="Download CSV">
+                            <button @click="downloadVizChartData('time')"
+                                class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1"
+                                title="Download CSV">
                                 <i class="fas fa-download"></i> CSV
                             </button>
                         </div>
@@ -1647,7 +1663,9 @@
                         <div class="bg-white rounded-lg shadow-sm p-4 md:col-span-2">
                             <div class="flex justify-between items-center mb-3 border-b pb-2">
                                 <h4 class="text-sm font-semibold text-gray-700">Xu hướng thu thập (7 ngày qua)</h4>
-                                <button @click="downloadChartData('trend')" class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1" title="Download CSV">
+                                <button @click="downloadChartData('trend')"
+                                    class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1"
+                                    title="Download CSV">
                                     <i class="fas fa-download"></i> CSV
                                 </button>
                             </div>
@@ -1660,7 +1678,9 @@
                         <div class="bg-white rounded-lg shadow-sm p-4">
                             <div class="flex justify-between items-center mb-3 border-b pb-2">
                                 <h4 class="text-sm font-semibold text-gray-700">Nguồn Dữ Liệu</h4>
-                                <button @click="downloadChartData('platform')" class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1" title="Download CSV">
+                                <button @click="downloadChartData('platform')"
+                                    class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1"
+                                    title="Download CSV">
                                     <i class="fas fa-download"></i> CSV
                                 </button>
                             </div>
@@ -1673,7 +1693,9 @@
                         <div class="bg-white rounded-lg shadow-sm p-4 md:col-span-2">
                             <div class="flex justify-between items-center mb-3 border-b pb-2">
                                 <h4 class="text-sm font-semibold text-gray-700">Top Detected Objects</h4>
-                                <button @click="downloadChartData('object')" class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1" title="Download CSV">
+                                <button @click="downloadChartData('object')"
+                                    class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1"
+                                    title="Download CSV">
                                     <i class="fas fa-download"></i> CSV
                                 </button>
                             </div>
@@ -1684,7 +1706,9 @@
                         <div class="bg-white rounded-lg shadow-sm p-4 md:col-span-2">
                             <div class="flex justify-between items-center mb-3 border-b pb-2">
                                 <h4 class="text-sm font-semibold text-gray-700">Model Performance (Winner)</h4>
-                                <button @click="downloadChartData('model')" class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1" title="Download CSV">
+                                <button @click="downloadChartData('model')"
+                                    class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1"
+                                    title="Download CSV">
                                     <i class="fas fa-download"></i> CSV
                                 </button>
                             </div>
@@ -1724,8 +1748,7 @@
 
                                 <!-- Label Status Filter -->
                                 <div class="relative">
-                                    <select x-model="galleryFilterLabelStatus"
-                                        @change="galleryPage=1; loadGallery()"
+                                    <select x-model="galleryFilterLabelStatus" @change="galleryPage=1; loadGallery()"
                                         class="appearance-none bg-gray-50 border border-gray-300 text-gray-700 py-2 px-4 pr-8 rounded-lg leading-tight focus:outline-none focus:bg-white focus:border-blue-500 text-sm">
                                         <option value="all">Tất cả trạng thái</option>
                                         <option value="labeled">Đã đánh nhãn</option>
@@ -1740,7 +1763,7 @@
                                 <div class="relative">
                                     <input type="text" x-model.debounce.500ms="gallerySearchQuery"
                                         @input="galleryPage=1; loadGallery()" placeholder="Tìm theo tên video..."
-                                        class="bg-gray-50 border border-gray-300 text-gray-700 py-2 px-4 pl-10 rounded-lg focus:outline-none focus:bg-white focus:border-blue-500 text-sm w-64" />
+                                        class="bg-gray-50 border border-gray-300 text-gray-700 py-2 px-4 pl-10 rounded-lg focus:outline-none focus:bg-white focus:border-blue-500 text-sm w-60" />
                                     <div class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
                                         <i class="fas fa-search"></i>
                                     </div>

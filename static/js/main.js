@@ -541,6 +541,10 @@ function app() {
                     search: this.gallerySearchQuery
                 });
 
+                if (this.galleryFilterLabelStatus && this.galleryFilterLabelStatus !== 'all') {
+                    params.append('label_status', this.galleryFilterLabelStatus);
+                }
+
                 const response = await fetch(`/api/dataset/groups?${params}`);
                 const data = await response.json();
 

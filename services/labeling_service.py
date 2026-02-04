@@ -138,21 +138,46 @@ class LabelingService:
         Vẽ bounding boxes merged trực tiếp bằng OpenCV để tạo ảnh visualize.
         """
         vis_img = img.copy()
+
+        # Color Map (BGR format)
+        # Bus: Yellow (0, 255, 255)
+        # Car: Cyan (255, 255, 0)
+        # Truck: Blue/Purple (255, 100, 100) or just Blue (255, 0, 0)
+        # Motorcycle: White (255, 255, 255)
+        color_map = {
+            'bus': (0, 255, 255),       # Yellow
+            'car': (255, 255, 0),       # Cyan
+            'truck': (235, 10, 10),     # Deep Blue
+            'motorcycle': (255, 255, 255), # White
+            'bicycle': (200, 200, 200)  # Light Gray
+        }
+
         for det in merged_result["detections"]:
             x1, y1, x2, y2 = det["xyxy"]
-            cls_name = det["label"]
+            cls_name = det["label"] # Keep original case for display
+            cls_key = cls_name.lower()
             conf = det["conf"]
+
+            # Select color
+            box_color = color_map.get(cls_key, color) # Default to green if not in map
+
             pt1 = (int(x1), int(y1))
             pt2 = (int(x2), int(y2))
-            cv2.rectangle(vis_img, pt1, pt2, color, 2)
+            
+            # Draw Box
+            cv2.rectangle(vis_img, pt1, pt2, box_color, 2)
+            
+            # Label
             label = f"{cls_name} {conf:.2f}"
+            
+            # Draw Text
             cv2.putText(
                 vis_img,
                 label,
                 (pt1[0], max(0, pt1[1] - 5)),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.5,
-                color,
+                box_color,
                 1,
                 cv2.LINE_AA,
             )

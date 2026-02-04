@@ -176,6 +176,7 @@ def get_dataset_groups_service(params):
         per_page = params.get('per_page', 20)
         platform_filter = params.get('platform', '')
         search_query = params.get('search', '')
+        label_status_filter = params.get('label_status', '')
 
         # --- CAMERA PLATFORM HANDLING ---
         if platform_filter == 'camera':
@@ -186,6 +187,18 @@ def get_dataset_groups_service(params):
                     {'camera_name': {'$regex': search_query, '$options': 'i'}},
                     {'camera_id': {'$regex': search_query, '$options': 'i'}}
                 ]
+            
+            # Apply Label Filter for Groups
+            if label_status_filter in ['labeled', 'unlabeled']:
+                if label_status_filter == 'unlabeled':
+                    match_stage['$or'] = [
+                        {'label_status': 'unlabeled'},
+                        {'label_status': {'$exists': False}},
+                        {'label_status': None},
+                        {'label_status': ''}
+                    ]
+                else:
+                    match_stage['label_status'] = label_status_filter
             
             # Aggregation Pipeline
             pipeline = []
@@ -262,6 +275,39 @@ def get_dataset_groups_service(params):
                 {'title': {'$regex': search_query, '$options': 'i'}},
                 {'video_id': {'$regex': search_query, '$options': 'i'}}
             ]
+            
+        # Apply Label Filter for Groups (Filter Videos that have relevant frames)
+        if label_status_filter in ['labeled', 'unlabeled']:
+            # Find all video_ids in frames_collection that have this status
+            # This ensures we only show Groups that contain matching frames.
+            if label_status_filter == 'unlabeled':
+                match_condition = {
+                    '$or': [
+                        {'label_status': 'unlabeled'},
+                        {'label_status': {'$exists': False}},
+                        {'label_status': None},
+                        {'label_status': ''}
+                    ]
+                }
+            else:
+                match_condition = {'label_status': label_status_filter}
+                
+            matching_video_ids = frames_collection.distinct('video_id', match_condition)
+            
+            # Combine with existing query
+            if 'video_id' in query:
+                # If there's already a video_id filter (from search), intersection
+                 # But our search uses $or logic for video_id or title. 
+                 # We need to be careful. The query structure for search is '$or'.
+                 # We can add an $and or just add 'video_id': {'$in': ...} 
+                 # If we add 'video_id': ... at top level, it might conflict with $or if $or also checks video_id?
+                 # MongoDB allows combining top-level fields with $or.
+                 # Top level fields are implicit AND.
+                 # So query = { $or: [...], video_id: {$in: ...} } means (A or B) AND C. Correct.
+                 pass
+            
+            # If search matches text in title/ID, AND video_id must necessarily be in our matching list.
+            query['video_id'] = {'$in': matching_video_ids}
         
         total_groups = videos_collection.count_documents(query)
         cursor = videos_collection.find(query).sort([('updated_at', -1), ('created_at', -1)]).skip((page - 1) * per_page).limit(per_page)

@@ -115,7 +115,48 @@ for res_yolo, res_rtdetr in zip(results_yolo26, results_rtdetr):
         print(f"Warning: Label not found for {img_name}")
 
     # Tạo và lưu visualize từ winner bằng plot()
-    annotated_img = winner_res.plot()  # Trả về numpy BGR với boxes vẽ
+    # Create Manual Visualization with Request Colors
+    original_img = cv2.imread(img_path)
+    if original_img is None:
+        annotated_img = winner_res.plot() # Fallback if read fails
+    else:
+        annotated_img = original_img.copy()
+        
+        # Color Map (BGR format)
+        color_map = {
+            'bus': (0, 255, 255),       # Yellow
+            'car': (255, 255, 0),       # Cyan
+            'truck': (235, 10, 10),     # Deep Blue
+            'motorcycle': (255, 255, 255), # White
+            'bicycle': (200, 200, 200)
+        }
+        
+        if winner_res.boxes is not None:
+             for box in winner_res.boxes:
+                x1, y1, x2, y2 = box.xyxy[0].tolist()
+                cls_id = int(box.cls[0].item())
+                cls_name = winner_res.names.get(cls_id, str(cls_id))
+                conf = box.conf[0].item()
+                
+                box_color = color_map.get(cls_name.lower(), (0, 255, 0)) # Default Green
+                
+                pt1 = (int(x1), int(y1))
+                pt2 = (int(x2), int(y2))
+                
+                cv2.rectangle(annotated_img, pt1, pt2, box_color, 2)
+                
+                label = f"{cls_name} {conf:.2f}"
+                cv2.putText(
+                    annotated_img,
+                    label,
+                    (pt1[0], max(0, pt1[1] - 5)),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    box_color,
+                    1,
+                    cv2.LINE_AA,
+                )
+
     vis_path = os.path.join(visualized_folder, f"{winner}_{img_name}")
     cv2.imwrite(vis_path, annotated_img)
     if os.path.exists(vis_path):
