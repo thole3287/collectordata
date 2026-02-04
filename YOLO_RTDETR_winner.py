@@ -1,9 +1,13 @@
 import os
 import shutil
 import torch
+import gc
 import cv2  # Để lưu ảnh từ numpy array
 from ultralytics import YOLO, RTDETR
 from ultralytics.utils.metrics import box_iou
+
+# Optimizing memory for low-VRAM GPUs
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
 # Đường dẫn (thay bằng thật)
 images_folder = r"E:\phaogo\Master\DataMiningAI\images\4K camera example for Traffic Monitoring Road"  # ví dụ
@@ -32,30 +36,41 @@ os.makedirs(visualized_folder, exist_ok=True)
 
 vehicle_classes = [1, 2, 3, 5, 7]
 
-model_yolo26 = YOLO("yolo26n.pt")
-model_rtdetr = RTDETR("rtdetr-l.pt")
+# --- Processing Models Sequentially to Save Memory ---
 
 print("Predicting with YOLO26...")
+model_yolo26 = YOLO("yolo26n.pt")
 results_yolo26 = model_yolo26.predict(
     source=images_folder,
     conf=0.25,
     iou=0.45,
     imgsz=640,
+    batch=1,  # Added batch=1
     classes=vehicle_classes,
     save=True, save_txt=True, save_conf=True,
     project=yolo26_results, name="predict", exist_ok=True
 )
+# Free up memory
+del model_yolo26
+gc.collect()
+torch.cuda.empty_cache()
 
 print("Predicting with RT-DETR...")
+model_rtdetr = RTDETR("rtdetr-l.pt")
 results_rtdetr = model_rtdetr.predict(
     source=images_folder,
     conf=0.25,
     iou=0.45,
     imgsz=640,
+    batch=1,  # Added batch=1
     classes=vehicle_classes,
     save=True, save_txt=True, save_conf=True,
     project=rtdetr_results, name="predict", exist_ok=True
 )
+# Free up memory
+del model_rtdetr
+gc.collect()
+torch.cuda.empty_cache()
 
 yolo26_labels_dir = os.path.join(yolo26_results, "predict", "labels")
 rtdetr_labels_dir = os.path.join(rtdetr_results, "predict", "labels")

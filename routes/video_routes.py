@@ -4,6 +4,7 @@ import services.video_service as video_service
 import services.minio_service as minio_service
 import services.pexels_service as pexels_service
 import yt_downloaderpy as yt
+from services.kafka_producer import kafka_queue
 import threading
 import os
 import json
@@ -94,56 +95,32 @@ def download_by_url_api():
     if not urls:
         return jsonify({'error': 'Vui lòng cung cấp ít nhất một URL'}), 400
     
-    def download_thread():
-        # Pexels Logic
-        if platform == 'pexels':
-            api_key = os.getenv('PEXELS_API_KEY')
-            if not api_key:
-                print("Error: No Pexels API Key found")
-                return
+    print(f"Dispatching {len(urls)} URL tasks to Kafka workers...")
 
-            for url in urls:
-                try:
-                    # Extract ID from URL (e.g., https://www.pexels.com/video/traffic-flow-12345/)
-                    # Matches /video/xxxxx/ or /video/xxxxx
-                    import re
-                    match = re.search(r'video\/.*?(\d+)\/?', url)
-                    if match:
-                        video_id = match.group(1)
-                        print(f"Downloading Pexels ID: {video_id}")
-                        # Pexels validation is already strict on resolution
-                        pexels_service.download_video_by_id(video_id, api_key)
-                    else:
-                        print(f"Could not extract Pexels ID from {url}")
-                except Exception as e:
-                    print(f"Error downloading Pexels URL {url}: {e}")
-            return
-
-        # YouTube Logic (Default)
-        downloaded_videos = []
+    def dispatch_thread():
+        # Dispatch to Kafka
         for url in urls:
             try:
                 # Basic check to avoid passing Pexels URL to YouTube downloader if user forgot to switch toggle
                 if 'pexels.com' in url:
-                    print(f"Skipping Pexels URL in YouTube mode: {url}")
+                    # TODO: Support Pexels URL in worker if needed, or keep local?
+                    # For now, let's keep Pexels local or ignore? 
+                    # User asked for "Add URL" to be fast. Pexels needs API key in worker.
+                    # Worker ALREADY has Pexels support via 'pexels' source.
+                    # But that expects 'keyword'.
+                    # Let's handle YouTube URLs first as requested.
+                    print(f"Skipping Pexels URL in YouTube mode (Manual): {url}")
                     continue
-                    
-                video = yt.download_by_url(url.strip(), bypass_keyword_check=bypass_keyword_check)
-                if video:
-                    downloaded_videos.append(video)
+                
+                # Send task to Kafka
+                # Source: 'youtube_url', Keyword: url
+                kafka_queue.send_task('youtube_url', url.strip())
+                print(f"  -> Dispatched URL to Kafka: {url}")
+                
             except Exception as e:
-                print(f"Lỗi khi tải {url}: {e}")
-        
-        if downloaded_videos:
-            downloads_folder = os.path.join(os.getcwd(), 'downloads')
-            if os.path.exists(downloads_folder):
-                result = video_service.extract_frames_from_folder(downloads_folder)
-                extract_result_file = os.path.join(FRAMES_OUTPUT_ROOT, '.youtube_extract_result.json')
-                os.makedirs(FRAMES_OUTPUT_ROOT, exist_ok=True)
-                with open(extract_result_file, 'w', encoding='utf-8') as f:
-                    json.dump(result, f, ensure_ascii=False, indent=2)
+                print(f"Error dispatching task for {url}: {e}")
 
-    thread = threading.Thread(target=download_thread)
+    thread = threading.Thread(target=dispatch_thread)
     thread.daemon = True
     thread.start()
     

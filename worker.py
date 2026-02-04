@@ -2,6 +2,7 @@
 import os
 import json
 import time
+import random # Stagger start
 import logging
 from kafka import KafkaConsumer
 from dotenv import load_dotenv
@@ -20,6 +21,11 @@ logging.basicConfig(
         logging.FileHandler('worker.log', encoding='utf-8')
     ]
 )
+
+# Random sleep to prevent thundering herd when rebalancing
+startup_delay = random.uniform(1, 10)
+logging.info(f"💤 Worker starting... sleeping for {startup_delay:.2f}s to stagger connections.")
+time.sleep(startup_delay)
 logger = logging.getLogger(__name__)
 
 # Load env
@@ -56,6 +62,18 @@ def process_youtube_task(keyword):
     except Exception as e:
         logger.error(f"Error processing YouTube task: {e}")
 
+def process_youtube_url_task(url):
+    logger.info(f"Processing YouTube URL task: {url}")
+    try:
+        # 1. Download video directly from URL
+        video = yt.download_by_url(url, bypass_keyword_check=True)
+        if not video:
+            logger.warning(f"Failed to download video from URL: {url}")
+        else:
+            logger.info(f"Successfully downloaded video: {video.get('title')}")
+    except Exception as e:
+        logger.error(f"Error processing YouTube URL task: {e}")
+
 def process_pexels_task(keyword):
     logger.info(f"Processing Pexels task: {keyword}")
     try:
@@ -84,6 +102,9 @@ def main():
             
             if source == 'youtube':
                 process_youtube_task(keyword)
+            elif source == 'youtube_url':
+                # Trong trường hợp này, field 'keyword' thực chất chứa URL
+                process_youtube_url_task(keyword)
             elif source == 'pexels':
                 process_pexels_task(keyword)
             else:

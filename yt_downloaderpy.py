@@ -2,6 +2,8 @@ import yt_dlp
 import re
 import json
 import os
+import time
+import random
 from datetime import datetime
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure, DuplicateKeyError
@@ -314,6 +316,8 @@ def get_ydl_options():
         'noplaylist': True,
         'quiet': False,
         'ignoreerrors': True,
+        'sleep_interval': 5,
+        'max_sleep_interval': 15,
     }
 
 # ==================== KIỂM TRA VIDEO ĐÃ TỒN TẠI ====================
@@ -433,6 +437,11 @@ def download_by_keyword(keyword, num_videos=1):
 
             # --- TẢI VIDEO ---
             try:
+                # Sleep random time to avoid Rate Limit (429)
+                sleep_time = random.uniform(5, 15)
+                print(f"  💤 Sleeping {sleep_time:.2f}s before downloading...")
+                time.sleep(sleep_time)
+                
                 print(f"  📥 Đang tải ({len(downloaded_videos) + 1}/{num_videos}): {video_id} - {video_title[:50]}...")
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl_executor:
                     # Tải chi tiết và file video

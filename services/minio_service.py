@@ -527,27 +527,20 @@ def extract_and_upload_frames(
 ):
     """
     Extract frames từ video và upload lên MinIO, đồng thời lưu metadata vào MongoDB
-
-    Args:
-        video_path: Đường dẫn video local
-        video_id: ID của video
-        platform: Platform (youtube, pexels)
-        fps: FPS của video (nếu None sẽ tự động detect từ video)
-        interval_seconds: Cứ bao nhiêu giây lấy 1 ảnh (nếu None sẽ đọc từ env FRAME_INTERVAL_SECONDS, mặc định 1.0)
-        target_width: Chiều rộng ảnh output
-        target_height: Chiều cao ảnh output
-        db: MongoDB database object (optional, nếu có sẽ lưu metadata vào MongoDB)
-
-    Returns:
-        dict với keys: 'success', 'frames_uploaded', 'frame_keys', 'frame_ids', 'fps', 'frame_step', 'error'
+    
+    UPDATED: Tích hợp Augmentation (Xoay/Lật) và Enhancement (Làm nét/Sáng) 
+    dựa trên 'enhance_settings.json'.
     """
     try:
-        # Đọc interval từ env nếu không được truyền vào
+        # Load interval from env if not provided
         if interval_seconds is None:
             interval_seconds = float(os.getenv("FRAME_INTERVAL_SECONDS", 1.0))
+        
         import cv2
         import tempfile
         import shutil
+        import services.image_enhancement as image_enhancement
+        import services.augmentation_service as augmentation_service
 
         if not os.path.exists(video_path):
             return {"success": False, "error": f"Video file not found: {video_path}"}
@@ -555,46 +548,44 @@ def extract_and_upload_frames(
         client = get_minio_client()
         bucket_name = MINIO_BUCKET_FRAMES
 
-        # Đảm bảo bucket tồn tại
+        # Ensure bucket exists
         if not client.bucket_exists(bucket_name):
             client.make_bucket(bucket_name)
 
-        # Tạo temp directory để lưu frames tạm thời
+        # Temp buffer
         temp_dir = tempfile.mkdtemp()
         frame_keys = []
         frame_ids = []  # MongoDB ObjectIds
         frames_uploaded = 0
         extract_timestamp = datetime.now()
 
+        # Load Settings
+        enhancement_settings = image_enhancement.load_settings()
+        should_enhance = enhancement_settings.get('enabled_video', False)
+        # New: Separate augmentation flag (default True if not set, to maintain previous behavior, or False if user strictly wants off)
+        # User requested "turn off", so let's respect the key. Defaulting to True for backward compat if key missing.
+        should_augment = enhancement_settings.get('enabled_augmentation', True)
+        
+        # Log status
+        if should_enhance:
+            print(f"  [INFO] Advanced Processing ENABLED. Augment: {should_augment}, Enhance: True")
+        else:
+            print(f"  [INFO] Advanced Processing DISABLED (Standard Extract Only)")
+
         try:
-            # Mở video
             cap = cv2.VideoCapture(video_path)
             if not cap.isOpened():
                 return {"success": False, "error": "Cannot open video file"}
 
-            # Lấy FPS từ video nếu chưa có
+            # Get/Set FPS
             if fps is None:
                 video_fps = cap.get(cv2.CAP_PROP_FPS)
-                if video_fps and video_fps > 0:
-                    fps = video_fps
-                else:
-                    # Fallback: dùng 30 fps nếu không detect được
-                    fps = 30.0
-                    print(f"  [!] Cannot detect FPS, using default: {fps} fps")
-            else:
-                video_fps = fps
-
-            # Tính frame_step dựa trên FPS và interval
-            # Ví dụ: fps=30, interval=1 giây → frame_step=30
-            # Ví dụ: fps=60, interval=1 giây → frame_step=60
-            # Ví dụ: fps=30, interval=0.5 giây → frame_step=15
+                fps = video_fps if video_fps and video_fps > 0 else 30.0
+            
             frame_step = int(fps * interval_seconds)
-            if frame_step < 1:
-                frame_step = 1
+            if frame_step < 1: frame_step = 1
 
-            print(
-                f"  [INFO] Video FPS: {fps:.2f}, Interval: {interval_seconds}s -> Frame step: {frame_step}"
-            )
+            print(f"  [INFO] Video FPS: {fps:.2f}, Interval: {interval_seconds}s -> Frame step: {frame_step}")
 
             count = 0
             saved_count = 0
@@ -605,110 +596,112 @@ def extract_and_upload_frames(
                 if not ret:
                     break
 
-                # Extract frame theo step (tính từ FPS)
                 if count % frame_step == 0:
                     try:
-                        # Resize frame ONLY if target_width and target_height are provided
-                        if target_width and target_height:
-                            resized_frame = cv2.resize(
-                                frame,
-                                (target_width, target_height),
-                                interpolation=cv2.INTER_AREA,
-                            )
-                        else:
-                            resized_frame = frame
+                        # 1. BASE PROCESSING (Resize for Analysis - optional)
+                        processing_frame = frame
+                        if not should_enhance and target_width and target_height:
+                             processing_frame = cv2.resize(frame, (target_width, target_height), interpolation=cv2.INTER_AREA)
 
-                        # --- SMART FILTERING (Brightness, Blur, Deduplication) ---
-                        # 1. Convert to gray for analysis
-                        gray = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2GRAY)
+                        # --- SMART FILTERING ---
+                        gray = cv2.cvtColor(processing_frame, cv2.COLOR_BGR2GRAY)
 
-                        # 2. BRIGHTNESS FILTER
+                        # Brightness
                         avg_brightness = np.mean(gray)
-                        if (
-                            avg_brightness < min_brightness
-                            or avg_brightness > max_brightness
-                        ):
-                            # print(f"  [Skip] Brightness {avg_brightness:.2f} out of range")
+                        if avg_brightness < min_brightness or avg_brightness > max_brightness:
                             count += 1
                             continue
 
-                        # 3. BLUR FILTER
+                        # Blur
                         blur_score = cv2.Laplacian(gray, cv2.CV_64F).var()
                         if blur_score < blur_threshold:
-                            # print(f"  [Skip] Blur score {blur_score:.2f} < {blur_threshold}")
                             count += 1
                             continue
 
-                        # 4. DEDUPLICATION (Histogram Similarity)
-                        curr_hist = cv2.calcHist(
-                            [resized_frame],
-                            [0, 1, 2],
-                            None,
-                            [8, 8, 8],
-                            [0, 256, 0, 256, 0, 256],
-                        )
+                        # Deduplication
+                        curr_hist = cv2.calcHist([processing_frame], [0, 1, 2], None, [8, 8, 8], [0, 256, 0, 256, 0, 256])
                         curr_hist = cv2.normalize(curr_hist, curr_hist).flatten()
 
                         if last_saved_hist is not None:
-                            similarity = cv2.compareHist(
-                                last_saved_hist, curr_hist, cv2.HISTCMP_CORREL
-                            )
+                            similarity = cv2.compareHist(last_saved_hist, curr_hist, cv2.HISTCMP_CORREL)
                             if similarity > sim_threshold:
-                                # print(f"  [Skip] Duplicate frame (Sim: {similarity:.4f})")
                                 count += 1
                                 continue
-
-                        # Apply current histogram as last saved (will be saved below)
+                        
                         last_saved_hist = curr_hist
 
-                        # --- Feature Extraction for Scene Classification ---
-                        from services.video_service import analyze_scene_features
+                        # --- PROCESSING & UPLOAD ---
+                        frames_to_upload = []
 
-                        scene_type = analyze_scene_features(
-                            resized_frame
-                        )  # Or original frame? Resized is smaller/faster.
+                        if should_enhance:
+                            # 1. Augment (Xoay/Lật -> 5 ảnh) OR Single Frame
+                            if should_augment:
+                                augmented = augmentation_service.augment_image(processing_frame)
+                            else:
+                                # Just original frame, no rotation/flip
+                                augmented = [(processing_frame, "")]
 
-                        # Convert to 16-bit PNG (scale up)
-                        frame_16bit = resized_frame.astype(np.uint16) * 256
+                            # 2. Enhance từng ảnh (Smart Process: Scene Detect -> Enhance -> Resize 640)
+                            for aug_img, suffix in augmented:
+                                try:
+                                    enhanced_img, scene_type = image_enhancement.smart_process_image(aug_img, enhancement_settings)
+                                    if enhanced_img is not None:
+                                        frames_to_upload.append({
+                                            'image': enhanced_img,
+                                            'suffix': suffix,
+                                            'scene_type': scene_type
+                                        })
+                                except Exception as e:
+                                    print(f"  ⚠ Enhance error ({suffix}): {e}")
+                        else:
+                            # Chế độ thường: Chỉ 1 ảnh gốc
+                            from services.video_service import analyze_scene_features
+                            scene_type = analyze_scene_features(processing_frame)
+                            frames_to_upload.append({
+                                'image': processing_frame,
+                                'suffix': '',
+                                'scene_type': scene_type
+                            })
 
-                        # Lưu frame tạm thời (PNG)
-                        frame_filename = f"{video_id}_fr{saved_count:05d}.png"
-                        temp_frame_path = os.path.join(temp_dir, frame_filename)
-                        cv2.imwrite(temp_frame_path, frame_16bit)
+                        # --- UPLOAD LOOP ---
+                        for item in frames_to_upload:
+                            img = item['image']
+                            suffix = item['suffix'] # e.g., "_rotate_left_15"
+                            scene_type = item['scene_type']
 
-                        # Tạo object key: platform/scene/video_id/frame_xxx.png
-                        # User requested: dataset - youtube - day - ...
-                        object_key = (
-                            f"{platform}/{scene_type}/{video_id}/{frame_filename}"
-                        )
+                            # Convert to 16-bit PNG (standard requirement)
+                            img_16bit = img.astype(np.uint16) * 256
+                            
+                            # Filename: videoId_fr00001_rotate.png
+                            frame_filename = f"{video_id}_fr{saved_count:05d}{suffix}.png"
+                            temp_path = os.path.join(temp_dir, frame_filename)
+                            cv2.imwrite(temp_path, img_16bit)
 
-                        # Upload lên MinIO
-                        client.fput_object(
-                            bucket_name,
-                            object_key,
-                            temp_frame_path,
-                            content_type="image/png",
-                        )
+                            # Create MinIO Key: platform/scene/videoId/filename
+                            object_key = f"{platform}/{scene_type}/{video_id}/{frame_filename}"
+                            
+                            # Upload
+                            client.fput_object(bucket_name, object_key, temp_path, content_type="image/png")
+                            
+                            frame_keys.append(object_key)
+                            frames_uploaded += 1
 
-                        frame_keys.append(object_key)
-                        frames_uploaded += 1
-
-                        # Lưu metadata vào MongoDB nếu có db connection
-                        if db is not None:
-                            frame_id = save_frame_to_mongodb(
-                                db=db,
-                                video_id=video_id,
-                                platform=platform,
-                                frame_index=saved_count,  # Index trong danh sách frames đã extract
-                                minio_key=object_key,
-                                bucket_name=bucket_name,
-                                frame_number=f"fr{saved_count:05d}",
-                                video_frame_number=count,  # Số frame trong video gốc
-                                timestamp=extract_timestamp,
-                                scene_type=scene_type,
-                            )
-                            if frame_id:
-                                frame_ids.append(str(frame_id))
+                            # Save Metadata
+                            if db is not None:
+                                frame_id = save_frame_to_mongodb(
+                                    db=db,
+                                    video_id=video_id,
+                                    platform=platform,
+                                    frame_index=saved_count,
+                                    minio_key=object_key,
+                                    bucket_name=bucket_name,
+                                    frame_number=f"fr{saved_count:05d}",
+                                    video_frame_number=count,
+                                    timestamp=extract_timestamp,
+                                    scene_type=scene_type
+                                )
+                                if frame_id:
+                                    frame_ids.append(str(frame_id))
 
                         saved_count += 1
 
@@ -716,7 +709,7 @@ def extract_and_upload_frames(
                         print(f"Error processing frame {count}: {e}")
 
                 if count % (frame_step * 50) == 0:
-                    print(f"  [INFO] Processed {count} frames ({saved_count} saved)...")
+                    print(f"  [INFO] Processed {count} frames ({saved_count} extracted points)...")
 
                 count += 1
 
@@ -726,7 +719,7 @@ def extract_and_upload_frames(
                 "success": True,
                 "frames_uploaded": frames_uploaded,
                 "frame_keys": frame_keys,
-                "frame_ids": frame_ids,  # MongoDB ObjectIds
+                "frame_ids": frame_ids,
                 "bucket": bucket_name,
                 "fps": fps,
                 "frame_step": frame_step,
@@ -734,7 +727,6 @@ def extract_and_upload_frames(
             }
 
         finally:
-            # Xóa temp directory
             if os.path.exists(temp_dir):
                 shutil.rmtree(temp_dir)
 

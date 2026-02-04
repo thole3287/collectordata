@@ -62,3 +62,5 @@ test_minio_results/
 
 # Model Weights
 *.pt
+vehicle_dataset/
+runs/

@@ -28,6 +28,7 @@ def update_settings():
         # Merge Top Level
         if 'enabled_camera' in data: current['enabled_camera'] = data['enabled_camera']
         if 'enabled_video' in data: current['enabled_video'] = data['enabled_video']
+        if 'enabled_augmentation' in data: current['enabled_augmentation'] = data['enabled_augmentation']
         
         # Merge Profiles
         if 'profiles' in data:

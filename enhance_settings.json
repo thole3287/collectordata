@@ -1,6 +1,7 @@
 {
     "enabled_camera": true,
     "enabled_video": true,
+    "enabled_augmentation": true,
     "rotation_angle": 15,
     "profiles": {
         "day": {

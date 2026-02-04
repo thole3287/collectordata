@@ -65,6 +65,7 @@ downloads/
 dataset_extracted/
 pexels_traffic_dataset/
 camera_collector_data/
+vehicle_dataset/
 
 # Documentation
 *.md
