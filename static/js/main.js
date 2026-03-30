@@ -198,40 +198,47 @@ function app() {
             // Stop editing if it was on
             this.isEditing = false;
 
-            // Swap URL
             if (this.isVisualized) {
-                if (this.selectedGalleryFrame.visualized_url) {
-                    this.selectedGalleryFrame._original_url = this.selectedGalleryFrame.image_url;
-                    this.selectedGalleryFrame.image_url = this.selectedGalleryFrame.visualized_url;
-                } else {
-                    this.showNotify("Không tìm thấy ảnh Visualized", "error");
-                    this.isVisualized = false;
-                }
+                this.loadAnnotationsFromTxt();
             } else {
-                if (this.selectedGalleryFrame._original_url) {
-                    this.selectedGalleryFrame.image_url = this.selectedGalleryFrame._original_url;
+                // Clear canvas if no longer visualizing
+                const canvas = document.getElementById('annotationCanvas');
+                if (canvas) {
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
                 }
             }
         },
 
         startEditing() {
             if (!this.selectedGalleryFrame) return;
-            
-            // Revert image to original if visualized was on
-            if (this.isVisualized && this.selectedGalleryFrame._original_url) {
-                this.selectedGalleryFrame.image_url = this.selectedGalleryFrame._original_url;
-                this.isVisualized = false;
-            }
-
             this.isEditing = true;
             this.annotationSelectedIdx = -1;
             this.loadAnnotationsFromTxt();
         },
 
+        openGalleryModal(frame) {
+            this.selectedGalleryFrame = frame;
+            this.isVisualized = false;
+            this.isEditing = false;
+            this.annotationBoxes = [];
+            this.showGalleryModal = true;
+            // Fetch content if needed
+            this.fetchRawLabels();
+        },
+
         stopEditing() {
             this.isEditing = false;
             this.annotationSelectedIdx = -1;
-            this.annotationBoxes = [];
+            // If isVisualized is still true, we keep the boxes but in read-only mode
+            if (!this.isVisualized) {
+                this.annotationBoxes = [];
+                const canvas = document.getElementById('annotationCanvas');
+                if (canvas) {
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                }
+            }
         },
 
         async loadAnnotationsFromTxt() {

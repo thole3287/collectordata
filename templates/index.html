@@ -2463,7 +2463,7 @@
                                                 <template x-for="frame in galleryGroupFrames[group.video_id] || []"
                                                     :key="frame.id">
                                                     <div class="aspect-video bg-white rounded-lg shadow-sm overflow-hidden relative group cursor-pointer border border-gray-200 hover:ring-2 ring-blue-500 transition-all"
-                                                        @click.stop="selectedGalleryFrame = frame; showGalleryModal = true">
+                                                        @click.stop="openGalleryModal(frame)">
                                                         <img :src="frame.image_url" loading="lazy"
                                                             class="w-full h-full object-cover">
 
@@ -2519,7 +2519,7 @@
                                 class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                                 <template x-for="frame in galleryFrames" :key="frame.id">
                                     <div class="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200 hover:shadow-md transition-shadow cursor-pointer relative group"
-                                        @click="selectedGalleryFrame = frame; showGalleryModal = true">
+                                        @click="openGalleryModal(frame)">
                                         <div class="aspect-video bg-gray-100 relative">
                                             <img :src="frame.image_url" loading="lazy"
                                                 class="w-full h-full object-cover">
@@ -2658,11 +2658,12 @@
                                         class="max-w-full max-h-[85vh] object-contain transition-opacity duration-300"
                                         :class="isEditing ? 'opacity-40' : 'opacity-100'" />
 
-                                    <!-- Canvas Overlay for Editing -->
-                                    <canvas id="annotationCanvas" x-show="isEditing"
-                                        class="absolute z-10 cursor-crosshair" @mousedown="annotationMouseDown($event)"
-                                        @mousemove="annotationMouseMove($event)" @mouseup="annotationMouseUp($event)"
-                                        @mouseleave="annotationMouseUp($event)">
+                                    <!-- Canvas Overlay for Editing/Visualization -->
+                                    <canvas id="annotationCanvas" x-show="isEditing || isVisualized"
+                                        class="absolute z-10" :class="isEditing ? 'cursor-crosshair' : 'cursor-default'"
+                                        @mousedown="isEditing && annotationMouseDown($event)"
+                                        @mousemove="isEditing && annotationMouseMove($event)" @mouseup="isEditing && annotationMouseUp($event)"
+                                        @mouseleave="isEditing && annotationMouseUp($event)">
                                     </canvas>
 
                                     <!-- Label status badge -->
