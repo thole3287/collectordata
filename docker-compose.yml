@@ -90,6 +90,7 @@ services:
       - ./services:/app/services # Mount services
       - ./yt_downloaderpy.py:/app/yt_downloaderpy.py # Mount downloader
       - ./routes:/app/routes # Mount routes
+      - ./static:/app/static # Mount static for inference results
     environment:
       - DB_HOST=mongodb
       - DB_PORT=27017

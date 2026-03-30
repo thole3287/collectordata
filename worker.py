@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 # Services
 import services.video_service as video_service
 import services.pexels_service as pexels_service
+import services.database as db_service
 import yt_downloaderpy as yt
 
 # Setup logging
@@ -87,6 +88,31 @@ def process_pexels_task(keyword):
     except Exception as e:
         logger.error(f"Error processing Pexels task: {e}")
 
+def process_inference_video_task(job_id):
+    logger.info(f"Processing inference task: {job_id}")
+    try:
+        db = db_service.get_db_connection()
+        if db is None:
+            logger.error("Database connection failed for inference task")
+            return
+            
+        job = db['inference_jobs'].find_one({"job_id": job_id})
+        if not job:
+            logger.error(f"Inference job {job_id} not found in database")
+            return
+            
+        input_path = job.get("input_path")
+        output_dir = job.get("output_dir")
+        
+        # Lazy load inference service to avoid loading YOLO weights on workers that only do downloads
+        from services.inference_service import InferenceService
+        inference_svc = InferenceService(db)
+        
+        inference_svc.process_video(job_id, input_path, output_dir)
+        logger.info(f"Inference task completed for job: {job_id}")
+    except Exception as e:
+        logger.error(f"Error processing inference task {job_id}: {e}")
+
 def main():
     logger.info("Worker started...")
     consumer = get_kafka_consumer()
@@ -107,6 +133,8 @@ def main():
                 process_youtube_url_task(keyword)
             elif source == 'pexels':
                 process_pexels_task(keyword)
+            elif source == 'inference_video':
+                process_inference_video_task(job_id=keyword)
             else:
                 logger.warning(f"Unknown source: {source}")
                 

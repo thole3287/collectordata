@@ -27,6 +27,7 @@ from routes.minio_routes import minio_bp
 from routes.settings_routes import settings_bp
 from routes.boxplot_routes import boxplot_bp
 from routes.scatter_routes import scatter_bp
+from routes.inference_routes import inference_bp
 
 # Load environment variables
 load_dotenv()
@@ -82,6 +83,7 @@ app.register_blueprint(minio_bp)
 app.register_blueprint(settings_bp)
 app.register_blueprint(boxplot_bp)
 app.register_blueprint(scatter_bp)
+app.register_blueprint(inference_bp)
 
 # ==================== MAIN ====================
 

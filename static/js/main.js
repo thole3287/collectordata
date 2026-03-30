@@ -14,7 +14,50 @@ function app() {
         numVideos: 1,
         downloading: false,
         videos: [],
-        // ... (omitting lines for brevity, target replace will handle)
+
+        // Video Inference State
+        inferenceUploadFile: null,
+        inferenceLoading: false,
+        inferenceStatus: null, // 'pending', 'processing', 'completed', 'failed'
+        inferenceResultUrl: null,
+        inferenceError: null,
+        inferencePollingInterval: null,
+        inferenceEnableCounting: false,
+        inferenceLineY: null,
+        inferenceCounts: {},
+        inferenceProgress: 0,
+        // Camera & Metadata
+        inferenceCameraList: [],
+        inferenceSelectedCameraId: '',
+        analyticsFilterCamera: '',
+        analyticsFilterStart: '',
+        analyticsFilterEnd: '',
+        analyticsFilterCamDate: '',
+        inferenceSelectedCamera: null,
+        inferenceRecordDate: '',
+        // Live Preview & FPS
+        inferencePreviewUrl: null,
+        inferencePreviewTimestamp: 0,
+        inferenceProcessingFps: 0,
+        inferenceGallerySnapshots: [],
+        inferenceFrameCount: 0,
+        inferenceVideoFps: 0,
+        inferenceTotalFrames: 0,
+        // Traffic Stats History
+        inferenceHistory: [],
+        inferenceHistoryTotal: 0,
+        inferenceHistoryPage: 1,
+        inferenceHistoryTotalPages: 1,
+        inferenceHistoryLoading: false,
+        inferenceHistoryDateFilter: '',
+        // Gallery lightbox
+        inferenceSnapshotModal: false,
+        inferenceSnapshotModalUrl: '',
+        // Preview refresh interval (separate from status polling)
+        inferencePreviewRefreshInterval: null,
+        // Congestion threshold (user-configurable)
+        inferenceCongestionThreshold: 200,
+        inferenceCachedAnalytics: null,  // cache API response to redraw without re-fetching
 
         async downloadByUrl() {
             if (!this.urlInput.trim()) return;
@@ -134,27 +177,296 @@ function app() {
         galleryLoading: false,
         showGalleryModal: false,
         selectedGalleryFrame: null,
-        isVisualized: false, // New state for toggling AI view
+        isVisualized: false, 
+        isEditing: false,
+        annotationClass: '2', 
+        annotationBoxes: [], 
+        annotationSelectedIdx: -1,
+        annotationIsDrawing: false,
+        annotationStartX: 0,
+        annotationStartY: 0,
+        annotationCurrentX: 0,
+        annotationCurrentY: 0,
+        annotationSaving: false,
+        annotationDirty: false,
+        annotationOriginalTxt: '',
 
         toggleVisualized() {
             if (!this.selectedGalleryFrame) return;
             this.isVisualized = !this.isVisualized;
 
+            // Stop editing if it was on
+            this.isEditing = false;
+
             // Swap URL
             if (this.isVisualized) {
                 if (this.selectedGalleryFrame.visualized_url) {
-                    // Swap to visualized
                     this.selectedGalleryFrame._original_url = this.selectedGalleryFrame.image_url;
                     this.selectedGalleryFrame.image_url = this.selectedGalleryFrame.visualized_url;
                 } else {
-                    this.showNotify("Không tìm thấy ảnh Visualized (có thể chưa xử lý xong)", "error");
+                    this.showNotify("Không tìm thấy ảnh Visualized", "error");
                     this.isVisualized = false;
                 }
             } else {
-                // Revert to original
                 if (this.selectedGalleryFrame._original_url) {
                     this.selectedGalleryFrame.image_url = this.selectedGalleryFrame._original_url;
                 }
+            }
+        },
+
+        startEditing() {
+            if (!this.selectedGalleryFrame) return;
+            
+            // Revert image to original if visualized was on
+            if (this.isVisualized && this.selectedGalleryFrame._original_url) {
+                this.selectedGalleryFrame.image_url = this.selectedGalleryFrame._original_url;
+                this.isVisualized = false;
+            }
+
+            this.isEditing = true;
+            this.annotationSelectedIdx = -1;
+            this.loadAnnotationsFromTxt();
+        },
+
+        stopEditing() {
+            this.isEditing = false;
+            this.annotationSelectedIdx = -1;
+            this.annotationBoxes = [];
+        },
+
+        async loadAnnotationsFromTxt() {
+            const refs = this.selectedGalleryFrame.storage_refs || {};
+            if (!refs.label_key) {
+                this.annotationBoxes = [];
+                this.annotationOriginalTxt = '';
+                setTimeout(() => this.initAnnotationCanvas(), 100);
+                return;
+            }
+
+            try {
+                const url = `/api/dataset/label-content?bucket=${refs.bucket || 'dataset'}&key=${refs.label_key}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                if (response.ok) {
+                    this.annotationOriginalTxt = data.content;
+                    this.parseYoloTxt(data.content);
+                }
+            } catch (e) { console.error(e); }
+            
+            setTimeout(() => this.initAnnotationCanvas(), 100);
+        },
+
+        parseYoloTxt(content) {
+            const boxes = [];
+            content.trim().split('\n').forEach(line => {
+                const parts = line.trim().split(/\s+/);
+                if (parts.length >= 5) {
+                    boxes.push({
+                        cls: parseInt(parts[0]),
+                        cx: parseFloat(parts[1]),
+                        cy: parseFloat(parts[2]),
+                        w: parseFloat(parts[3]),
+                        h: parseFloat(parts[4]),
+                        conf: parts[5] ? parseFloat(parts[5]) : 1.0
+                    });
+                }
+            });
+            this.annotationBoxes = boxes;
+        },
+
+        initAnnotationCanvas() {
+            const canvas = document.getElementById('annotationCanvas');
+            const img = document.getElementById('galleryModalBaseImg');
+            if (!canvas || !img) return;
+
+            if (!img.complete) {
+                img.onload = () => this.initAnnotationCanvas();
+                return;
+            }
+
+            // Sync canvas size with image display size
+            canvas.width = img.clientWidth;
+            canvas.height = img.clientHeight;
+            // Position canvas exactly over image
+            canvas.style.left = img.offsetLeft + 'px';
+            canvas.style.top = img.offsetTop + 'px';
+
+            this.drawAnnotations();
+        },
+
+        drawAnnotations() {
+            const canvas = document.getElementById('annotationCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const colors = { 0: '#ff4d4d', 1: '#4dff4d', 2: '#4da6ff', 3: '#ffff4d', 5: '#ff4dff', 7: '#ffa64d' };
+            const classNames = { 0: 'person', 1: 'bicycle', 2: 'car', 3: 'motorcycle', 5: 'bus', 7: 'truck' };
+
+            this.annotationBoxes.forEach((box, index) => {
+                const isSelected = index === this.annotationSelectedIdx;
+                const w = box.w * canvas.width;
+                const h = box.h * canvas.height;
+                const x = (box.cx * canvas.width) - (w / 2);
+                const y = (box.cy * canvas.height) - (h / 2);
+
+                ctx.strokeStyle = colors[box.cls] || '#ffffff';
+                ctx.lineWidth = isSelected ? 3 : 1.5;
+                ctx.strokeRect(x, y, w, h);
+
+                // Small Label
+                ctx.font = '10px sans-serif';
+                const label = classNames[box.cls] || box.cls;
+                const tw = ctx.measureText(label).width;
+                ctx.fillStyle = colors[box.cls] || '#ffffff';
+                ctx.fillRect(x, y - 12, tw + 4, 12);
+                ctx.fillStyle = '#000';
+                ctx.fillText(label, x + 2, y - 3);
+
+                if (isSelected) {
+                    ctx.setLineDash([4, 4]);
+                    ctx.strokeStyle = '#fff';
+                    ctx.strokeRect(x-2, y-2, w+4, h+4);
+                    ctx.setLineDash([]);
+                }
+            });
+
+            if (this.annotationIsDrawing) {
+                ctx.strokeStyle = '#fff';
+                ctx.setLineDash([4, 4]);
+                const x = Math.min(this.annotationStartX, this.annotationCurrentX);
+                const y = Math.min(this.annotationStartY, this.annotationCurrentY);
+                const w = Math.abs(this.annotationStartX - this.annotationCurrentX);
+                const h = Math.abs(this.annotationStartY - this.annotationCurrentY);
+                ctx.strokeRect(x, y, w, h);
+                ctx.setLineDash([]);
+            }
+        },
+
+        annotationMouseDown(e) {
+            const canvas = document.getElementById('annotationCanvas');
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            let found = -1;
+            for (let i = this.annotationBoxes.length - 1; i >= 0; i--) {
+                const b = this.annotationBoxes[i];
+                const bw = b.w * canvas.width;
+                const bh = b.h * canvas.height;
+                const bx = (b.cx * canvas.width) - (bw / 2);
+                const by = (b.cy * canvas.height) - (bh / 2);
+                if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) {
+                    found = i; break;
+                }
+            }
+
+            if (found !== -1) {
+                this.annotationSelectedIdx = found;
+                this.annotationIsDrawing = false;
+            } else {
+                this.annotationSelectedIdx = -1;
+                this.annotationIsDrawing = true;
+                this.annotationStartX = x; this.annotationStartY = y;
+                this.annotationCurrentX = x; this.annotationCurrentY = y;
+            }
+            this.drawAnnotations();
+        },
+
+        annotationMouseMove(e) {
+            if (!this.annotationIsDrawing) return;
+            const canvas = document.getElementById('annotationCanvas');
+            const rect = canvas.getBoundingClientRect();
+            this.annotationCurrentX = e.clientX - rect.left;
+            this.annotationCurrentY = e.clientY - rect.top;
+            this.drawAnnotations();
+        },
+
+        annotationMouseUp(e) {
+            if (!this.annotationIsDrawing) return;
+            const canvas = document.getElementById('annotationCanvas');
+            const wPx = Math.abs(this.annotationStartX - this.annotationCurrentX);
+            const hPx = Math.abs(this.annotationStartY - this.annotationCurrentY);
+
+            if (wPx > 5 && hPx > 5) {
+                const cxPx = (this.annotationStartX + this.annotationCurrentX) / 2;
+                const cyPx = (this.annotationStartY + this.annotationCurrentY) / 2;
+                this.annotationBoxes.push({
+                    cls: parseInt(this.annotationClass),
+                    cx: cxPx / canvas.width, cy: cyPx / canvas.height,
+                    w: wPx / canvas.width, h: hPx / canvas.height,
+                    conf: 1.0
+                });
+                this.annotationDirty = true;
+            }
+            this.annotationIsDrawing = false;
+            this.drawAnnotations();
+        },
+
+        deleteSelectedAnnotation() {
+            if (this.annotationSelectedIdx === -1) return;
+            this.annotationBoxes.splice(this.annotationSelectedIdx, 1);
+            this.annotationSelectedIdx = -1;
+            this.annotationDirty = true;
+            this.drawAnnotations();
+        },
+
+        async saveAnnotations() {
+            this.annotationSaving = true;
+            const refs = this.selectedGalleryFrame.storage_refs || {};
+            const content = this.annotationBoxes
+                .map(b => `${b.cls} ${b.cx.toFixed(6)} ${b.cy.toFixed(6)} ${b.w.toFixed(6)} ${b.h.toFixed(6)} ${b.conf.toFixed(6)}`)
+                .join('\n');
+
+            try {
+                const res = await fetch('/api/dataset/label-content', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        bucket: refs.bucket || 'dataset', key: refs.label_key, content,
+                        frame_id: this.selectedGalleryFrame.id, platform: this.selectedGalleryFrame.platform
+                    })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    this.selectedGalleryFrame.label_summary = data.label_summary;
+                    this.annotationDirty = false;
+                    this.showNotify("Đã lưu nhãn thành công", "success");
+                    
+                    if (refs.visualized_key) {
+                        const regRes = await fetch('/api/dataset/regenerate-visualized', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                bucket: refs.bucket || 'dataset', image_key: refs.key,
+                                label_key: refs.label_key, vis_key: refs.visualized_key
+                            })
+                        });
+                        
+                        if (regRes.ok) {
+                            // Chờ 1 giây để MinIO hoàn tất đồng bộ file trước khi tải lại
+                            setTimeout(() => {
+                                const timestamp = new Date().getTime();
+                                if (this.selectedGalleryFrame.visualized_url) {
+                                    let baseUrl = this.selectedGalleryFrame.visualized_url.split('?')[0];
+                                    this.selectedGalleryFrame.visualized_url = `${baseUrl}?t=${timestamp}`;
+                                    
+                                    // Nếu đang bật chế độ Show AI thì cập nhật trực tiếp image_url
+                                    if (this.isVisualized) {
+                                        this.selectedGalleryFrame.image_url = this.selectedGalleryFrame.visualized_url;
+                                    }
+                                }
+                                this.showNotify("Ảnh AI đã được cập nhật bản mới nhất", "success");
+                            }, 1000);
+                        }
+                    }
+                }
+            } catch (e) { 
+                console.error(e);
+                this.showNotify("Lỗi khi lưu: " + e.message, "error"); 
+            } finally { 
+                this.annotationSaving = false; 
             }
         },
 
@@ -676,6 +988,396 @@ function app() {
         },
         updatingKeyword: false,
 
+        handleInferenceVideoUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            // Limit size to 100MB
+            if (file.size > 100 * 1024 * 1024) {
+                this.showNotify('Video quá lớn. Vui lòng chọn file < 100MB', 'error');
+                return;
+            }
+            this.inferenceUploadFile = file;
+            this.inferenceStatus = null;
+            this.inferenceResultUrl = null;
+            this.inferenceError = null;
+        },
+
+        resetInference() {
+            // Xóa Job đang chạy/kết thúc để upload video mới
+            if (this.inferencePollingInterval) clearInterval(this.inferencePollingInterval);
+            this.inferenceJobId = null;
+            localStorage.removeItem('inference_job_id');
+            this.inferenceStatus = null;
+            this.inferenceProgress = 0;
+            this.inferencePreviewUrl = '';
+            this.inferenceResultUrl = '';
+            this.inferenceUploadFile = null;
+            this.previewLoopStarted = false;
+        },
+
+        async submitInferenceVideo() {
+            if (!this.inferenceUploadFile) return;
+
+            this.inferenceLoading = true;
+            this.inferenceStatus = 'pending';
+            this.inferenceProgress = 0;
+            this.inferenceResultUrl = null;
+            this.inferenceError = null;
+            this.inferenceCounts = {};
+            this.inferencePreviewUrl = null;
+            this.inferenceGallerySnapshots = [];
+            this.inferenceProcessingFps = 0;
+            this.inferenceFrameCount = 0;
+            // Clear preview refresh interval if any
+            if (this.inferencePreviewRefreshInterval) {
+                clearInterval(this.inferencePreviewRefreshInterval);
+                this.inferencePreviewRefreshInterval = null;
+            }
+
+            const formData = new FormData();
+            formData.append('video', this.inferenceUploadFile);
+            formData.append('enable_counting', this.inferenceEnableCounting);
+            if (this.inferenceLineY) {
+                formData.append('line_y', this.inferenceLineY);
+            }
+            // Camera & date metadata
+            if (this.inferenceSelectedCamera) {
+                formData.append('camera_id',   this.inferenceSelectedCamera.camera_id);
+                formData.append('camera_name', this.inferenceSelectedCamera.camera_name);
+                formData.append('location',    this.inferenceSelectedCamera.location);
+            }
+            const recordDate = this.inferenceRecordDate || new Date().toISOString().slice(0, 16);
+            formData.append('record_date', recordDate);
+
+            try {
+                const response = await fetch('/api/inference/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    this.showNotify('Đã gửi video vào hàng đợi xử lý', 'success');
+                    this.inferenceStatus = 'processing';
+                    this.startInferencePolling(data.job_id);
+                } else {
+                    this.inferenceStatus = 'failed';
+                    this.inferenceError = data.error || 'Lỗi server';
+                    this.showNotify(this.inferenceError, 'error');
+                }
+            } catch (error) {
+                this.inferenceStatus = 'failed';
+                this.inferenceError = error.message;
+                this.showNotify('Lỗi kết nối: ' + error.message, 'error');
+            } finally {
+                this.inferenceLoading = false;
+            }
+        },
+
+        startInferencePolling(jobId) {
+            if (this.inferencePollingInterval) clearInterval(this.inferencePollingInterval);
+            
+            // Apply chart filters to match the current running video and draw in real-time
+            if (this.inferenceSelectedCameraId) this.analyticsFilterCamera = this.inferenceSelectedCameraId;
+            const recDt = this.inferenceRecordDate || new Date().toISOString().slice(0, 16);
+            if (recDt) this.analyticsFilterStart = recDt;
+            // Xóa Đích đến để lấy hết mốc thời gian trở về sau
+            this.analyticsFilterEnd = '';
+            this.loadInferenceAnalytics();
+            
+            let pollCounter = 0;
+
+            this.inferencePollingInterval = setInterval(async () => {
+                pollCounter++;
+                try {
+                    const response = await fetch(`/api/inference/status/${jobId}`);
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        this.inferenceStatus = data.status;
+
+                        if (typeof data.progress === 'number') {
+                            this.inferenceProgress = Math.round(data.progress);
+                        }
+                        
+                        // Realtime chart fetching 
+                        if (data.status === 'processing' && pollCounter % 2 === 0) {
+                            this.loadInferenceAnalytics();
+                        }
+
+                        // Live preview & FPS
+                        if (data.preview_url) {
+                            // MJPEG Stream handle by browser natively - NO STUTTER!
+                            if (!this.previewLoopStarted) {
+                                this.inferencePreviewUrl = `/api/inference/stream/${jobId}`;
+                                this.previewLoopStarted = true;
+                            }
+                        }
+                        if (typeof data.processing_fps === 'number') {
+                            this.inferenceProcessingFps = data.processing_fps;
+                        }
+                        if (Array.isArray(data.gallery_snapshots)) {
+                            this.inferenceGallerySnapshots = data.gallery_snapshots;
+                        }
+                        if (typeof data.frame_count === 'number') {
+                            this.inferenceFrameCount = data.frame_count;
+                        }
+                        if (typeof data.video_fps === 'number' && data.video_fps > 0) {
+                            this.inferenceVideoFps = data.video_fps;
+                        }
+                        if (typeof data.total_frames === 'number' && data.total_frames > 0) {
+                            this.inferenceTotalFrames = data.total_frames;
+                        }
+
+                        if (data.status === 'completed') {
+                            this.inferenceResultUrl = data.output_url;
+                            if (data.counts) {
+                                this.inferenceCounts = data.counts;
+                            }
+                            clearInterval(this.inferencePollingInterval);
+                            if (this.inferencePreviewRefreshInterval) {
+                                clearInterval(this.inferencePreviewRefreshInterval);
+                                this.inferencePreviewRefreshInterval = null;
+                            }
+                            this.showNotify('Nhận diện video hoàn tất!', 'success');
+                            // Reload history table and charts
+                            this.loadInferenceHistory();
+                            setTimeout(() => this.loadInferenceAnalytics(), 500);
+                        } else if (data.status === 'failed') {
+                            this.inferenceError = data.error || 'Lỗi không xác định trong quá trình xử lý.';
+                            clearInterval(this.inferencePollingInterval);
+                            if (this.inferencePreviewRefreshInterval) {
+                                clearInterval(this.inferencePreviewRefreshInterval);
+                                this.inferencePreviewRefreshInterval = null;
+                            }
+                            this.showNotify('Lỗi xử lý video', 'error');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Lỗi khi poll trạng thái:', error);
+                }
+            }, 2000);
+        },
+
+        async loadInferenceCameras() {
+            try {
+                const response = await fetch('/api/inference/cameras');
+                const data = await response.json();
+                if (data.success) {
+                    this.inferenceCameraList = data.cameras;
+                }
+            } catch (e) {
+                console.error('Failed to load camera list', e);
+            }
+        },
+
+        onInferenceCameraSelect() {
+            const cam = this.inferenceCameraList.find(c => c.camera_id === this.inferenceSelectedCameraId);
+            this.inferenceSelectedCamera = cam || null;
+        },
+
+        async loadInferenceHistory(page = 1) {
+            this.inferenceHistoryLoading = true;
+            this.inferenceHistoryPage    = page;
+            try {
+                let url = `/api/inference/history?page=${page}&per_page=10`;
+                if (this.inferenceHistoryDateFilter) {
+                    url += `&date=${this.inferenceHistoryDateFilter}`;
+                }
+                const response = await fetch(url);
+                const data = await response.json();
+                if (data.success) {
+                    this.inferenceHistory       = data.records || [];
+                    this.inferenceHistoryTotal  = data.total || 0;
+                    this.inferenceHistoryTotalPages = data.total_pages || 1;
+                }
+            } catch (e) {
+                console.error('Failed to load inference history', e);
+            } finally {
+                this.inferenceHistoryLoading = false;
+            }
+        },
+
+        formatInferenceDate(isoStr) {
+            if (!isoStr) return '—';
+            try {
+                const d = new Date(isoStr);
+                return d.toLocaleString('vi-VN', { dateStyle: 'short' });
+            } catch { return isoStr; }
+        },
+
+        async loadInferenceAnalytics() {
+            try {
+                const params = new URLSearchParams();
+                if (this.analyticsFilterCamera) params.append('camera_id', this.analyticsFilterCamera);
+                if (this.analyticsFilterStart) params.append('start', new Date(this.analyticsFilterStart).toISOString());
+                if (this.analyticsFilterEnd) params.append('end', new Date(this.analyticsFilterEnd).toISOString());
+                if (this.analyticsFilterCamDate) params.append('cam_date', this.analyticsFilterCamDate);
+
+                const qs = params.toString() ? `?${params.toString()}` : '';
+                const response = await fetch('/api/inference/analytics' + qs);
+                const data = await response.json();
+                if (!data.success) return;
+
+                this.inferenceCachedAnalytics = data;  // cache for redraw
+                this.drawInferenceCharts(data);
+            } catch (e) {
+                console.error('Failed to load analytics', e);
+            }
+        },
+
+        redrawInferenceCharts() {
+            if (this.inferenceCachedAnalytics) {
+                this.drawInferenceCharts(this.inferenceCachedAnalytics);
+            }
+        },
+
+        drawInferenceCharts(data) {
+            const byHour   = data.by_hour   || [];
+            const byCamera = data.by_camera  || [];
+            const byCity   = data.by_city    || [];
+            // Dùng ngưỡng từ user input (state) thay vì từ API
+            const threshold = Number(this.inferenceCongestionThreshold) || 200;
+
+            // ── Màu sắc xe ──────────────────────────────────────────────────
+            const COLORS = {
+                car:        'rgba(59, 130, 246, 0.85)',   // blue
+                motorcycle: 'rgba(249, 115, 22, 0.85)',   // orange
+                bus:        'rgba(234, 179, 8, 0.85)',    // yellow
+                truck:      'rgba(239, 68, 68, 0.85)',    // red
+            };
+
+            // ── 1. CHART: Lưu lượng theo giờ (line chart stacked) ────────
+            const hourEl = document.getElementById('inferenceHourChart');
+            if (hourEl) {
+                const existing = Chart.getChart(hourEl);
+                if (existing) existing.destroy();
+
+                const labels = byHour.map(h => h.label);
+                // Đường ngưỡng tắc
+                const thresholdLine = byHour.map(() => threshold);
+
+                new Chart(hourEl, {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [
+                            { label: 'Xe hơi',  data: byHour.map(h => h.car),        backgroundColor: COLORS.car,        stack: 'a' },
+                            { label: 'Xe máy',  data: byHour.map(h => h.motorcycle), backgroundColor: COLORS.motorcycle, stack: 'a' },
+                            { label: 'Bus',     data: byHour.map(h => h.bus),        backgroundColor: COLORS.bus,        stack: 'a' },
+                            { label: 'Xe tải',  data: byHour.map(h => h.truck),      backgroundColor: COLORS.truck,      stack: 'a' },
+                            {
+                                label: '⚠️ Ngưỡng tắc đường',
+                                data: thresholdLine,
+                                type: 'line',
+                                borderColor: 'rgba(220,38,38,0.9)',
+                                borderWidth: 2,
+                                borderDash: [6, 3],
+                                pointRadius: 0,
+                                fill: false,
+                                tension: 0,
+                                stack: undefined,
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: {
+                            legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+                            tooltip: {
+                                callbacks: {
+                                    afterTitle: (items) => {
+                                        const total = items
+                                            .filter(i => i.datasetIndex < 4)
+                                            .reduce((s, i) => s + i.parsed.y, 0);
+                                        return total >= threshold
+                                            ? `⚠️ Tổng: ${total} — KHẢ NĂNG TẮC ĐƯỜNG!`
+                                            : `Tổng: ${total} xe`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { stacked: true, grid: { display: false } },
+                            y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Số phương tiện' } }
+                        }
+                    }
+                });
+            }
+
+            // ── 2. CHART: Top đường đông xe nhất (horizontal bar) ─────────
+            const camEl = document.getElementById('inferenceCameraChart');
+            if (camEl && byCamera.length > 0) {
+                const existing = Chart.getChart(camEl);
+                if (existing) existing.destroy();
+
+                new Chart(camEl, {
+                    type: 'bar',
+                    data: {
+                        labels: byCamera.map(c => c.camera_name),
+                        datasets: [
+                            { label: 'Xe hơi',  data: byCamera.map(c => c.car),        backgroundColor: COLORS.car        },
+                            { label: 'Xe máy',  data: byCamera.map(c => c.motorcycle), backgroundColor: COLORS.motorcycle },
+                            { label: 'Bus',     data: byCamera.map(c => c.bus),        backgroundColor: COLORS.bus        },
+                            { label: 'Xe tải',  data: byCamera.map(c => c.truck),      backgroundColor: COLORS.truck      },
+                        ]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+                        },
+                        scales: {
+                            x: { stacked: true, beginAtZero: true },
+                            y: { stacked: true }
+                        }
+                    }
+                });
+            }
+
+            // ── 3. CHART: Phân bố theo thành phố (doughnut) ───────────────
+            const cityEl = document.getElementById('inferenceCityChart');
+            if (cityEl && byCity.length > 0) {
+                const existing = Chart.getChart(cityEl);
+                if (existing) existing.destroy();
+
+                const CITY_COLORS = [
+                    '#6366f1','#f59e0b','#10b981','#ef4444','#3b82f6',
+                    '#a855f7','#ec4899','#14b8a6','#f97316','#84cc16'
+                ];
+
+                new Chart(cityEl, {
+                    type: 'doughnut',
+                    data: {
+                        labels: byCity.map(c => c.city),
+                        datasets: [{
+                            data: byCity.map(c => c.total),
+                            backgroundColor: CITY_COLORS.slice(0, byCity.length),
+                            borderWidth: 2,
+                            borderColor: '#fff',
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '65%',
+                        plugins: {
+                            legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } },
+                            tooltip: {
+                                callbacks: {
+                                    label: (ctx) => ` ${ctx.label}: ${ctx.parsed.toLocaleString()} xe`
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        },
 
 
         init() {
@@ -689,6 +1391,8 @@ function app() {
             }
             // Always load active keywords for dropdowns
             this.loadActiveKeywords();
+            // Pre-load inference cameras
+            this.loadInferenceCameras();
         },
 
         // Settings Methods
