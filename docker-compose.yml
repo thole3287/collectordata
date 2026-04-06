@@ -155,6 +155,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
     networks:
       - collectordata_network
 

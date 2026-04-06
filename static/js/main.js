@@ -1053,8 +1053,9 @@ function app() {
                 formData.append('camera_name', this.inferenceSelectedCamera.camera_name);
                 formData.append('location',    this.inferenceSelectedCamera.location);
             }
-            const recordDate = this.inferenceRecordDate || new Date().toISOString().slice(0, 16);
-            formData.append('record_date', recordDate);
+            if (this.inferenceRecordDate) {
+                formData.append('record_date', this.inferenceRecordDate);
+            }
 
             try {
                 const response = await fetch('/api/inference/upload', {
@@ -1087,7 +1088,9 @@ function app() {
             
             // Apply chart filters to match the current running video and draw in real-time
             if (this.inferenceSelectedCameraId) this.analyticsFilterCamera = this.inferenceSelectedCameraId;
-            const recDt = this.inferenceRecordDate || new Date().toISOString().slice(0, 16);
+            const tzOff = new Date().getTimezoneOffset() * 60000;
+            const localIsStr = new Date(Date.now() - tzOff).toISOString().slice(0, 16);
+            const recDt = this.inferenceRecordDate || localIsStr;
             if (recDt) this.analyticsFilterStart = recDt;
             // Xóa Đích đến để lấy hết mốc thời gian trở về sau
             this.analyticsFilterEnd = '';

@@ -105,10 +105,14 @@ def process_inference_video_task(job_id):
         output_dir = job.get("output_dir")
         
         # Lazy load inference service to avoid loading YOLO weights on workers that only do downloads
-        from services.inference_service import InferenceService
-        inference_svc = InferenceService(db)
+        global _inference_svc_instance
+        if '_inference_svc_instance' not in globals():
+            from services.inference_service import InferenceService
+            _inference_svc_instance = InferenceService(db)
         
-        inference_svc.process_video(job_id, input_path, output_dir)
+        _inference_svc_instance.db = db
+        
+        _inference_svc_instance.process_video(job_id, input_path, output_dir)
         logger.info(f"Inference task completed for job: {job_id}")
     except Exception as e:
         logger.error(f"Error processing inference task {job_id}: {e}")

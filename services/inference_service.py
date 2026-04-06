@@ -326,7 +326,7 @@ class InferenceService:
                         incremental = {k: counts.get(k, 0) - last_saved_counts.get(k, 0) for k in self.color_map}
                         if sum(incremental.values()) > 0:
                             from datetime import timedelta
-                            current_recorded_seconds = (frame_count / fps) * 60
+                            current_recorded_seconds = (frame_count / fps) * 1
                             current_record_date = start_record_date + timedelta(seconds=int(current_recorded_seconds))
                             
                             self._save_incremental_traffic_stats(job, job_id, incremental, current_record_date)
@@ -367,7 +367,7 @@ class InferenceService:
                 incremental = {k: counts.get(k, 0) - last_saved_counts.get(k, 0) for k in self.color_map}
                 if sum(incremental.values()) > 0:
                     from datetime import timedelta
-                    current_recorded_seconds = (frame_count / fps) * 60
+                    current_recorded_seconds = (frame_count / fps) * 1
                     current_record_date = start_record_date + timedelta(seconds=int(current_recorded_seconds))
                     self._save_incremental_traffic_stats(job, job_id, incremental, current_record_date)
             

@@ -2,7 +2,7 @@ import os
 import uuid
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
-from datetime import datetime
+from datetime import datetime, timezone
 
 import services.database as db_service
 from services.kafka_producer import kafka_queue
@@ -136,7 +136,7 @@ def get_inference_status(job_id):
     # Serialize datetime fields
     record_date = job.get("record_date")
     if record_date and isinstance(record_date, datetime):
-        record_date = record_date.isoformat()
+        record_date = record_date.replace(tzinfo=timezone.utc).isoformat()
         
     return jsonify({
         "success": True,
@@ -228,7 +228,7 @@ def get_inference_history():
         # Serialize datetimes
         for field in ('record_date', 'processed_at'):
             if doc.get(field) and isinstance(doc[field], datetime):
-                doc[field] = doc[field].isoformat()
+                doc[field] = doc[field].replace(tzinfo=timezone.utc).isoformat()
         records.append(doc)
 
     return jsonify({
@@ -303,14 +303,16 @@ def get_inference_analytics():
         
         by_hour = []
         if use_30m:
-            for r in db['traffic_stats'].aggregate(pipeline_time):
-                dt = r["_id"]
-                label = f"{dt.hour:02d}:{dt.minute:02d}"
-                by_hour.append({
-                    "hour": label, "label": label,
-                    "total": r.get("total", 0), "car": r.get("car", 0),
-                    "motorcycle": r.get("motorcycle", 0), "bus": r.get("bus", 0), "truck": r.get("truck", 0),
-                })
+            hour_map = {f"{r['_id'].hour:02d}:{r['_id'].minute:02d}": r for r in db['traffic_stats'].aggregate(pipeline_time)}
+            for h in range(24):
+                for m in [0, 30]:
+                    label = f"{h:02d}:{m:02d}"
+                    r = hour_map.get(label, {})
+                    by_hour.append({
+                        "hour": label, "label": label,
+                        "total": r.get("total", 0), "car": r.get("car", 0),
+                        "motorcycle": r.get("motorcycle", 0), "bus": r.get("bus", 0), "truck": r.get("truck", 0),
+                    })
         else:
             hour_map = {r["_id"]: r for r in db['traffic_stats'].aggregate(pipeline_time)}
             for h in range(24):
