@@ -34,8 +34,16 @@ def get_frames_service(params):
             
             # Optional label_status filter (camera)
             if label_status_filter and label_status_filter in ['labeled', 'unlabeled']:
-                query['label_status'] = label_status_filter
-            
+                if label_status_filter == 'unlabeled':
+                    query['$or'] = [
+                        {'label_status': 'unlabeled'},
+                        {'label_status': {'$exists': False}},
+                        {'label_status': None},
+                        {'label_status': ''}
+                    ]
+                else:
+                    query['label_status'] = label_status_filter
+
             # Count and Sort for Camera
             total_frames = db['camera_images'].count_documents(query)
             total_pages = (total_frames + per_page - 1) // per_page
@@ -111,8 +119,17 @@ def get_frames_service(params):
 
         # Optional label_status filter (video frames)
         if label_status_filter and label_status_filter in ['labeled', 'unlabeled']:
-            query['label_status'] = label_status_filter
-        
+            if label_status_filter == 'unlabeled':
+                # Bắt cả frame không có field, None, '', hoặc 'unlabeled'
+                query['$or'] = [
+                    {'label_status': 'unlabeled'},
+                    {'label_status': {'$exists': False}},
+                    {'label_status': None},
+                    {'label_status': ''}
+                ]
+            else:
+                query['label_status'] = label_status_filter
+
         # Sort by most recent
         cursor = db['video_frames'].find(query).sort('created_at', -1)
         

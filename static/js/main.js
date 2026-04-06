@@ -179,6 +179,7 @@ function app() {
         selectedGalleryFrame: null,
         isVisualized: false, 
         isEditing: false,
+        isCreatingLabel: false,   // true khi đang tạo nhãn mới cho unlabeled frame
         annotationClass: '2', 
         annotationBoxes: [], 
         annotationSelectedIdx: -1,
@@ -356,27 +357,13 @@ function app() {
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
 
-            let found = -1;
-            for (let i = this.annotationBoxes.length - 1; i >= 0; i--) {
-                const b = this.annotationBoxes[i];
-                const bw = b.w * canvas.width;
-                const bh = b.h * canvas.height;
-                const bx = (b.cx * canvas.width) - (bw / 2);
-                const by = (b.cy * canvas.height) - (bh / 2);
-                if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) {
-                    found = i; break;
-                }
-            }
-
-            if (found !== -1) {
-                this.annotationSelectedIdx = found;
-                this.annotationIsDrawing = false;
-            } else {
-                this.annotationSelectedIdx = -1;
-                this.annotationIsDrawing = true;
-                this.annotationStartX = x; this.annotationStartY = y;
-                this.annotationCurrentX = x; this.annotationCurrentY = y;
-            }
+            // Luôn bắt đầu draw mode — ghi nhận tọa độ bắt đầu.
+            // Quyết định "select" hay "draw" sẽ xảy ra trong mouseup tùy vào khoảng di chuyển.
+            this.annotationIsDrawing = true;
+            this.annotationStartX = x;
+            this.annotationStartY = y;
+            this.annotationCurrentX = x;
+            this.annotationCurrentY = y;
             this.drawAnnotations();
         },
 
@@ -395,20 +382,42 @@ function app() {
             const wPx = Math.abs(this.annotationStartX - this.annotationCurrentX);
             const hPx = Math.abs(this.annotationStartY - this.annotationCurrentY);
 
-            if (wPx > 5 && hPx > 5) {
+            if (wPx > 8 && hPx > 8) {
+                // ── KÉO ĐÙ DÀI → Tạo box mới ──────────────────────────
                 const cxPx = (this.annotationStartX + this.annotationCurrentX) / 2;
                 const cyPx = (this.annotationStartY + this.annotationCurrentY) / 2;
                 this.annotationBoxes.push({
                     cls: parseInt(this.annotationClass),
-                    cx: cxPx / canvas.width, cy: cyPx / canvas.height,
-                    w: wPx / canvas.width, h: hPx / canvas.height,
+                    cx: cxPx / canvas.width,
+                    cy: cyPx / canvas.height,
+                    w: wPx / canvas.width,
+                    h: hPx / canvas.height,
                     conf: 1.0
                 });
                 this.annotationDirty = true;
+                this.annotationSelectedIdx = -1;
+            } else {
+                // ── CLICK ĐƠN → Chọn box đang ở vị trí đó ──────────────
+                const x = this.annotationStartX;
+                const y = this.annotationStartY;
+                let found = -1;
+                for (let i = this.annotationBoxes.length - 1; i >= 0; i--) {
+                    const b = this.annotationBoxes[i];
+                    const bw = b.w * canvas.width;
+                    const bh = b.h * canvas.height;
+                    const bx = (b.cx * canvas.width) - (bw / 2);
+                    const by = (b.cy * canvas.height) - (bh / 2);
+                    if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) {
+                        found = i; break;
+                    }
+                }
+                this.annotationSelectedIdx = found;
             }
+
             this.annotationIsDrawing = false;
             this.drawAnnotations();
         },
+
 
         deleteSelectedAnnotation() {
             if (this.annotationSelectedIdx === -1) return;
@@ -477,16 +486,19 @@ function app() {
             }
         },
 
-        async fetchRawLabels() {
-            if (!this.selectedGalleryFrame || this.selectedGalleryFrame.raw_labels) return;
+        async fetchRawLabels(force = false) {
+            if (!this.selectedGalleryFrame) return;
+            // Skip nếu đã có dữ liệu (trừ khi force = true)
+            if (!force && this.selectedGalleryFrame.raw_labels &&
+                this.selectedGalleryFrame.raw_labels !== 'Loading...') return;
 
             const refs = this.selectedGalleryFrame.storage_refs || {};
             if (!refs.label_key) {
-                this.selectedGalleryFrame.raw_labels = "No label file reference found.";
+                this.selectedGalleryFrame.raw_labels = 'No label file reference found.';
                 return;
             }
 
-            this.selectedGalleryFrame.raw_labels = "Loading...";
+            this.selectedGalleryFrame.raw_labels = 'Loading...';
 
             try {
                 const url = `/api/dataset/label-content?bucket=${refs.bucket || 'dataset'}&key=${refs.label_key}`;
@@ -496,10 +508,10 @@ function app() {
                 if (response.ok) {
                     this.selectedGalleryFrame.raw_labels = data.content;
                 } else {
-                    this.selectedGalleryFrame.raw_labels = "Error loading labels: " + (data.error || "Unknown error");
+                    this.selectedGalleryFrame.raw_labels = 'Error loading labels: ' + (data.error || 'Unknown error');
                 }
             } catch (e) {
-                this.selectedGalleryFrame.raw_labels = "Network error: " + e.message;
+                this.selectedGalleryFrame.raw_labels = 'Network error: ' + e.message;
             }
         },
 
@@ -844,11 +856,15 @@ function app() {
 
         async loadGallery() {
             if (this.galleryMode === 'grouped') {
+                // Clear frame cache mỗi lần load lại để filter mới luôn fetch fresh data
+                this.galleryGroupFrames = {};
+                this.galleryExpandedGroups = [];
                 await this.loadGalleryGroups();
             } else {
                 await this.loadGalleryFrames();
             }
         },
+
 
         async loadGalleryGroups() {
             this.galleryLoading = true;
@@ -918,14 +934,17 @@ function app() {
                 const response = await fetch(url);
                 const data = await response.json();
                 if (response.ok) {
-                    // Use Vue.set or re-assign object for reactivity if needed, 
-                    // but Alpine usually reacts to property assignment
-                    this.galleryGroupFrames[videoId] = data.frames || [];
+                    // Reassign full object để Alpine v3 Proxy detect thay đổi và re-render
+                    this.galleryGroupFrames = {
+                        ...this.galleryGroupFrames,
+                        [videoId]: data.frames || []
+                    };
                 }
             } catch (error) {
                 console.error("Error loading group frames", error);
             }
         },
+
 
         async loadGalleryFrames() {
             this.galleryLoading = true;
@@ -972,18 +991,134 @@ function app() {
         openGalleryModal(frame) {
             this.selectedGalleryFrame = frame;
             this.showGalleryModal = true;
-            // Reset toggle nhưng đồng bộ với checkbox mặc định
+            // Reset all editor states
             this.isVisualized = false;
+            this.isEditing = false;
+            this.isCreatingLabel = false;
+            this.annotationBoxes = [];
+            this.annotationSelectedIdx = -1;
+            this.annotationDirty = false;
+            // Xóa raw_labels cũ để re-fetch khi mở modal
+            if (frame.raw_labels) frame.raw_labels = null;
 
-            // Auto fetch labels if available
+            // Auto fetch labels if already labeled
             if (frame.label_status === 'labeled') {
                 this.fetchRawLabels();
-
-                // Nếu checkbox "Show Bounding Boxes" đang mặc định bật trong template,
-                // tự động bật visualized khi có sẵn visualized_url để tránh phải tắt/bật lại
+                // Auto-show bounding boxes if visualized image exists
                 if (frame.visualized_url) {
                     this.toggleVisualized();
                 }
+            }
+        },
+
+        startCreatingLabel() {
+            if (!this.selectedGalleryFrame) return;
+            this.isCreatingLabel = true;
+            this.isEditing = true;
+            this.annotationBoxes = [];
+            this.annotationSelectedIdx = -1;
+            this.annotationDirty = false;
+            // Khởi tạo canvas trống ngay trên ảnh gốc
+            setTimeout(() => this.initAnnotationCanvas(), 100);
+        },
+
+        async saveNewLabel() {
+            if (!this.selectedGalleryFrame) return;
+            this.annotationSaving = true;
+
+            const refs      = this.selectedGalleryFrame.storage_refs || {};
+            const bucket    = refs.bucket || 'dataset';
+            const image_key = refs.key || this.selectedGalleryFrame.storage_key || '';
+
+            if (!image_key) {
+                this.showNotify('Không tìm thấy đường dẫn ảnh gốc trong MinIO', 'error');
+                this.annotationSaving = false;
+                return;
+            }
+
+            const content = this.annotationBoxes
+                .map(b => `${b.cls} ${b.cx.toFixed(6)} ${b.cy.toFixed(6)} ${b.w.toFixed(6)} ${b.h.toFixed(6)} ${b.conf.toFixed(6)}`)
+                .join('\n');
+
+            try {
+                const res = await fetch('/api/dataset/create-label', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        frame_id:  this.selectedGalleryFrame.id,
+                        platform:  this.selectedGalleryFrame.platform,
+                        content,
+                        bucket,
+                        image_key
+                    })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+
+                    // Cập nhật frame local state
+                    this.selectedGalleryFrame.label_status  = 'labeled';
+                    this.selectedGalleryFrame.label_summary = data.label_summary || {};
+                    if (data.label_key) {
+                        this.selectedGalleryFrame.storage_refs = {
+                            ...refs,
+                            label_key:      data.label_key,
+                            visualized_key: data.visualized_key || null
+                        };
+                    }
+                    if (data.visualized_url) {
+                        this.selectedGalleryFrame.visualized_url = `${data.visualized_url}&t=${Date.now()}`;
+                    }
+
+                    this.annotationDirty = false;
+                    this.isCreatingLabel = false;
+                    this.isEditing       = false;
+
+                    // Thông báo kết quả — phân biệt DB update thành/thất bại
+                    if (data.db_updated) {
+                        this.showNotify('✅ Đã tạo nhãn và lưu vào database thành công!', 'success');
+                    } else {
+                        const dbErr = data.db_error || 'unknown';
+                        this.showNotify(
+                            `⚠️ File nhãn đã lưu vào MinIO nhưng DB chưa cập nhật (${dbErr}). Sau khi reload frame có thể hiện lại form vẽ.`,
+                            'warning'
+                        );
+                        console.warn('[create-label] DB not updated:', dbErr);
+                    }
+
+                    // Load raw labels để hiển thị ngay trong modal (force refresh)
+                    await this.fetchRawLabels(true);
+
+
+                    // Xóa cache và reload group frames để phản ánh trạng thái mới
+                    const vid = this.selectedGalleryFrame.video_id;
+                    if (vid) {
+                        // Xóa cache bằng spread (Alpine reactivity)
+                        const newCache = { ...this.galleryGroupFrames };
+                        delete newCache[vid];
+                        this.galleryGroupFrames = newCache;
+
+                        // Nếu group đang mở → reload ngay để không bị kẹt "Đang tải..."
+                        if (this.galleryExpandedGroups.includes(vid)) {
+                            await this.loadGroupFrames(vid, this.selectedGalleryFrame.platform);
+                        }
+                    }
+
+
+                    // Auto-show visualized nếu được tạo
+                    if (data.visualized_url && !this.isVisualized) {
+                        setTimeout(() => this.toggleVisualized(), 300);
+                    }
+
+                } else {
+                    const err = await res.json();
+                    this.showNotify('Lỗi lưu nhãn: ' + (err.error || 'Unknown'), 'error');
+                }
+            } catch (e) {
+                console.error(e);
+                this.showNotify('Lỗi kết nối: ' + e.message, 'error');
+            } finally {
+                this.annotationSaving = false;
             }
         },
 
