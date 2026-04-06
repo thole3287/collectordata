@@ -11,7 +11,7 @@
     <script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/toastify-js@1.12.0/src/toastify.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js@1.12.0/src/toastify.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/@sgratzl/chartjs-chart-boxplot"></script>
     <style>
         [x-cloak] {
@@ -564,41 +564,41 @@
 
 
                         <!-- Chart 2 + 3: 2 cột -->
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <!-- Chart 2: Top đường đông xe -->
-                            <div>
-                                <h4 class="text-sm font-semibold text-gray-700 mb-2 flex items-center justify-between">
-                                    <div class="flex items-center gap-2">
-                                        <i class="fas fa-road text-blue-500"></i>
-                                        Xếp hạng các tuyến đường (Top)
-                                    </div>
-                                    <div
-                                        class="flex items-center gap-1 bg-white border border-gray-200 rounded px-1.5 py-0.5 mt-[-4px]">
-                                        <i class="fas fa-calendar-alt text-xs text-gray-400"></i>
-                                        <input type="date" x-model="analyticsFilterCamDate"
-                                            @change="loadInferenceAnalytics()"
-                                            class="text-xs border-none outline-none focus:ring-0 px-1 py-1 text-gray-600 bg-transparent cursor-pointer w-[110px]"
-                                            title="Lọc bảng xếp hạng trong 1 ngày cụ thể">
-                                        <button x-show="analyticsFilterCamDate"
-                                            @click="analyticsFilterCamDate=''; loadInferenceAnalytics()"
-                                            class="text-xs text-red-400 hover:text-red-600 px-1" title="Xóa lọc">
-                                            <i class="fas fa-times"></i>
-                                        </button>
-                                    </div>
-                                </h4>
-                                <div style="height: 280px; position: relative;">
-                                    <canvas id="inferenceCameraChart"></canvas>
-                                </div>
+                        <!-- Chart 3: Phân bố thành phố -->
+                        <div class="mb-6">
+                            <h4 class="text-sm font-semibold text-gray-700 mb-1 flex items-center gap-2">
+                                <i class="fas fa-city text-purple-500"></i>
+                                Phân bố lưu lượng theo thành phố
+                            </h4>
+                            <div style="height: 350px; position: relative; max-width: 600px; margin: 0 auto;">
+                                <canvas id="inferenceCityChart"></canvas>
                             </div>
+                        </div>
 
-                            <!-- Chart 3: Phân bố thành phố -->
-                            <div>
-                                <h4 class="text-sm font-semibold text-gray-700 mb-1 flex items-center gap-2">
-                                    <i class="fas fa-city text-purple-500"></i>
-                                    Phân bố lưu lượng theo thành phố
-                                </h4>
-                                <div style="height: 280px; position: relative;">
-                                    <canvas id="inferenceCityChart"></canvas>
+                        <!-- Chart 2: Top đường đông xe -->
+                        <div class="mb-6">
+                            <h4 class="text-sm font-semibold text-gray-700 mb-2 flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <i class="fas fa-road text-blue-500"></i>
+                                    Xếp hạng các tuyến đường (Top)
+                                </div>
+                                <div
+                                    class="flex items-center gap-1 bg-white border border-gray-200 rounded px-1.5 py-0.5 mt-[-4px]">
+                                    <i class="fas fa-calendar-alt text-xs text-gray-400"></i>
+                                    <input type="date" x-model="analyticsFilterCamDate"
+                                        @change="loadInferenceAnalytics()"
+                                        class="text-xs border-none outline-none focus:ring-0 px-1 py-1 text-gray-600 bg-transparent cursor-pointer w-[110px]"
+                                        title="Lọc bảng xếp hạng trong 1 ngày cụ thể">
+                                    <button x-show="analyticsFilterCamDate"
+                                        @click="analyticsFilterCamDate=''; loadInferenceAnalytics()"
+                                        class="text-xs text-red-400 hover:text-red-600 px-1" title="Xóa lọc">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </h4>
+                            <div class="overflow-x-auto custom-scrollbar" style="width: 100%;">
+                                <div style="position: relative; height: 400px; min-width: 100%;">
+                                    <canvas id="inferenceCameraChart"></canvas>
                                 </div>
                             </div>
                         </div>

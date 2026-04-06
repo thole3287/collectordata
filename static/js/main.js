@@ -22,7 +22,7 @@ function app() {
         inferenceResultUrl: null,
         inferenceError: null,
         inferencePollingInterval: null,
-        inferenceEnableCounting: false,
+        inferenceEnableCounting: true,
         inferenceLineY: null,
         inferenceCounts: {},
         inferenceProgress: 0,
@@ -1323,9 +1323,15 @@ function app() {
             if (camEl && byCamera.length > 0) {
                 const existing = Chart.getChart(camEl);
                 if (existing) existing.destroy();
+                
+                // Tùy chỉnh chiều rộng biểu đồ động theo số lượng camera, mỗi camera cần tối thiểu 150px 
+                const dynamicWidth = Math.max(camEl.parentElement.parentElement.clientWidth, byCamera.length * 150);
+                camEl.parentElement.style.width = dynamicWidth + 'px';
+                camEl.parentElement.style.height = '400px';
 
                 new Chart(camEl, {
                     type: 'bar',
+                    plugins: [typeof ChartDataLabels !== 'undefined' ? ChartDataLabels : null].filter(Boolean),
                     data: {
                         labels: byCamera.map(c => c.camera_name),
                         datasets: [
@@ -1336,15 +1342,23 @@ function app() {
                         ]
                     },
                     options: {
-                        indexAxis: 'y',
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: {
                             legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+                            datalabels: {
+                                color: '#000',
+                                anchor: 'end',
+                                align: 'top',
+                                font: { weight: 'bold', size: 10 },
+                                display: function(context) {
+                                    return context.dataset.data[context.dataIndex] > 0;
+                                }
+                            }
                         },
                         scales: {
-                            x: { stacked: true, beginAtZero: true },
-                            y: { stacked: true }
+                            y: { beginAtZero: true },
+                            x: { }
                         }
                     }
                 });
